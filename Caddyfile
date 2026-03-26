@@ -1,0 +1,25 @@
+{$DOMAIN:localhost} {
+	# Frontend static files
+	handle /assets/* {
+		root * /srv/frontend
+		file_server
+	}
+
+	# Demo JSON files
+	handle /demos/* {
+		root * /srv
+		file_server
+	}
+
+	# API proxy
+	handle /api/* {
+		reverse_proxy app:8080
+	}
+
+	# SPA fallback — serve index.html for all other routes
+	handle {
+		root * /srv/frontend
+		try_files {path} /index.html
+		file_server
+	}
+}

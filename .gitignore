@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 .env
+!.env.example
+!.env.production
 .venv/
 *.egg-info/
 dist/
@@ -8,3 +10,6 @@ build/
 .pytest_cache/
 .ruff_cache/
 uploads/
+node_modules/
+frontend/dist/
+docs/benchmarks/results.json
