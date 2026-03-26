@@ -4,6 +4,8 @@ WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
+# Copy demos into public/ so Vite bundles them into dist/
+COPY demos/ ./public/demos/
 RUN npm run build
 
 # Stage 2: Python backend
