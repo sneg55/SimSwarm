@@ -1,0 +1,65 @@
+import { describe, it, expect } from 'vitest'
+import { mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import TierSelector from '../../src/components/TierSelector.vue'
+import { useCreditsStore } from '../../src/stores/credits'
+
+// Stub router-link
+const RouterLinkStub = { template: '<a><slot /></a>', props: ['to'] }
+
+describe('TierSelector', () => {
+  it('renders 3 tier buttons', () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const store = useCreditsStore()
+    store.setBalance(100)
+    const wrapper = mount(TierSelector, {
+      global: { plugins: [pinia], components: { RouterLink: RouterLinkStub } },
+    })
+    const buttons = wrapper.findAll('button')
+    expect(buttons.length).toBe(3)
+  })
+
+  it('shows tier costs', () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const store = useCreditsStore()
+    store.setBalance(100)
+    const wrapper = mount(TierSelector, {
+      global: { plugins: [pinia], components: { RouterLink: RouterLinkStub } },
+    })
+    const text = wrapper.text()
+    expect(text).toContain('10 credits')
+    expect(text).toContain('25 credits')
+    expect(text).toContain('60 credits')
+  })
+
+  it('disables unaffordable tiers', () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const store = useCreditsStore()
+    store.setBalance(15)
+    const wrapper = mount(TierSelector, {
+      global: { plugins: [pinia], components: { RouterLink: RouterLinkStub } },
+    })
+    const buttons = wrapper.findAll('button')
+    // lite=10, standard=25, pro=60
+    expect(buttons[0].attributes('disabled')).toBeUndefined() // lite affordable
+    expect(buttons[1].attributes('disabled')).toBeDefined()   // standard not affordable
+    expect(buttons[2].attributes('disabled')).toBeDefined()   // pro not affordable
+  })
+
+  it('emits select event when tier is clicked', async () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    const store = useCreditsStore()
+    store.setBalance(100)
+    const wrapper = mount(TierSelector, {
+      global: { plugins: [pinia], components: { RouterLink: RouterLinkStub } },
+    })
+    const buttons = wrapper.findAll('button')
+    await buttons[0].trigger('click')
+    expect(wrapper.emitted('select')).toBeTruthy()
+    expect(wrapper.emitted('select')[0]).toEqual(['lite'])
+  })
+})
