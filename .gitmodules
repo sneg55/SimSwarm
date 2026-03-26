@@ -1,0 +1,3 @@
+[submodule "vendor/mirofish"]
+	path = vendor/mirofish
+	url = https://github.com/666ghj/MiroFish.git
