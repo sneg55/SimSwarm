@@ -3,7 +3,7 @@ import { useAuthStore } from '../stores/auth.js'
 
 function getUserId() {
   const authStore = useAuthStore()
-  return authStore.user?.id
+  return String(authStore.user?.id ?? '')
 }
 
 export async function getBalance() {

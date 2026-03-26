@@ -84,7 +84,7 @@ async function handleSubmit() {
     const job = await createJob(payload)
     router.push(`/sim/${job.id}`)
   } catch (err) {
-    error.value = err.response?.data?.message || 'Failed to start simulation.'
+    error.value = err.response?.data?.detail || err.response?.data?.message || 'Failed to start simulation.'
   } finally {
     loading.value = false
   }
