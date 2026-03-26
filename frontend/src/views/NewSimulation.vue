@@ -10,7 +10,16 @@
     <form @submit.prevent="handleSubmit" class="space-y-6 mt-6">
       <div v-if="error" class="bg-red-50 text-red-700 p-3 rounded text-sm">{{ error }}</div>
 
-      <SeedUploader @update="handleSeedUpdate" />
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Seed Data</label>
+        <textarea
+          v-model="seedText"
+          placeholder="Paste your seed text here (news articles, reports, documents)..."
+          rows="6"
+          class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+        />
+        <p class="text-xs text-gray-400 mt-1">{{ seedText.length }} / 50,000 characters</p>
+      </div>
 
       <div>
         <label for="goal" class="block text-sm font-medium text-gray-700">Research Goal</label>
@@ -43,48 +52,52 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import CreditWarning from '../components/CreditWarning.vue'
-import SeedUploader from '../components/SeedUploader.vue'
 import TierSelector from '../components/TierSelector.vue'
 import { useCreditsStore } from '../stores/credits.js'
 import { createJob } from '../api/jobs.js'
+import { getBalance } from '../api/billing.js'
 
 const router = useRouter()
 const creditsStore = useCreditsStore()
 
-const seedData = ref(null)
+onMounted(async () => {
+  try {
+    const data = await getBalance()
+    creditsStore.setBalance(data.balance ?? data)
+  } catch (err) {
+    console.error('Failed to load balance:', err)
+  }
+})
+
+const seedText = ref('')
 const goal = ref('')
 const selectedTier = ref(null)
 const loading = ref(false)
 const error = ref('')
 
 const canSubmit = computed(() =>
-  seedData.value &&
+  seedText.value.trim() &&
   goal.value.trim() &&
   selectedTier.value &&
   creditsStore.canAfford(selectedTier.value)
 )
 
-function handleSeedUpdate(data) {
-  seedData.value = data
-}
-
 async function handleSubmit() {
   loading.value = true
   error.value = ''
   try {
-    const seedContent = seedData.value?.content || ''
-    const payload = {
+    const job = await createJob({
+      seed_text: seedText.value,
       goal: goal.value,
       tier: selectedTier.value,
-      seed_text: seedContent,
-    }
-    const job = await createJob(payload)
+    })
+    creditsStore.deduct(creditsStore.getTierCost(selectedTier.value))
     router.push(`/sim/${job.id}`)
   } catch (err) {
-    error.value = err.response?.data?.detail || err.response?.data?.message || 'Failed to start simulation.'
+    error.value = err.response?.data?.detail || 'Failed to start simulation.'
   } finally {
     loading.value = false
   }

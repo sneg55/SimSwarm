@@ -38,7 +38,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 
 const emit = defineEmits(['update'])
 
@@ -46,6 +46,14 @@ const isDragging = ref(false)
 const fileName = ref('')
 const textContent = ref('')
 const fileInput = ref(null)
+
+// Emit update whenever textContent changes (covers v-model, paste, programmatic fill)
+watch(textContent, (val) => {
+  if (val) {
+    fileName.value = ''
+    emit('update', { type: 'text', content: val })
+  }
+})
 
 function handleDrop(event) {
   isDragging.value = false
