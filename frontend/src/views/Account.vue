@@ -82,9 +82,9 @@ const purchaseSuccess = ref(false)
 const purchaseError = ref('')
 
 const creditPacks = [
-  { id: 'starter', credits: 100, price: '$9' },
-  { id: 'growth', credits: 500, price: '$39' },
-  { id: 'scale', credits: 2000, price: '$129' },
+  { id: 'starter', credits: 100, price: '$19' },
+  { id: 'pro', credits: 500, price: '$79' },
+  { id: 'heavy', credits: 2000, price: '$249' },
 ]
 
 onMounted(async () => {

@@ -3,12 +3,12 @@ import { ref, computed } from 'vue'
 
 // Tier costs in credits
 const TIER_COSTS = {
-  lite: 10,
-  standard: 25,
-  pro: 60,
+  small: 30,
+  medium: 90,
+  large: 300,
 }
 
-const LOW_BALANCE_THRESHOLD = 20
+const LOW_BALANCE_THRESHOLD = 30
 
 export const useCreditsStore = defineStore('credits', () => {
   const balance = ref(0)

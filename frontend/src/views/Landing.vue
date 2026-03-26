@@ -78,8 +78,8 @@ const demos = [
 ]
 
 const pricingTiers = [
-  { name: 'Starter', credits: 100, price: '$9', description: 'Perfect for small projects' },
-  { name: 'Growth', credits: 500, price: '$39', description: 'For teams and regular use' },
-  { name: 'Scale', credits: 2000, price: '$129', description: 'For enterprise workflows' },
+  { name: 'Starter', credits: 100, price: '$19', description: '3-4 small simulations' },
+  { name: 'Pro', credits: 500, price: '$79', description: '15-20 medium simulations' },
+  { name: 'Heavy', credits: 2000, price: '$249', description: 'Large-scale or frequent use' },
 ]
 </script>

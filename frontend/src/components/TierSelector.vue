@@ -17,7 +17,7 @@
             : 'cursor-pointer',
         ]"
       >
-        <div class="font-medium text-gray-900 capitalize">{{ tier.id }}</div>
+        <div class="font-medium text-gray-900">{{ tier.label }}</div>
         <div class="text-sm text-gray-500 mt-1">{{ tier.description }}</div>
         <div class="mt-2 text-sm font-semibold text-blue-600">
           {{ creditsStore.getTierCost(tier.id) }} credits
@@ -41,9 +41,9 @@ const emit = defineEmits(['select'])
 const selectedTier = ref(null)
 
 const tiers = [
-  { id: 'lite', description: '~2 min, basic analysis' },
-  { id: 'standard', description: '~5 min, full pipeline' },
-  { id: 'pro', description: '~15 min, deep research' },
+  { id: 'small', label: 'Small', description: '1-500 agents, < 30 min' },
+  { id: 'medium', label: 'Medium', description: '501-2,000 agents, < 4 hrs' },
+  { id: 'large', label: 'Large', description: '2,001-10,000 agents, < 12 hrs' },
 ]
 
 function selectTier(tierId) {

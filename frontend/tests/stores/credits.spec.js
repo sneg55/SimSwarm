@@ -15,7 +15,7 @@ describe('Credits Store', () => {
 
   it('detects low balance when below threshold', () => {
     const store = useCreditsStore()
-    store.setBalance(15)
+    store.setBalance(20)
     expect(store.isLow).toBe(true)
   })
 
@@ -27,9 +27,9 @@ describe('Credits Store', () => {
 
   it('canAfford returns true when balance covers tier cost', () => {
     const store = useCreditsStore()
-    store.setBalance(30)
-    expect(store.canAfford('lite')).toBe(true)
-    expect(store.canAfford('standard')).toBe(true)
-    expect(store.canAfford('pro')).toBe(false)
+    store.setBalance(90)
+    expect(store.canAfford('small')).toBe(true)
+    expect(store.canAfford('medium')).toBe(true)
+    expect(store.canAfford('large')).toBe(false)
   })
 })
