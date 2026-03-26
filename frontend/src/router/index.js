@@ -51,8 +51,8 @@ const routes = [
   },
   {
     path: '/demo/:slug',
-    name: 'Demo',
-    component: () => import('../views/Landing.vue'),
+    name: 'demo',
+    component: () => import('../views/DemoResult.vue'),
   },
 ]
 

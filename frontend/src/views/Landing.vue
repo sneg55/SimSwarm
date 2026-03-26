@@ -29,16 +29,13 @@
       <div class="max-w-4xl mx-auto px-4">
         <h2 class="text-3xl font-bold text-center text-gray-900 mb-8">See It In Action</h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <router-link
+          <DemoCard
             v-for="demo in demos"
             :key="demo.slug"
-            :to="`/demo/${demo.slug}`"
-            class="block p-6 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:shadow-md transition-all"
-          >
-            <div class="text-2xl mb-2">{{ demo.icon }}</div>
-            <h3 class="font-semibold text-gray-900 mb-1">{{ demo.title }}</h3>
-            <p class="text-sm text-gray-500">{{ demo.description }}</p>
-          </router-link>
+            :slug="demo.slug"
+            :title="demo.title"
+            :description="demo.description"
+          />
         </div>
       </div>
     </section>
@@ -70,10 +67,14 @@
 </template>
 
 <script setup>
+import DemoCard from '../components/DemoCard.vue'
+
 const demos = [
-  { slug: 'fish-market', icon: '🐟', title: 'Fish Market Analysis', description: 'Deep dive into global seafood market trends.' },
-  { slug: 'competitor-map', icon: '📊', title: 'Competitor Mapping', description: 'Analyze competitive landscape automatically.' },
-  { slug: 'supply-chain', icon: '🔗', title: 'Supply Chain Risk', description: 'Identify and quantify supply chain vulnerabilities.' },
+  { slug: 'iran-war-us-china', title: 'US vs China: Iran Escalation', description: 'Simulating 1,000 agents across US and Chinese social media on Iran nuclear escalation.' },
+  { slug: 'tesla-earnings', title: 'Tesla Q1 Earnings Sentiment', description: 'How retail and institutional investors react to a major earnings miss.' },
+  { slug: 'dream-red-chamber', title: 'Lost Ending: Red Chamber', description: 'Literary agents reconstruct the lost ending of an 18th-century Chinese masterpiece.' },
+  { slug: 'eu-ai-act', title: 'EU AI Act Enforcement', description: 'Industry compliance behavior in the first 90 days of EU AI Act enforcement.' },
+  { slug: 'bitcoin-halving', title: 'Bitcoin Halving Sentiment', description: 'Crypto community narrative evolution in the 60 days post-halving.' },
 ]
 
 const pricingTiers = [
