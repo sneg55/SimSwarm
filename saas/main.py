@@ -14,6 +14,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     _app_settings = settings
 
     app = FastAPI(title="FishCloud", version="0.1.0")
+    app.state.settings = settings
     init_db(settings.DATABASE_URL)
     app.include_router(api_router)
     return app

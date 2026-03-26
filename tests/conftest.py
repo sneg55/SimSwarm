@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 from saas.config import Settings
 from saas.models.base import Base
 from saas.models import CreditEntry  # noqa: F401 — registers table in metadata
+from saas.models import User  # noqa: F401 — registers table in metadata
 from saas.database import get_session
 
 _FORWARD_IMPORTS_OK = True
