@@ -2,15 +2,15 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 
-async def test_balance_zero_new_user(client):
-    response = await client.get("/api/billing/balance", params={"user_id": "new-user-999"})
+async def test_balance_zero_new_user(client, auth_headers):
+    response = await client.get("/api/billing/balance", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
-    assert data["user_id"] == "new-user-999"
+    assert data["user_id"] == auth_headers["_user_id"]
     assert data["balance"] == 0
 
 
-async def test_purchase_creates_checkout(client):
+async def test_purchase_creates_checkout(client, auth_headers):
     mock_session = MagicMock()
     mock_session.id = "cs_test_abc"
     mock_session.url = "https://checkout.stripe.com/pay/cs_test_abc"
@@ -18,7 +18,8 @@ async def test_purchase_creates_checkout(client):
     with patch("stripe.checkout.Session.create", return_value=mock_session):
         response = await client.post(
             "/api/billing/purchase",
-            json={"user_id": "user-123", "pack_id": "starter"},
+            headers=auth_headers,
+            json={"pack_id": "starter"},
         )
 
     assert response.status_code == 200
@@ -27,16 +28,22 @@ async def test_purchase_creates_checkout(client):
     assert "checkout_url" in data
 
 
-async def test_purchase_invalid_pack(client):
+async def test_purchase_invalid_pack(client, auth_headers):
     response = await client.post(
         "/api/billing/purchase",
-        json={"user_id": "user-123", "pack_id": "nonexistent"},
+        headers=auth_headers,
+        json={"pack_id": "nonexistent"},
     )
     assert response.status_code == 400
 
 
-async def test_history_empty(client):
-    response = await client.get("/api/billing/history", params={"user_id": "no-history-user"})
+async def test_history_empty(client, auth_headers):
+    response = await client.get("/api/billing/history", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
     assert data == []
+
+
+async def test_balance_unauthenticated_returns_401(client):
+    response = await client.get("/api/billing/balance")
+    assert response.status_code == 401

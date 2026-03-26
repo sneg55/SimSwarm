@@ -20,7 +20,6 @@ TIER_CREDITS = {
 
 
 class JobCreate(BaseModel):
-    user_id: str
     seed_text: str
     goal: str
     tier: TierEnum

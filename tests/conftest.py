@@ -66,11 +66,19 @@ async def client(db_engine):
 
 
 @pytest.fixture
-async def funded_user(db_session):
+async def auth_headers(client):
+    """Register a test user and return auth headers."""
+    resp = await client.post("/api/auth/register", json={"email": "testuser@example.com", "password": "testpass123"})
+    data = resp.json()
+    token = data["token"]
+    user_id = str(data["user"]["id"])
+    return {"Authorization": f"Bearer {token}", "_user_id": user_id}
+
+
+@pytest.fixture
+async def funded_user(db_session, auth_headers):
     from saas.billing.ledger import CreditLedger
+    user_id = auth_headers["_user_id"]
     ledger = CreditLedger(db_session)
-    await ledger.credit("user-123", amount=10000, description="Test credits")
-    await ledger.credit("user-456", amount=10000, description="Test credits")
-    await ledger.credit("integration-test-user", amount=10000, description="Test credits")
-    await ledger.credit("tier-test-user", amount=10000, description="Test credits")
+    await ledger.credit(user_id, amount=10000, description="Test credits")
     await db_session.commit()

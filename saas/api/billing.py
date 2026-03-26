@@ -11,6 +11,7 @@ from saas.schemas.billing import (
     PurchaseResponse,
     CreditHistoryEntry,
 )
+from saas.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -26,7 +27,11 @@ def _get_stripe_service() -> StripeService:
 
 
 @router.get("/balance", response_model=BalanceResponse)
-async def get_balance(user_id: str, session: AsyncSession = Depends(get_session)):
+async def get_balance(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    user_id = current_user["user_id"]
     ledger = CreditLedger(session)
     balance = await ledger.get_balance(user_id)
     return BalanceResponse(user_id=user_id, balance=balance)
@@ -35,17 +40,19 @@ async def get_balance(user_id: str, session: AsyncSession = Depends(get_session)
 @router.post("/purchase", response_model=PurchaseResponse)
 async def purchase_credits(
     body: PurchaseRequest,
+    current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     if body.pack_id not in CREDIT_PACKS:
         raise HTTPException(status_code=400, detail=f"Unknown pack_id: {body.pack_id}")
 
+    user_id = current_user["user_id"]
     pack = get_pack(body.pack_id)
     stripe_service = _get_stripe_service()
 
     result = stripe_service.create_checkout_session(
         pack_id=body.pack_id,
-        user_id=body.user_id,
+        user_id=user_id,
         credits=pack.credits,
         price_cents=pack.price_cents,
     )
@@ -86,7 +93,11 @@ async def stripe_webhook(
 
 
 @router.get("/history", response_model=list[CreditHistoryEntry])
-async def get_history(user_id: str, session: AsyncSession = Depends(get_session)):
+async def get_history(
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    user_id = current_user["user_id"]
     ledger = CreditLedger(session)
     entries = await ledger.get_history(user_id)
     return entries

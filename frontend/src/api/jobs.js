@@ -1,15 +1,7 @@
 import api from './index.js'
-import { useAuthStore } from '../stores/auth.js'
-
-function getUserId() {
-  const authStore = useAuthStore()
-  return String(authStore.user?.id ?? '')
-}
 
 export async function createJob(payload) {
-  const userId = getUserId()
   const body = {
-    user_id: userId,
     seed_text: payload.seed_text,
     goal: payload.goal,
     tier: payload.tier,
@@ -24,7 +16,6 @@ export async function getJob(jobId) {
 }
 
 export async function listJobs() {
-  const userId = getUserId()
-  const response = await api.get('/jobs', { params: { user_id: userId } })
+  const response = await api.get('/jobs')
   return response.data
 }

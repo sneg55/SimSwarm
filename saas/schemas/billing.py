@@ -11,7 +11,6 @@ class BalanceResponse(BaseModel):
 
 
 class PurchaseRequest(BaseModel):
-    user_id: str
     pack_id: str
 
 
