@@ -1,0 +1,92 @@
+from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from saas.database import get_session
+from saas.billing.ledger import CreditLedger
+from saas.billing.credit_packs import get_pack, CREDIT_PACKS
+from saas.billing.stripe_service import StripeService
+from saas.schemas.billing import (
+    BalanceResponse,
+    PurchaseRequest,
+    PurchaseResponse,
+    CreditHistoryEntry,
+)
+
+router = APIRouter(prefix="/billing", tags=["billing"])
+
+
+def _get_stripe_service() -> StripeService:
+    from saas.main import _app_settings  # lazy import to avoid circular
+    return StripeService(
+        secret_key=_app_settings.STRIPE_SECRET_KEY,
+        webhook_secret=_app_settings.STRIPE_WEBHOOK_SECRET,
+        success_url=_app_settings.STRIPE_SUCCESS_URL,
+        cancel_url=_app_settings.STRIPE_CANCEL_URL,
+    )
+
+
+@router.get("/balance", response_model=BalanceResponse)
+async def get_balance(user_id: str, session: AsyncSession = Depends(get_session)):
+    ledger = CreditLedger(session)
+    balance = await ledger.get_balance(user_id)
+    return BalanceResponse(user_id=user_id, balance=balance)
+
+
+@router.post("/purchase", response_model=PurchaseResponse)
+async def purchase_credits(
+    body: PurchaseRequest,
+    session: AsyncSession = Depends(get_session),
+):
+    if body.pack_id not in CREDIT_PACKS:
+        raise HTTPException(status_code=400, detail=f"Unknown pack_id: {body.pack_id}")
+
+    pack = get_pack(body.pack_id)
+    stripe_service = _get_stripe_service()
+
+    result = stripe_service.create_checkout_session(
+        pack_id=body.pack_id,
+        user_id=body.user_id,
+        credits=pack.credits,
+        price_cents=pack.price_cents,
+    )
+    return PurchaseResponse(**result)
+
+
+@router.post("/webhook", status_code=200)
+async def stripe_webhook(
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature", "")
+    stripe_service = _get_stripe_service()
+
+    try:
+        event = stripe_service.verify_webhook(payload=payload, sig_header=sig_header)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid webhook signature")
+
+    if event.type == "checkout.session.completed":
+        stripe_session = event.data.object
+        user_id = stripe_session.metadata.get("user_id")
+        credits = int(stripe_session.metadata.get("credits", "0"))
+        stripe_session_id = stripe_session.id
+
+        if user_id and credits > 0:
+            ledger = CreditLedger(session)
+            await ledger.credit(
+                user_id=user_id,
+                amount=credits,
+                description=f"Credit purchase via Stripe session {stripe_session_id}",
+                stripe_session_id=stripe_session_id,
+            )
+            await session.commit()
+
+    return {"status": "ok"}
+
+
+@router.get("/history", response_model=list[CreditHistoryEntry])
+async def get_history(user_id: str, session: AsyncSession = Depends(get_session)):
+    ledger = CreditLedger(session)
+    entries = await ledger.get_history(user_id)
+    return entries

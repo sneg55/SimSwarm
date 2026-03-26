@@ -11,6 +11,12 @@ class Settings(BaseSettings):
     LLM_MODEL_NAME: str = "Qwen2.5-32B-Instruct-AWQ"
     ZEP_API_KEY: str
 
+    # Stripe billing
+    STRIPE_SECRET_KEY: str = ""
+    STRIPE_WEBHOOK_SECRET: str = ""
+    STRIPE_SUCCESS_URL: str = "http://localhost:3000/billing?success=1"
+    STRIPE_CANCEL_URL: str = "http://localhost:3000/billing?cancel=1"
+
     # Seed limits
     MAX_SEED_CHARS: int = 50_000
     MAX_SIMULATION_ROUNDS: int = 200
