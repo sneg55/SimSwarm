@@ -1,0 +1,22 @@
+{
+  "slug": "iran-war-us-china",
+  "title": "US vs China Public Opinion on Iran Escalation",
+  "description": "Simulating 1,000 agents across US and Chinese social media platforms to model how public opinion diverges on Iran nuclear escalation. Agents represent Twitter/X users, Weibo users, policy analysts, and media commentators.",
+  "seed_summary": "Breaking: Iran nuclear talks collapse after IAEA inspectors denied access to Fordow facility. US officials warn of 'severe consequences'. China calls for restraint and renewed diplomatic dialogue.",
+  "goal": "Predict US vs China public opinion on Iran escalation over 30 days",
+  "tier": "medium",
+  "agent_count": 1000,
+  "rounds": 100,
+  "report_markdown": "# Prediction Report: US vs China Public Opinion on Iran Escalation\n\n## Executive Summary\n\nThis simulation modeled 1,000 agents across US and Chinese social media ecosystems over 30 simulated days following the collapse of Iran nuclear talks. The results reveal sharply divergent narratives driven by distinct media environments and geopolitical interests.\n\n## Key Findings\n\n**US Public Opinion**\n- 67% of US agents supported escalating diplomatic pressure\n- 23% favored military containment options\n- Pro-sanction sentiment peaked at Day 8 following leaked IAEA report\n- Media framing heavily emphasized Iranian 'bad faith'\n\n**Chinese Public Opinion**\n- 71% of Chinese agents supported continued diplomatic engagement\n- State media framing consistently portrayed US as destabilizing actor\n- Weibo discourse focused on energy security implications for China\n- 18% expressed concern about regional instability affecting Belt and Road investments\n\n## Divergence Analysis\n\nThe simulation identified a clear 'narrative fork' at Day 5, when US and Chinese agent clusters began reinforcing internally consistent but mutually incompatible worldviews. Echo chamber dynamics accelerated opinion polarization on both sides.\n\n## Methodology\n\nAgents were initialized with demographic and ideological profiles drawn from Pew Research data (US) and academic social media studies (China). Each agent processed a daily news feed and produced posts, reactions, and private belief updates.",
+  "chat_log": [
+    {"agent_name": "AmericanVoter_42", "action_type": "CREATE_POST", "action_args": {"content": "Iran is playing games again. Time for real consequences. #IranNuclear"}, "round": 1},
+    {"agent_name": "WeiboUser_88", "action_type": "CREATE_POST", "action_args": {"content": "America is escalating tensions again. Diplomacy is the only path forward. China must stay firm."}, "round": 1},
+    {"agent_name": "PolicyAnalyst_DC", "action_type": "CREATE_POST", "action_args": {"content": "IAEA denial is a red line. The administration will be forced to act. Markets already reacting."}, "round": 2},
+    {"agent_name": "AmericanVoter_17", "action_type": "REACT", "action_args": {"content": "Agreed. We can't let them cross the threshold.", "target": "PolicyAnalyst_DC"}, "round": 2},
+    {"agent_name": "ChinaEnergyExpert", "action_type": "CREATE_POST", "action_args": {"content": "Instability in the Gulf threatens 40% of China's oil imports. We need a negotiated solution urgently."}, "round": 3},
+    {"agent_name": "WeiboUser_203", "action_type": "REACT", "action_args": {"content": "US is the real threat to global peace here, not Iran.", "target": "ChinaEnergyExpert"}, "round": 3},
+    {"agent_name": "AmericanVoter_91", "action_type": "CREATE_POST", "action_args": {"content": "Sanctions haven't worked in 20 years. Why would they work now? We need a new strategy."}, "round": 5},
+    {"agent_name": "PolicyAnalyst_Beijing", "action_type": "CREATE_POST", "action_args": {"content": "China and Russia should present a unified front at the UN Security Council to block unilateral action."}, "round": 7}
+  ],
+  "generated_at": "2026-03-26T00:00:00Z"
+}

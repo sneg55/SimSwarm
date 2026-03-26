@@ -1,0 +1,22 @@
+{
+  "slug": "bitcoin-halving",
+  "title": "Crypto Community Sentiment Post-Halving",
+  "description": "Simulating 1,200 agents across crypto Twitter, Telegram channels, Reddit communities, and institutional desks to model how sentiment, price expectations, and community narratives evolve in the 60 days following the Bitcoin block reward halving.",
+  "seed_summary": "Bitcoin block 1,050,000 mined. Block reward drops from 3.125 BTC to 1.5625 BTC. Mining difficulty at all-time high. Bitcoin price at $78,400 at halving. Community debate: is the 'halving narrative' already priced in, or does the supply shock take 6-18 months to materialize?",
+  "goal": "Forecast crypto community sentiment and price narrative evolution in the 60 days following the Bitcoin halving",
+  "tier": "medium",
+  "agent_count": 1200,
+  "rounds": 120,
+  "report_markdown": "# Prediction Report: Crypto Community Sentiment Post-Bitcoin Halving\n\n## Executive Summary\n\nThis simulation tracked 1,200 agents across crypto social media and institutional channels for 60 simulated days following the Bitcoin halving. Results show a characteristic post-halving sentiment arc: initial euphoria, a 'disillusionment dip' around Day 20, and gradual recovery as supply dynamics become observable on-chain.\n\n## Key Findings\n\n**Price Narrative Evolution**\n- Day 1-7: 78% of agents expressed bullish sentiment; 'supercycle' narratives dominant\n- Day 8-25: 'Priced in' counter-narrative gained traction; bearish agents grew from 12% to 34%\n- Day 26-45: Consolidation narrative emerged; 'accumulation phase' framing became dominant\n- Day 46-60: Renewed optimism as ETF inflows and miner capitulation data emerged\n\n**Mining Economics**\n- Miner agent cluster showed stress signals from Day 3\n- Hash rate predicted to drop 15-20% as inefficient miners go offline\n- Miner selling pressure narrative created temporary bearish sentiment window at Day 18-22\n\n**Institutional vs Retail Divergence**\n- Institutional agents maintained longer time horizons; less reactive to short-term price action\n- Retail agents showed amplified sentiment swings, especially on social media\n- ETF flow data emerged as primary institutional sentiment signal by Day 30\n\n## Dominant Narratives by Phase\n\n**Phase 1 (Days 1-10)**: 'The halving is the catalyst'\n**Phase 2 (Days 11-25)**: 'The halving was priced in — or was it?'\n**Phase 3 (Days 26-45)**: 'Accumulation before the real move'\n**Phase 4 (Days 46-60)**: 'On-chain data confirms the thesis'\n\n## Methodology\n\nAgents were initialized from crypto Twitter influence networks and historical on-chain behavior patterns. Price belief updates followed a social contagion model calibrated to previous halving cycles.",
+  "chat_log": [
+    {"agent_name": "CryptoPundit_Max", "action_type": "CREATE_POST", "action_args": {"content": "WE ARE IN THE HALVING WINDOW. Supply shock incoming. History doesn't repeat but it rhymes. $200k EOY."}, "round": 1},
+    {"agent_name": "Skeptic_Trader_21", "action_type": "CREATE_POST", "action_args": {"content": "Halving was priced in 18 months ago. Everyone and their grandmother knew this date. Don't get rekt chasing narratives."}, "round": 1},
+    {"agent_name": "MinerOp_TexasHash", "action_type": "CREATE_POST", "action_args": {"content": "Revenue cut in half overnight. Running numbers on which rigs to take offline. S9s are done."}, "round": 2},
+    {"agent_name": "InstitutionalDesk_AR", "action_type": "CREATE_POST", "action_args": {"content": "Halving day. Adding to BTC position. 18-month horizon. Miner capitulation will be a buying opportunity."}, "round": 2},
+    {"agent_name": "RetailHolder_67", "action_type": "CREATE_POST", "action_args": {"content": "Price is flat on halving day?? I thought this was supposed to pump??"}, "round": 3},
+    {"agent_name": "CryptoPundit_Max", "action_type": "REACT", "action_args": {"content": "It never pumps on the day. The 6-18 month lag is well documented. Patience.", "target": "RetailHolder_67"}, "round": 3},
+    {"agent_name": "OnChainAnalyst_K", "action_type": "CREATE_POST", "action_args": {"content": "Week 3 update: Long-term holder supply hit new ATH. STHs distributed to LTHs as expected. Accumulation confirmed on-chain."}, "round": 21},
+    {"agent_name": "InstitutionalDesk_AR", "action_type": "CREATE_POST", "action_args": {"content": "ETF inflows accelerating. Spot demand absorbing miner sell pressure. Thesis intact."}, "round": 35}
+  ],
+  "generated_at": "2026-03-26T00:00:00Z"
+}
