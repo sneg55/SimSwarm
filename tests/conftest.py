@@ -3,15 +3,10 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 
 from saas.config import Settings
+from saas.models.base import Base
+from saas.database import get_session
 
-# Forward-looking imports — saas.models.base and saas.database are created in Tasks 3 & 4.
-# Wrapped in try/except so test_config.py passes before those modules exist.
-try:
-    from saas.models.base import Base
-    from saas.database import get_session
-    _FORWARD_IMPORTS_OK = True
-except ImportError:
-    _FORWARD_IMPORTS_OK = False
+_FORWARD_IMPORTS_OK = True
 
 TEST_DATABASE_URL = "sqlite+aiosqlite://"
 
