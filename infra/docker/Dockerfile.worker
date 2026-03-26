@@ -1,0 +1,29 @@
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+
+# Install Python, Node.js, system deps
+RUN apt-get update && apt-get install -y \
+    python3.11 python3.11-venv python3-pip \
+    nodejs npm \
+    git curl wget \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Install vLLM
+RUN pip3 install "vllm>=0.6.0"
+
+# Copy MiroFish engine
+COPY vendor/mirofish/ /app/mirofish/
+
+# Install MiroFish dependencies
+WORKDIR /app/mirofish/backend
+RUN pip3 install -r requirements.txt || pip3 install flask flask-cors
+
+# Copy our job runner script
+COPY infra/docker/run_job.py /app/run_job.py
+
+WORKDIR /app
+
+# Default: start vLLM server
+EXPOSE 8000
+CMD ["python3", "-m", "vllm.entrypoints.openai.api_server", "--host", "0.0.0.0", "--port", "8000"]

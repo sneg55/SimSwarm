@@ -76,27 +76,57 @@ class JobRunner:
             await self.gpu_provider.terminate(instance.instance_id)
 
     async def _execute_pipeline(self, instance_id: str, config: JobConfig) -> dict:
-        """Execute the MiroFish pipeline on the GPU instance."""
-        # Build the docker run command with all required env vars
-        env_parts = " ".join(
-            f"-e {k}={v}" for k, v in config.to_mirofish_env().items()
+        """Execute the MiroFish 5-step pipeline on the GPU instance.
+
+        Steps:
+          1. Upload seed text to the instance as /tmp/seed.txt
+          2. Execute run_job.py on the instance (blocks until completion)
+          3. Download report.md and chat_log.json
+          4. Return report + chat_log to be saved in the DB
+        """
+        # ------------------------------------------------------------------
+        # 1. Upload seed text
+        # ------------------------------------------------------------------
+        # Use a heredoc so arbitrary text (quotes, newlines) is transmitted
+        # safely without shell escaping issues.
+        await self.gpu_provider.execute_command(
+            instance_id,
+            f"cat > /tmp/seed.txt << 'SEEDEOF'\n{config.seed_text}\nSEEDEOF",
         )
-        seed_escaped = config.seed_text.replace("'", "'\"'\"'")
-        goal_escaped = config.goal.replace("'", "'\"'\"'")
 
-        command = (
-            f"docker run --rm --gpus all {env_parts} "
-            f"-e SEED_TEXT='{seed_escaped}' "
-            f"-e GOAL='{goal_escaped}' "
-            f"-e VLLM_ARGS='{config.vllm_args}' "
-            f"mirofish:latest python scripts/run_parallel_simulation.py"
+        # ------------------------------------------------------------------
+        # 2. Run the pipeline
+        # ------------------------------------------------------------------
+        # Single-quote the goal after replacing any embedded single quotes.
+        goal_safe = config.goal.replace("'", "'\\''")
+        await self.gpu_provider.execute_command(
+            instance_id,
+            (
+                "cd /app && python3 run_job.py"
+                " --seed-file /tmp/seed.txt"
+                f" --goal '{goal_safe}'"
+                f" --max-rounds {config.max_rounds}"
+                " --output-dir /tmp/results"
+            ),
         )
 
-        output = await self.gpu_provider.execute_command(instance_id, command)
+        # ------------------------------------------------------------------
+        # 3. Download results
+        # ------------------------------------------------------------------
+        report = await self.gpu_provider.execute_command(
+            instance_id, "cat /tmp/results/report.md"
+        )
+        chat_log = await self.gpu_provider.execute_command(
+            instance_id, "cat /tmp/results/chat_log.json"
+        )
 
+        # ------------------------------------------------------------------
+        # 4. Return structured result for the Celery task to persist
+        # ------------------------------------------------------------------
         return {
             "job_id": config.job_id,
             "instance_id": instance_id,
-            "output": output,
+            "report": report,
+            "chat_log": chat_log,
             "status": "completed",
         }
