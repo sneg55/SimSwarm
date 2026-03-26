@@ -1,29 +1,38 @@
-FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
+# GPU Worker Image for FishCloud
+# Based on vLLM's official image (has CUDA + vLLM pre-installed)
+FROM vllm/vllm-openai:v0.6.6.post1 AS base
 
-# Install Python, Node.js, system deps
-RUN apt-get update && apt-get install -y \
-    python3.11 python3.11-venv python3-pip \
-    nodejs npm \
-    git curl wget \
+USER root
+
+# Install additional system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    nodejs npm git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install vLLM
-RUN pip3 install "vllm>=0.6.0"
+# Install MiroFish Python dependencies first (cache layer)
+COPY vendor/mirofish/backend/requirements.txt /app/mirofish-requirements.txt
+RUN pip install --no-cache-dir --ignore-installed -r /app/mirofish-requirements.txt 2>/dev/null || \
+    pip install --no-cache-dir --ignore-installed flask flask-cors requests
 
 # Copy MiroFish engine
-COPY vendor/mirofish/ /app/mirofish/
+COPY vendor/mirofish/backend/ /app/mirofish/backend/
+COPY vendor/mirofish/package.json /app/mirofish/package.json
 
-# Install MiroFish dependencies
-WORKDIR /app/mirofish/backend
-RUN pip3 install -r requirements.txt || pip3 install flask flask-cors
-
-# Copy our job runner script
+# Copy our job runner
 COPY infra/docker/run_job.py /app/run_job.py
+RUN chmod +x /app/run_job.py
 
-WORKDIR /app
+# Create directories for job data
+RUN mkdir -p /tmp/results /tmp/seed
 
-# Default: start vLLM server
 EXPOSE 8000
-CMD ["python3", "-m", "vllm.entrypoints.openai.api_server", "--host", "0.0.0.0", "--port", "8000"]
+
+# Entrypoint: start vLLM server with model passed via env
+# MODEL_ID and VLLM_ARGS are set by the orchestrator
+CMD python3 -m vllm.entrypoints.openai.api_server \
+    --host 0.0.0.0 \
+    --port 8000 \
+    --model ${MODEL_ID:-Qwen/Qwen2.5-32B-Instruct-AWQ} \
+    ${VLLM_ARGS:---quantization awq --max-model-len 32768}
