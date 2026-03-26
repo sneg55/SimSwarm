@@ -1,7 +1,7 @@
 import pytest
 
 
-async def test_create_job(client):
+async def test_create_job(client, funded_user):
     response = await client.post(
         "/api/jobs",
         json={
@@ -33,7 +33,7 @@ async def test_create_job_invalid_tier(client):
     assert response.status_code == 422
 
 
-async def test_create_job_seed_too_long(client):
+async def test_create_job_seed_too_long(client, funded_user):
     response = await client.post(
         "/api/jobs",
         json={
@@ -47,7 +47,7 @@ async def test_create_job_seed_too_long(client):
     assert "50000" in response.json()["detail"]
 
 
-async def test_get_job_status(client):
+async def test_get_job_status(client, funded_user):
     create_resp = await client.post(
         "/api/jobs",
         json={
@@ -72,7 +72,7 @@ async def test_get_job_not_found(client):
     assert response.status_code == 404
 
 
-async def test_list_user_jobs(client):
+async def test_list_user_jobs(client, funded_user):
     for _ in range(2):
         await client.post(
             "/api/jobs",

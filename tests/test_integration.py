@@ -5,7 +5,7 @@ query it back, and verify the full flow works.
 import pytest
 
 
-async def test_full_job_lifecycle(client):
+async def test_full_job_lifecycle(client, funded_user):
     # 1. Health check
     health = await client.get("/api/health")
     assert health.status_code == 200
@@ -40,7 +40,7 @@ async def test_full_job_lifecycle(client):
     assert jobs[0]["id"] == job_id
 
 
-async def test_create_jobs_all_tiers(client):
+async def test_create_jobs_all_tiers(client, funded_user):
     """Verify credit charging for all three tiers."""
     expected = {"small": 30, "medium": 90, "large": 300}
 

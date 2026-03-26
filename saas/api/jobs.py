@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from saas.database import get_session
 from saas.models.job import SimulationJob, JobStatus
 from saas.schemas.jobs import JobCreate, JobResponse, TIER_CREDITS
+from saas.billing.ledger import CreditLedger, InsufficientCreditsError
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -20,6 +21,20 @@ async def create_job(body: JobCreate, session: AsyncSession = Depends(get_sessio
         )
 
     credits = TIER_CREDITS[body.tier]
+
+    # Check and deduct credits atomically
+    ledger = CreditLedger(session)
+    try:
+        await ledger.debit(
+            user_id=body.user_id,
+            amount=credits,
+            description=f"Job creation — tier {body.tier.value}",
+        )
+    except InsufficientCreditsError:
+        raise HTTPException(
+            status_code=402,
+            detail=f"Insufficient credits. Required: {credits}",
+        )
 
     job = SimulationJob(
         user_id=body.user_id,

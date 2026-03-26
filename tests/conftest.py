@@ -62,3 +62,14 @@ async def client(db_engine):
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+
+
+@pytest.fixture
+async def funded_user(db_session):
+    from saas.billing.ledger import CreditLedger
+    ledger = CreditLedger(db_session)
+    await ledger.credit("user-123", amount=10000, description="Test credits")
+    await ledger.credit("user-456", amount=10000, description="Test credits")
+    await ledger.credit("integration-test-user", amount=10000, description="Test credits")
+    await ledger.credit("tier-test-user", amount=10000, description="Test credits")
+    await db_session.commit()
