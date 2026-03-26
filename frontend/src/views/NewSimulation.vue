@@ -61,6 +61,7 @@ const loading = ref(false)
 const error = ref('')
 
 const canSubmit = computed(() =>
+  seedData.value &&
   goal.value.trim() &&
   selectedTier.value &&
   creditsStore.canAfford(selectedTier.value)
@@ -74,10 +75,11 @@ async function handleSubmit() {
   loading.value = true
   error.value = ''
   try {
+    const seedContent = seedData.value?.content || ''
     const payload = {
       goal: goal.value,
       tier: selectedTier.value,
-      seed: seedData.value,
+      seed_text: seedContent,
     }
     const job = await createJob(payload)
     router.push(`/sim/${job.id}`)

@@ -15,7 +15,7 @@
             Start for free
           </router-link>
           <router-link
-            to="/demo/fish-market"
+            to="/demo/iran-war-us-china"
             class="px-8 py-3 border border-white text-white font-semibold rounded-lg hover:bg-white/10 transition-colors"
           >
             View Demo

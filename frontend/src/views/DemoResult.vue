@@ -25,11 +25,11 @@
         <h1 class="text-3xl font-bold text-gray-900 mb-3">{{ demo.title }}</h1>
         <p class="text-gray-500 text-lg">{{ demo.description }}</p>
         <div class="flex gap-4 mt-4 text-sm text-gray-400">
-          <span>{{ demo.agent_count.toLocaleString() }} agents</span>
-          <span>·</span>
-          <span>{{ demo.rounds }} rounds</span>
-          <span>·</span>
-          <span class="capitalize">{{ demo.tier }} tier</span>
+          <span v-if="demo.agent_count">{{ demo.agent_count.toLocaleString() }} agents</span>
+          <span v-if="demo.rounds">·</span>
+          <span v-if="demo.rounds">{{ demo.rounds }} rounds</span>
+          <span v-if="demo.tier">·</span>
+          <span v-if="demo.tier" class="capitalize">{{ demo.tier }} tier</span>
         </div>
       </div>
 
