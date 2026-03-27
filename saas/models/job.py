@@ -27,6 +27,7 @@ class SimulationJob(Base):
     pipeline_stage: Mapped[int | None] = mapped_column(Integer, nullable=True)
     result_report: Mapped[str | None] = mapped_column(Text, nullable=True)
     result_chat_log: Mapped[str | None] = mapped_column(Text, nullable=True)
+    result_graph: Mapped[str | None] = mapped_column(Text, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     gpu_provider: Mapped[str | None] = mapped_column(String(50), nullable=True)
     gpu_cost_usd: Mapped[float | None] = mapped_column(nullable=True)
