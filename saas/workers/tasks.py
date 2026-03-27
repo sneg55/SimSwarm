@@ -180,6 +180,79 @@ def _update_pipeline_stage(job_id: int, stage: int) -> None:
     _run_async(_do_update())
 
 
+def _update_job_metadata(job_id: int, pod_id: str, provision_seconds: int | None = None, pipeline_seconds: int | None = None) -> None:
+    """Persist pod_id and timing metadata to the SimulationJob row."""
+    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+    from sqlalchemy import text
+
+    database_url = os.getenv("DATABASE_URL", "")
+    if not database_url:
+        logger.warning("DATABASE_URL not set; skipping metadata update for job %d", job_id)
+        return
+
+    async def _do_update():
+        engine = create_async_engine(database_url)
+        session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with session_factory() as session:
+            try:
+                await session.execute(
+                    text(
+                        "UPDATE simulation_jobs "
+                        "SET pod_id = :pod_id, "
+                        "    provision_seconds = :provision_seconds, "
+                        "    pipeline_seconds = :pipeline_seconds "
+                        "WHERE id = :job_id"
+                    ),
+                    {
+                        "pod_id": pod_id,
+                        "provision_seconds": provision_seconds,
+                        "pipeline_seconds": pipeline_seconds,
+                        "job_id": job_id,
+                    },
+                )
+                await session.commit()
+                logger.info("Updated metadata for job %d (pod_id=%s)", job_id, pod_id)
+            except Exception as exc:
+                logger.warning("Could not update metadata for job %d: %s", job_id, exc)
+            finally:
+                await engine.dispose()
+
+    _run_async(_do_update())
+
+
+def _update_job_retry(job_id: int, retry_count: int) -> None:
+    """Update retry_count and reset status to PROVISIONING for a job being retried."""
+    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+    from sqlalchemy import text
+
+    database_url = os.getenv("DATABASE_URL", "")
+    if not database_url:
+        return
+
+    async def _do_update():
+        engine = create_async_engine(database_url)
+        session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with session_factory() as session:
+            try:
+                await session.execute(
+                    text(
+                        "UPDATE simulation_jobs "
+                        "SET retry_count = :retry_count, "
+                        "    status = 'PROVISIONING' "
+                        "WHERE id = :job_id"
+                    ),
+                    {"retry_count": retry_count, "job_id": job_id},
+                )
+                await session.commit()
+                logger.info("Set retry_count=%d for job %d", retry_count, job_id)
+            except Exception as exc:
+                logger.warning("Could not update retry_count for job %d: %s", job_id, exc)
+            finally:
+                await engine.dispose()
+
+    _run_async(_do_update())
+
+
 def _run_async(coro) -> object:
     """
     Run an async coroutine from a synchronous Celery worker context.
@@ -207,7 +280,8 @@ def _run_async(coro) -> object:
 @celery_app.task(
     name="fishcloud.run_simulation",
     bind=True,
-    max_retries=0,
+    max_retries=1,
+    default_retry_delay=60,
 )
 def run_simulation_task(
     self,
@@ -260,6 +334,19 @@ def run_simulation_task(
     try:
         result = _run_async(runner.run(config))
 
+        # Extract metadata from runner result
+        pod_id = result.get("pod_id", "")
+        provision_seconds = result.get("provision_seconds")
+        pipeline_seconds = result.get("pipeline_seconds")
+
+        # Persist metadata (pod_id, timing) to the SimulationJob row
+        if pod_id:
+            _update_job_metadata(
+                job_id=job_id, pod_id=pod_id,
+                provision_seconds=provision_seconds,
+                pipeline_seconds=pipeline_seconds,
+            )
+
         # Persist results to the SimulationJob table
         report = result.get("report", "")
         chat_log = result.get("chat_log", "")
@@ -267,19 +354,28 @@ def run_simulation_task(
         _save_job_results(job_id=job_id, report=report, chat_log=chat_log, graph_data=graph_data)
 
         logger.info(
-            "Job %d completed — report=%d chars, chat_log=%d chars",
-            job_id, len(report), len(chat_log),
+            "job.completed job_id=%d pod_id=%s provision_s=%s pipeline_s=%s",
+            job_id, pod_id, provision_seconds, pipeline_seconds,
         )
         return result
 
     except Exception as exc:
-        error_msg = str(exc)
-        logger.error("Job %d failed: %s", job_id, error_msg, exc_info=True)
+        from saas.gpu.errors import classify_gpu_error
 
-        # Mark DB row as failed
+        error_msg = str(exc)
+        error_kind = classify_gpu_error(exc)
+        logger.error(
+            "job.failed job_id=%d error_kind=%s error=%s",
+            job_id, error_kind, error_msg, exc_info=True,
+        )
+
+        if error_kind == "transient" and self.request.retries < self.max_retries:
+            _update_job_retry(job_id=job_id, retry_count=self.request.retries + 1)
+            raise self.retry(exc=exc)
+
+        # Permanent error or retries exhausted — mark failed and refund
         _mark_job_failed(job_id=job_id, error_message=error_msg)
 
-        # Refund credits
         if credits_charged > 0:
             _refund_credits(job_id=job_id, user_id=user_id, credits=credits_charged)
 
