@@ -1,21 +1,13 @@
 {
   "slug": "eu-ai-act",
   "title": "Industry Reaction to EU AI Act Enforcement",
-  "description": "Simulating 900 agents representing tech companies, EU regulators, civil society groups, and affected industry sectors to model how the industry adapts — and resists — EU AI Act enforcement over the first 90 days of the high-risk AI provisions coming into force.",
-  "seed_summary": "The EU AI Act high-risk provisions formally take effect today. Companies using AI in hiring, credit scoring, and critical infrastructure must now demonstrate conformity assessments. The EU AI Office begins its first wave of compliance checks. Major tech lobbying groups call the requirements 'technically unworkable'.",
-  "goal": "Forecast industry compliance behavior and regulatory friction during the first 90 days of EU AI Act enforcement",
-  "tier": "medium",
-  "agent_count": 900,
-  "rounds": 90,
-  "report_markdown": "# Prediction Report: Industry Reaction to EU AI Act Enforcement\n\n## Executive Summary\n\nThis simulation modeled the first 90 days of EU AI Act high-risk provision enforcement across 900 agents spanning tech firms, regulators, civil society, and affected sectors. Results indicate a predictable compliance gap, significant regulatory arbitrage attempts, and an emerging coalition of civil society actors pushing for stricter enforcement.\n\n## Key Findings\n\n**Industry Compliance Behavior**\n- 34% of high-risk AI deployer agents indicated intent to pursue full compliance\n- 41% planned to reclassify systems as lower-risk to avoid requirements\n- 25% adopted a 'wait for enforcement action' posture\n- Legal teams dominated early decision-making, with technical teams sidelined\n\n**Regulatory Capacity**\n- EU AI Office agents consistently flagged resource constraints\n- First enforcement actions predicted to target smaller companies, not Big Tech\n- Member state notified bodies struggled to process conformity assessment backlogs\n- Germany and France AI offices showed different enforcement philosophies\n\n**Civil Society Dynamics**\n- NGO agents filed 12 formal complaints in the first 30 simulated days\n- Focus areas: AI in welfare benefits, predictive policing, credit scoring\n- Growing coalition between labor unions and digital rights organizations\n\n## Regulatory Arbitrage Patterns\n\nThe simulation identified three dominant arbitrage strategies:\n1. **Scope gaming**: Redefining AI systems to fall outside high-risk categories\n2. **Jurisdiction shopping**: Relocating certain AI operations outside EU\n3. **Documentation theater**: Creating compliance documentation without substantive change\n\n## Methodology\n\nAgents were initialized from regulatory filings, lobbying disclosures, and civil society reports. The simulation used a Bayesian belief update model for regulatory expectation formation.",
-  "chat_log": [
-    {"agent_name": "TechLobbyist_CCIA", "action_type": "CREATE_POST", "action_args": {"content": "Day 1 of enforcement: conformity assessment requirements are technically impossible for most ML systems. We're filing for guidance immediately."}, "round": 1},
-    {"agent_name": "EURegulator_AIOffice", "action_type": "CREATE_POST", "action_args": {"content": "The Act is clear. Companies have had 2 years to prepare. We will begin compliance checks systematically."}, "round": 1},
-    {"agent_name": "CivilSociety_AlgoWatch", "action_type": "CREATE_POST", "action_args": {"content": "Filing complaint against three major insurers using opaque AI pricing models. This is exactly what the Act was designed to address."}, "round": 2},
-    {"agent_name": "HRTech_Compliance", "action_type": "CREATE_POST", "action_args": {"content": "We've reclassified our hiring AI as a 'decision support tool' rather than automated decision-making. Legal says this takes us out of high-risk."}, "round": 3},
-    {"agent_name": "CivilSociety_AlgoWatch", "action_type": "REACT", "action_args": {"content": "This reclassification tactic is exactly the loophole we warned about. Adding to complaint list.", "target": "HRTech_Compliance"}, "round": 3},
-    {"agent_name": "EURegulator_AIOffice", "action_type": "CREATE_POST", "action_args": {"content": "Guidance note on scope interpretation will be published within 30 days. Companies should not assume reclassification resolves compliance obligations."}, "round": 5},
-    {"agent_name": "StartupFounder_Berlin", "action_type": "CREATE_POST", "action_args": {"content": "Big Tech can afford compliance teams. This regulation will kill European AI startups while doing nothing about the US giants."}, "round": 8}
-  ],
-  "generated_at": "2026-03-26T00:00:00Z"
+  "description": "Simulating tech executives, startups, researchers, and regulators responding to EU AI Act enforcement",
+  "seed_summary": "EU AI Act enforcement begins March 2026. High-risk AI must comply. Fines up to 35M EUR or 7% of revenue.",
+  "goal": "Predict how tech industry, startups, researchers, and regulators respond over 60 days",
+  "tier": "small",
+  "agent_count": 0,
+  "rounds": 0,
+  "report_markdown": "# Industry Reaction to EU AI Act Enforcement\n\n> This simulation is currently being generated. Check back soon for real results powered by MiroFish swarm intelligence.\n\n## Coming Soon\n\nThis demo will contain a full prediction report generated by running hundreds of AI agents in a simulated social media environment. The agents will analyze the seed material, form opinions, debate, and produce emergent predictions.\n\n**Seed:** EU AI Act enforcement begins March 2026. High-risk AI must comply. Fines up to 35M EUR or 7% of revenue.\n\n**Goal:** Predict how tech industry, startups, researchers, and regulators respond over 60 days",
+  "chat_log": [],
+  "generated_at": "2026-03-27T11:30:11.271383+00:00"
 }
