@@ -120,7 +120,7 @@ def build_graph(seed_text: str, goal: str) -> tuple[str, str]:
     # Split text, ingest in batches, wait for Zep processing
     from app.services.text_processor import TextProcessor  # noqa: PLC0415
 
-    chunks = TextProcessor.split_text(seed_text, chunk_size=500, chunk_overlap=50)
+    chunks = TextProcessor.split_text(seed_text, chunk_size=500, overlap=50)
     episode_uuids = builder.add_text_batches(graph_id, chunks, batch_size=3)
     builder._wait_for_episodes(episode_uuids, timeout=600)
 
