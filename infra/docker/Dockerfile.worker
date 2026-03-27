@@ -11,10 +11,16 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Install MiroFish Python dependencies first (cache layer)
+# Save vLLM's pinned dependency versions before installing MiroFish deps
+RUN pip freeze | grep -iE "fastapi|starlette|uvicorn|pydantic" > /tmp/vllm-pins.txt
+
+# Install MiroFish Python dependencies (may conflict with vLLM)
 COPY vendor/mirofish/backend/requirements.txt /app/mirofish-requirements.txt
-RUN pip install --no-cache-dir --ignore-installed -r /app/mirofish-requirements.txt 2>/dev/null || \
-    pip install --no-cache-dir --ignore-installed flask flask-cors requests
+RUN pip install --no-cache-dir -r /app/mirofish-requirements.txt 2>/dev/null || true
+RUN pip install --no-cache-dir flask flask-cors requests zep-cloud 2>/dev/null || true
+
+# Restore vLLM's pinned versions (vLLM is fragile about FastAPI/Starlette versions)
+RUN pip install --no-cache-dir -r /tmp/vllm-pins.txt
 
 # Copy MiroFish engine
 COPY vendor/mirofish/backend/ /app/mirofish/backend/
@@ -25,10 +31,6 @@ COPY infra/docker/run_job.py /app/run_job.py
 COPY infra/docker/worker_api.py /app/worker_api.py
 COPY infra/docker/start.sh /app/start.sh
 RUN chmod +x /app/run_job.py /app/start.sh
-
-# Ensure flask and MiroFish's key dependencies are available
-RUN pip install --no-cache-dir flask zep-cloud camel-ai 2>/dev/null || \
-    pip install --no-cache-dir flask zep-cloud || true
 
 # Create directories for job data
 RUN mkdir -p /tmp/results /tmp/seed

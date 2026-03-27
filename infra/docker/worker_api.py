@@ -140,16 +140,27 @@ def job_status():
 
 @app.route("/logs", methods=["GET"])
 def logs():
-    """Real-time pipeline logs. Returns last N lines from the log file."""
+    """Real-time logs from both vLLM and the pipeline."""
     tail = request.args.get("tail", 100, type=int)
-    if LOG_FILE.exists():
-        lines = LOG_FILE.read_text().splitlines()
-        return jsonify({
-            "lines": lines[-tail:],
-            "total_lines": len(lines),
-            "job_status": _job["status"],
-        })
-    return jsonify({"lines": [], "total_lines": 0, "job_status": _job["status"]})
+    source = request.args.get("source", "all")  # all, pipeline, vllm
+
+    lines = []
+    if source in ("all", "vllm"):
+        vllm_log = Path("/tmp/vllm.log")
+        if vllm_log.exists():
+            for line in vllm_log.read_text().splitlines()[-tail:]:
+                lines.append(f"[vllm] {line}")
+
+    if source in ("all", "pipeline"):
+        if LOG_FILE.exists():
+            for line in LOG_FILE.read_text().splitlines()[-tail:]:
+                lines.append(f"[pipeline] {line}")
+
+    return jsonify({
+        "lines": lines[-tail:],
+        "total_lines": len(lines),
+        "job_status": _job["status"],
+    })
 
 
 if __name__ == "__main__":
