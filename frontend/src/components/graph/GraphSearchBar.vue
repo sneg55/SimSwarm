@@ -1,5 +1,5 @@
 <template>
-  <div class="relative w-64">
+  <div ref="wrapperRef" class="relative w-64">
     <div class="flex items-center bg-white border border-gray-200 rounded-lg shadow-sm px-2.5 py-1.5">
       <svg class="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
@@ -40,7 +40,7 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { getEntityColor, getPrimaryLabel } from './graphColors.js'
 
 const props = defineProps({
@@ -95,4 +95,13 @@ function close() {
   open.value = false
   query.value = ''
 }
+
+const wrapperRef = ref(null)
+function handleClickOutside(e) {
+  if (wrapperRef.value && !wrapperRef.value.contains(e.target)) {
+    open.value = false
+  }
+}
+onMounted(() => document.addEventListener('click', handleClickOutside))
+onBeforeUnmount(() => document.removeEventListener('click', handleClickOutside))
 </script>

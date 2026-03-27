@@ -252,29 +252,14 @@ function navigateToNode(nodeId) {
   }
 }
 
-function onExport(format) {
+function onExport() {
   if (!canvasRef.value) return
-  const dataUrl = canvasRef.value.exportImage(format)
+  const dataUrl = canvasRef.value.exportImage()
   if (!dataUrl) return
-
-  if (format === 'svg') {
-    // For SVG, create a blob from the data URL
-    fetch(dataUrl)
-      .then((res) => res.blob())
-      .then((blob) => {
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = 'graph-export.svg'
-        a.click()
-        URL.revokeObjectURL(url)
-      })
-  } else {
-    const a = document.createElement('a')
-    a.href = dataUrl
-    a.download = 'graph-export.png'
-    a.click()
-  }
+  const a = document.createElement('a')
+  a.href = dataUrl
+  a.download = 'graph-export.png'
+  a.click()
 }
 
 onMounted(() => {

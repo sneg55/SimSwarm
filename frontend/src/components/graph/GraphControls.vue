@@ -76,11 +76,7 @@
         <button
           @click="handleExport('png')"
           class="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
-        >PNG</button>
-        <button
-          @click="handleExport('svg')"
-          class="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
-        >SVG</button>
+        >Export as PNG</button>
       </div>
     </div>
   </div>

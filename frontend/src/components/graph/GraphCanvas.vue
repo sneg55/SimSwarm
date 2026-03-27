@@ -256,13 +256,9 @@ function focusNode(id) {
   }
 }
 
-function exportImage(format = 'png') {
+function exportImage() {
   if (!cy) return null
-  if (format === 'svg') {
-    // Cytoscape doesn't natively export SVG, return PNG as fallback
-    return cy.png({ full: true, scale: 2 })
-  }
-  return cy.png({ full: true, scale: 2 })
+  return cy.png({ full: true, scale: 2, bg: '#ffffff' })
 }
 
 function getCy() {
