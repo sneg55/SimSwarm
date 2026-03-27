@@ -31,7 +31,7 @@ class RunPodProvider(GPUProvider):
             cloud_type="ALL",
             gpu_count=1,
             volume_in_gb=0,
-            container_disk_in_gb=100,
+            container_disk_in_gb=30,
             ports="5000/http,8000/http",
             env=config.env_vars or {},
         )
