@@ -35,6 +35,69 @@ MIROFISH_BACKEND = "/app/mirofish/backend"
 
 
 # ---------------------------------------------------------------------------
+# English language overrides for MiroFish prompts (default is Chinese)
+# ---------------------------------------------------------------------------
+
+def _patch_mirofish_prompts_to_english():
+    """Monkey-patch MiroFish service prompts to output in English."""
+    sys.path.insert(0, MIROFISH_BACKEND)
+
+    # Patch ontology generator
+    import app.services.ontology_generator as ontology_mod
+    original_prompt = ontology_mod.ONTOLOGY_SYSTEM_PROMPT
+    # Add English instruction at the start
+    ontology_mod.ONTOLOGY_SYSTEM_PROMPT = (
+        "IMPORTANT: All output text, descriptions, analysis_summary, and examples "
+        "MUST be written in English. Do NOT output any Chinese text.\n\n"
+        + original_prompt
+    )
+
+    # Patch report agent prompts
+    import app.services.report_agent as report_mod
+    for attr in dir(report_mod):
+        val = getattr(report_mod, attr)
+        if isinstance(val, str) and ("中文" in val or "你是" in val or "请" in val):
+            patched = (
+                "IMPORTANT: Write ALL output in English only. "
+                "Do NOT use Chinese. Translate any Chinese context to English.\n\n"
+                + val
+            )
+            setattr(report_mod, attr, patched)
+
+    # Patch profile generator
+    try:
+        import app.services.oasis_profile_generator as profile_mod
+        for attr in dir(profile_mod):
+            val = getattr(profile_mod, attr)
+            if isinstance(val, str) and len(val) > 100 and ("你" in val or "请" in val or "中文" in val):
+                patched = (
+                    "IMPORTANT: Generate ALL profiles, descriptions, bios, and text in English only. "
+                    "Do NOT use Chinese.\n\n"
+                    + val
+                )
+                setattr(profile_mod, attr, patched)
+    except ImportError:
+        pass
+
+    # Patch simulation config generator
+    try:
+        import app.services.simulation_config_generator as config_mod
+        for attr in dir(config_mod):
+            val = getattr(config_mod, attr)
+            if isinstance(val, str) and len(val) > 100 and ("你" in val or "请" in val):
+                patched = (
+                    "IMPORTANT: Generate ALL configuration text, event descriptions, "
+                    "and topics in English only. Do NOT use Chinese.\n\n"
+                    + val
+                )
+                setattr(config_mod, attr, patched)
+    except ImportError:
+        pass
+
+    print("[run_job] Patched MiroFish prompts to English output", flush=True)
+
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -336,6 +399,9 @@ def main() -> None:
 
     # 3. Override Config after import
     _apply_config_overrides(args.max_rounds)
+
+    # 3b. Patch all prompts to English output
+    _patch_mirofish_prompts_to_english()
 
     # 4. Optionally wait for local vLLM
     if not args.skip_vllm_wait:
