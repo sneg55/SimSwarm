@@ -89,7 +89,10 @@ class JobRunner:
         self._stage_callback = stage_callback
 
     async def run(self, config: JobConfig) -> dict:
-        """Provision a GPU, run the pipeline, then terminate the instance."""
+        """Provision a GPU, run the pipeline, then terminate the instance.
+
+        Enforces the tier timeout as a hard upper bound on the entire job.
+        """
         gpu_config = GPUProviderConfig(
             gpu_type=config.gpu_type,
             docker_image=TIER_DOCKER_IMAGES.get(config.tier, "mirofish:latest"),
@@ -98,12 +101,37 @@ class JobRunner:
             env_vars=config.to_mirofish_env(),
         )
 
+        # Mark job as provisioning so the frontend can show GPU spin-up status
+        if self._stage_callback is not None:
+            try:
+                await self._stage_callback(config.job_id, 0)
+            except Exception:
+                pass
+
+        timeout = config.timeout_seconds
+        logger.info(f"Job {config.job_id}: starting with {timeout}s tier timeout ({config.tier})")
+
+        try:
+            return await asyncio.wait_for(
+                self._run_inner(gpu_config, config), timeout=timeout
+            )
+        except asyncio.TimeoutError:
+            raise TimeoutError(
+                f"Job {config.job_id} exceeded {config.tier} tier timeout of {timeout}s"
+            )
+
+    async def _run_inner(self, gpu_config, config: JobConfig) -> dict:
+        """Inner run method wrapped by the tier timeout."""
+        import time
+        provision_start = time.monotonic()
         instance = await self.gpu_provider.provision(gpu_config)
+        provision_elapsed = int(time.monotonic() - provision_start)
+        logger.info(f"Job {config.job_id}: GPU provisioned in {provision_elapsed}s (pod {instance.instance_id})")
+
         try:
             result = await self._execute_pipeline(instance.instance_id, config)
             return result
         except Exception as e:
-            # Pull pod logs before termination for debugging
             logger.error(f"Pipeline failed for pod {instance.instance_id}: {e}")
             try:
                 worker_url = f"https://{instance.instance_id}-5000.proxy.runpod.net"
@@ -130,19 +158,38 @@ class JobRunner:
         # ------------------------------------------------------------------
         # 1. Wait for worker API to be ready (vLLM model load takes ~2-5 min)
         # ------------------------------------------------------------------
+        import time
+        health_start = time.monotonic()
         logger.info(f"Waiting for worker API at {worker_url}/health ...")
-        for attempt in range(180):  # 15 min max (180 * 5s) — model download can take 10+ min
+        for attempt in range(180):  # 15 min max (180 * 5s)
             try:
                 async with httpx.AsyncClient(timeout=10) as client:
                     resp = await client.get(f"{worker_url}/health")
                     if resp.status_code == 200:
-                        logger.info(f"Worker API ready after {attempt * 5}s")
+                        elapsed = int(time.monotonic() - health_start)
+                        health_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
+                        vllm_ready = health_data.get("vllm_ready", "?")
+                        logger.info(f"Worker API ready in {elapsed}s (vllm_ready={vllm_ready})")
                         break
-            except Exception:
-                pass
+                    elif attempt % 6 == 0:  # every 30s
+                        elapsed = int(time.monotonic() - health_start)
+                        try:
+                            health_data = resp.json()
+                            logger.info(f"Worker health: {health_data} ({elapsed}s elapsed)")
+                        except Exception:
+                            logger.info(f"Worker health: HTTP {resp.status_code} ({elapsed}s elapsed)")
+            except httpx.ConnectError:
+                if attempt % 12 == 0:  # every 60s
+                    elapsed = int(time.monotonic() - health_start)
+                    logger.info(f"Worker not reachable yet ({elapsed}s elapsed, attempt {attempt + 1}/180)")
+            except Exception as e:
+                if attempt % 12 == 0:
+                    elapsed = int(time.monotonic() - health_start)
+                    logger.info(f"Worker health check: {type(e).__name__} ({elapsed}s elapsed)")
             await asyncio.sleep(5)
         else:
-            raise TimeoutError(f"Worker API at {worker_url} did not become ready within 900s")
+            elapsed = int(time.monotonic() - health_start)
+            raise TimeoutError(f"Worker API at {worker_url} did not become ready after {elapsed}s")
 
         # ------------------------------------------------------------------
         # 2. Submit job — returns immediately, pipeline runs in background
@@ -162,6 +209,7 @@ class JobRunner:
                     error_msg = resp.text[:2000]
                 raise RuntimeError(f"Worker rejected job: {error_msg}")
 
+        pipeline_start = time.monotonic()
         logger.info("Job accepted by worker, polling /status...")
 
         # ------------------------------------------------------------------
@@ -183,7 +231,8 @@ class JobRunner:
             log_lines: list[str] = []
 
             if poll % 6 == 0:  # Log every 60s
-                logger.info(f"Pipeline status: {job_status} (poll {poll + 1})")
+                elapsed = int(time.monotonic() - pipeline_start)
+                logger.info(f"Pipeline status: {job_status} ({elapsed}s elapsed, poll {poll + 1}/{max_polls})")
                 # Pull recent logs from the worker
                 try:
                     async with httpx.AsyncClient(timeout=10) as log_client:
@@ -209,7 +258,8 @@ class JobRunner:
 
             if job_status == "completed":
                 result = status_data
-                logger.info("Pipeline completed!")
+                elapsed = int(time.monotonic() - pipeline_start)
+                logger.info(f"Pipeline completed in {elapsed}s!")
                 break
             elif job_status == "failed":
                 error_msg = status_data.get("error", "Unknown error")

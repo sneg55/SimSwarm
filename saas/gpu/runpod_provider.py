@@ -79,20 +79,25 @@ class RunPodProvider(GPUProvider):
         pod_id = pod["id"]
         logger.info(f"RunPod: pod {pod_id} created, waiting for it to be ready...")
 
-        # Poll until running
+        # Poll until running — log every 30s with elapsed time
+        import time
+        start = time.monotonic()
         for attempt in range(MAX_POLL_ATTEMPTS):
             try:
                 status = await self.get_status(pod_id)
                 if status.is_ready:
-                    logger.info(f"RunPod: pod {pod_id} is ready at {status.ip_address}")
+                    elapsed = int(time.monotonic() - start)
+                    logger.info(f"RunPod: pod {pod_id} ready in {elapsed}s at {status.ip_address}")
                     return status
-                if attempt % 12 == 0:
-                    logger.info(f"RunPod: pod {pod_id} still provisioning... (attempt {attempt + 1})")
+                if attempt % 6 == 0:  # every 30s
+                    elapsed = int(time.monotonic() - start)
+                    logger.info(f"RunPod: pod {pod_id} provisioning... ({elapsed}s elapsed, attempt {attempt + 1}/{MAX_POLL_ATTEMPTS})")
             except Exception as e:
                 logger.warning(f"RunPod: poll error (attempt {attempt + 1}): {e}")
             await asyncio.sleep(5)
 
-        raise TimeoutError(f"RunPod pod {pod_id} did not become ready in {MAX_POLL_ATTEMPTS * 5}s")
+        elapsed = int(time.monotonic() - start)
+        raise TimeoutError(f"RunPod pod {pod_id} did not become ready after {elapsed}s ({MAX_POLL_ATTEMPTS} attempts)")
 
     async def get_status(self, instance_id: str) -> GPUInstance:
         """Fetch current pod status from RunPod."""
