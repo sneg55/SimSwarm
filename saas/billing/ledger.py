@@ -59,6 +59,18 @@ class CreditLedger:
         await self.session.flush()
         return entry
 
+    async def session_credited(self, stripe_session_id: str | None) -> bool:
+        """Return True if credits have already been added for a given Stripe session."""
+        if stripe_session_id is None:
+            return False
+        result = await self.session.execute(
+            select(func.count(CreditEntry.id)).where(
+                CreditEntry.stripe_session_id == stripe_session_id,
+                CreditEntry.amount > 0,
+            )
+        )
+        return result.scalar() > 0
+
     async def get_history(self, user_id: str) -> list[CreditEntry]:
         result = await self.session.execute(
             select(CreditEntry)
