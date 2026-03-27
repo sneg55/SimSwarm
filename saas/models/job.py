@@ -37,3 +37,7 @@ class SimulationJob(Base):
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    pod_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0)
+    provision_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    pipeline_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
