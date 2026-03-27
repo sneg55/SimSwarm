@@ -6,6 +6,8 @@ from saas.config import Settings
 from saas.models.base import Base
 from saas.models import CreditEntry  # noqa: F401 — registers table in metadata
 from saas.models import User  # noqa: F401 — registers table in metadata
+from saas.models.model_routing import ModelRouting  # noqa: F401 — registers table in metadata
+from saas.models.job import SimulationJob  # noqa: F401 — registers table in metadata
 from saas.database import get_session
 
 _FORWARD_IMPORTS_OK = True
@@ -81,4 +83,35 @@ async def funded_user(db_session, auth_headers):
     user_id = auth_headers["_user_id"]
     ledger = CreditLedger(db_session)
     await ledger.credit(user_id, amount=10000, description="Test credits")
+    await db_session.commit()
+
+
+@pytest.fixture
+async def seeded_routing(db_session):
+    """Seed ModelRouting rows required for job creation endpoint."""
+    rows = [
+        ModelRouting(
+            sim_tier="small",
+            model_id="Qwen2.5-7B-Instruct-AWQ",
+            gpu_type="RTX4090",
+            max_rounds=100,
+            vllm_args="--max-model-len 8192",
+        ),
+        ModelRouting(
+            sim_tier="medium",
+            model_id="Qwen2.5-32B-Instruct-AWQ",
+            gpu_type="RTX4090",
+            max_rounds=200,
+            vllm_args="--max-model-len 16384",
+        ),
+        ModelRouting(
+            sim_tier="large",
+            model_id="Qwen2.5-72B-Instruct-AWQ",
+            gpu_type="A100",
+            max_rounds=500,
+            vllm_args="--max-model-len 32768",
+        ),
+    ]
+    for row in rows:
+        db_session.add(row)
     await db_session.commit()
