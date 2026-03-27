@@ -330,6 +330,90 @@ def collect_chat_log(simulation_id: str) -> list:
 
 
 # ---------------------------------------------------------------------------
+# Step 6 — Extract graph data from Zep before teardown
+# ---------------------------------------------------------------------------
+
+def extract_graph_data(graph_id: str) -> dict:
+    """
+    Extract all nodes and edges from the Zep knowledge graph before it is
+    destroyed.  Returns a dict with ``nodes``, ``edges``, and ``metadata``.
+    On any failure the function returns an empty graph structure so that the
+    pipeline can still complete.
+    """
+    try:
+        from app.services.zep_tools import ZepToolService  # noqa: PLC0415
+
+        zep = ZepToolService()
+        raw_nodes = zep.get_all_nodes(graph_id)
+        raw_edges = zep.get_all_edges(graph_id)
+
+        # Build connection_count per node by counting edges
+        connection_count: dict[str, int] = {}
+        for edge in raw_edges:
+            src = getattr(edge, "source_node_uuid", None) or edge.get("source_node_uuid", "")
+            tgt = getattr(edge, "target_node_uuid", None) or edge.get("target_node_uuid", "")
+            connection_count[src] = connection_count.get(src, 0) + 1
+            connection_count[tgt] = connection_count.get(tgt, 0) + 1
+
+        entity_types: set[str] = set()
+
+        nodes = []
+        for n in raw_nodes:
+            uuid = getattr(n, "uuid", None) or (n.get("uuid", "") if isinstance(n, dict) else "")
+            name = getattr(n, "name", None) or (n.get("name", "") if isinstance(n, dict) else "")
+            labels = getattr(n, "labels", None) or (n.get("labels", []) if isinstance(n, dict) else [])
+            summary = getattr(n, "summary", None) or (n.get("summary", "") if isinstance(n, dict) else "")
+
+            # Primary label = first label that is not "Entity" or "Node"
+            primary_label = None
+            for lbl in (labels or []):
+                if lbl not in ("Entity", "Node"):
+                    primary_label = lbl
+                    break
+            if primary_label:
+                entity_types.add(primary_label)
+
+            nodes.append({
+                "uuid": str(uuid),
+                "name": str(name),
+                "labels": list(labels or []),
+                "summary": str(summary or ""),
+                "connection_count": connection_count.get(str(uuid), 0),
+            })
+
+        edges = []
+        for e in raw_edges:
+            def _attr(obj, key):
+                return getattr(obj, key, None) or (obj.get(key, "") if isinstance(obj, dict) else "")
+
+            edges.append({
+                "uuid": str(_attr(e, "uuid")),
+                "name": str(_attr(e, "name")),
+                "fact": str(_attr(e, "fact") or ""),
+                "source_node_uuid": str(_attr(e, "source_node_uuid")),
+                "target_node_uuid": str(_attr(e, "target_node_uuid")),
+                "source_node_name": str(_attr(e, "source_node_name")),
+                "target_node_name": str(_attr(e, "target_node_name")),
+            })
+
+        graph_data = {
+            "nodes": nodes,
+            "edges": edges,
+            "metadata": {
+                "entity_types": sorted(entity_types),
+                "total_nodes": len(nodes),
+                "total_edges": len(edges),
+            },
+        }
+        print(f"[run_job] Graph extracted: {len(nodes)} nodes, {len(edges)} edges", flush=True)
+        return graph_data
+
+    except Exception as exc:
+        print(f"[run_job] WARNING: graph extraction failed: {exc}", flush=True)
+        return {"nodes": [], "edges": [], "metadata": {"entity_types": [], "total_nodes": 0, "total_edges": 0}}
+
+
+# ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
 
@@ -344,9 +428,14 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
     report_md = generate_report(graph_id, simulation_id, goal)
     chat_log = collect_chat_log(simulation_id)
 
+    # Extract graph data from Zep before the ephemeral graph is destroyed
+    graph_data = extract_graph_data(graph_id)
+
     (out / "report.md").write_text(report_md, encoding="utf-8")
     chat_log_str = json.dumps(chat_log, ensure_ascii=False, default=str)
     (out / "chat_log.json").write_text(chat_log_str, encoding="utf-8")
+    graph_data_str = json.dumps(graph_data, ensure_ascii=False, default=str)
+    (out / "graph_data.json").write_text(graph_data_str, encoding="utf-8")
 
     summary = {
         "status": "completed",
@@ -354,6 +443,8 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
         "graph_id": graph_id,
         "report_length": len(report_md),
         "chat_log_entries": len(chat_log),
+        "graph_nodes": graph_data["metadata"]["total_nodes"],
+        "graph_edges": graph_data["metadata"]["total_edges"],
     }
     (out / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
 

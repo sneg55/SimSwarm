@@ -62,14 +62,17 @@ def _run_pipeline(seed_text, goal, max_rounds):
         results_dir = Path("/tmp/results")
         report = ""
         chat_log = "[]"
+        graph_data = "{}"
         if (results_dir / "report.md").exists():
             report = (results_dir / "report.md").read_text()
         if (results_dir / "chat_log.json").exists():
             chat_log = (results_dir / "chat_log.json").read_text()
+        if (results_dir / "graph_data.json").exists():
+            graph_data = (results_dir / "graph_data.json").read_text()
 
         with _lock:
             _job["status"] = "completed"
-            _job["result"] = {"report": report, "chat_log": chat_log}
+            _job["result"] = {"report": report, "chat_log": chat_log, "graph_data": graph_data}
 
     except subprocess.TimeoutExpired:
         proc.kill()
@@ -133,6 +136,7 @@ def job_status():
         if _job["status"] == "completed" and _job["result"]:
             resp["report"] = _job["result"]["report"]
             resp["chat_log"] = _job["result"]["chat_log"]
+            resp["graph_data"] = _job["result"].get("graph_data", "{}")
         if _job["status"] == "failed":
             resp["error"] = _job["error"]
     return jsonify(resp)
