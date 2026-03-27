@@ -41,6 +41,8 @@ class JobResponse(BaseModel):
     credits_charged: int
     status: str
     pipeline_stage: int | None
+    result_report: str | None = None
+    result_chat_log: str | None = None
     error_message: str | None
     created_at: datetime
     completed_at: datetime | None

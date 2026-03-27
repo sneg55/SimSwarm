@@ -304,7 +304,15 @@ def generate_report(graph_id: str, simulation_id: str, goal: str) -> str:
         print(f"[run_job]   [report:{stage}] {pct}% — {msg}", flush=True)
 
     report = agent.generate_report(progress_callback=_progress)
-    markdown = report.to_markdown() if hasattr(report, "to_markdown") else str(report)
+    # Extract markdown from Report object
+    if hasattr(report, "markdown_content") and report.markdown_content:
+        markdown = report.markdown_content
+    elif hasattr(report, "outline") and hasattr(report.outline, "to_markdown"):
+        markdown = report.outline.to_markdown()
+    elif hasattr(report, "to_markdown"):
+        markdown = report.to_markdown()
+    else:
+        markdown = str(report)
     print(f"[run_job] Report generated ({len(markdown)} chars)", flush=True)
     return markdown
 

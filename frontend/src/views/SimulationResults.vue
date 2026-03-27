@@ -27,12 +27,12 @@
 
       <div class="bg-white border border-gray-200 rounded-lg p-6">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">Report</h3>
-        <ReportViewer :content="job.report || 'No report available.'" />
+        <ReportViewer :content="job.result_report || job.report || 'No report available.'" />
       </div>
 
-      <div v-if="job.messages && job.messages.length > 0" class="bg-white border border-gray-200 rounded-lg p-6">
+      <div v-if="chatMessages.length > 0" class="bg-white border border-gray-200 rounded-lg p-6">
         <h3 class="text-lg font-semibold text-gray-800 mb-4">Agent Conversation</h3>
-        <ChatReplay :messages="job.messages" />
+        <ChatReplay :messages="chatMessages" />
       </div>
     </div>
 
@@ -43,7 +43,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import ReportViewer from '../components/ReportViewer.vue'
 import ChatReplay from '../components/ChatReplay.vue'
@@ -55,6 +55,14 @@ const jobId = route.params.id
 
 const job = ref(null)
 const loading = ref(true)
+
+const chatMessages = computed(() => {
+  if (!job.value) return []
+  try {
+    const raw = job.value.result_chat_log || job.value.chat_log || '[]'
+    return typeof raw === 'string' ? JSON.parse(raw) : raw
+  } catch { return [] }
+})
 
 onMounted(async () => {
   try {

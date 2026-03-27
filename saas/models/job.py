@@ -6,12 +6,12 @@ from saas.models.base import Base
 
 
 class JobStatus(str, enum.Enum):
-    PENDING = "pending"
-    PROVISIONING = "provisioning"
-    RUNNING = "running"
-    COMPLETED = "completed"
-    FAILED = "failed"
-    REFUNDED = "refunded"
+    PENDING = "PENDING"
+    PROVISIONING = "PROVISIONING"
+    RUNNING = "RUNNING"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
+    REFUNDED = "REFUNDED"
 
 
 class SimulationJob(Base):
