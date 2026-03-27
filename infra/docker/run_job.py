@@ -381,11 +381,11 @@ def extract_graph_data(graph_id: str) -> dict:
                 "connection_count": connection_count.get(str(uuid), 0),
             })
 
+        def _attr(obj, key):
+            return getattr(obj, key, None) or (obj.get(key, "") if isinstance(obj, dict) else "")
+
         edges = []
         for e in raw_edges:
-            def _attr(obj, key):
-                return getattr(obj, key, None) or (obj.get(key, "") if isinstance(obj, dict) else "")
-
             edges.append({
                 "uuid": str(_attr(e, "uuid")),
                 "name": str(_attr(e, "name")),
