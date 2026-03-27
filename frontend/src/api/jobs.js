@@ -19,3 +19,8 @@ export async function listJobs() {
   const response = await api.get('/jobs')
   return response.data
 }
+
+export async function getJobGraph(jobId) {
+  const response = await api.get(`/jobs/${jobId}/graph`)
+  return response.data
+}
