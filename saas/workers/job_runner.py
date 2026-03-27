@@ -1,9 +1,15 @@
 """Job runner: bridges Celery tasks to GPU provider + MiroFish pipeline."""
 from __future__ import annotations
 
+import asyncio
+import logging
 from dataclasses import dataclass
 
+import httpx
+
 from saas.gpu.provider import GPUProvider, GPUProviderConfig
+
+logger = logging.getLogger(__name__)
 
 TIER_TIMEOUTS: dict[str, int] = {
     "small": 2700,
@@ -78,57 +84,52 @@ class JobRunner:
             await self.gpu_provider.terminate(instance.instance_id)
 
     async def _execute_pipeline(self, instance_id: str, config: JobConfig) -> dict:
-        """Execute the MiroFish 5-step pipeline on the GPU instance.
+        """Execute the MiroFish pipeline via the worker pod's HTTP API.
 
         Steps:
-          1. Upload seed text to the instance as /tmp/seed.txt
-          2. Execute run_job.py on the instance (blocks until completion)
-          3. Download report.md and chat_log.json
-          4. Return report + chat_log to be saved in the DB
+          1. Poll /health until the worker API (and vLLM) is ready
+          2. POST /job with seed_text, goal, max_rounds — blocks until complete
+          3. Return report + chat_log to be saved in the DB
         """
-        # ------------------------------------------------------------------
-        # 1. Upload seed text
-        # ------------------------------------------------------------------
-        # Use a heredoc so arbitrary text (quotes, newlines) is transmitted
-        # safely without shell escaping issues.
-        await self.gpu_provider.execute_command(
-            instance_id,
-            f"cat > /tmp/seed.txt << 'SEEDEOF'\n{config.seed_text}\nSEEDEOF",
-        )
+        worker_url = f"https://{instance_id}-5000.proxy.runpod.net"
 
         # ------------------------------------------------------------------
-        # 2. Run the pipeline
+        # 1. Wait for worker API to be ready (vLLM model load takes ~2-5 min)
         # ------------------------------------------------------------------
-        # Single-quote the goal after replacing any embedded single quotes.
-        goal_safe = config.goal.replace("'", "'\\''")
-        await self.gpu_provider.execute_command(
-            instance_id,
-            (
-                "cd /app && python3 run_job.py"
-                " --seed-file /tmp/seed.txt"
-                f" --goal '{goal_safe}'"
-                f" --max-rounds {config.max_rounds}"
-                " --output-dir /tmp/results"
-            ),
-        )
+        logger.info(f"Waiting for worker API at {worker_url}/health ...")
+        for attempt in range(60):  # 5 min max (60 * 5s)
+            try:
+                async with httpx.AsyncClient(timeout=10) as client:
+                    resp = await client.get(f"{worker_url}/health")
+                    if resp.status_code == 200:
+                        logger.info(f"Worker API ready after {attempt * 5}s")
+                        break
+            except Exception:
+                pass
+            await asyncio.sleep(5)
+        else:
+            raise TimeoutError(f"Worker API at {worker_url} did not become ready within 300s")
 
         # ------------------------------------------------------------------
-        # 3. Download results
+        # 2. Submit job — blocks until the pipeline completes (up to 1 hour)
         # ------------------------------------------------------------------
-        report = await self.gpu_provider.execute_command(
-            instance_id, "cat /tmp/results/report.md"
-        )
-        chat_log = await self.gpu_provider.execute_command(
-            instance_id, "cat /tmp/results/chat_log.json"
-        )
+        logger.info(f"Submitting job to {worker_url}/job (max_rounds={config.max_rounds})")
+        async with httpx.AsyncClient(timeout=3600) as client:  # 1 hour timeout
+            resp = await client.post(f"{worker_url}/job", json={
+                "seed_text": config.seed_text,
+                "goal": config.goal,
+                "max_rounds": config.max_rounds,
+            })
+            resp.raise_for_status()
+            result = resp.json()
 
         # ------------------------------------------------------------------
-        # 4. Return structured result for the Celery task to persist
+        # 3. Return structured result for the Celery task to persist
         # ------------------------------------------------------------------
         return {
             "job_id": config.job_id,
             "instance_id": instance_id,
-            "report": report,
-            "chat_log": chat_log,
+            "report": result.get("report", ""),
+            "chat_log": result.get("chat_log", "[]"),
             "status": "completed",
         }

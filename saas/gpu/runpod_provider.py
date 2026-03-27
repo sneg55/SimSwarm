@@ -32,7 +32,7 @@ class RunPodProvider(GPUProvider):
             gpu_count=1,
             volume_in_gb=0,
             container_disk_in_gb=100,
-            ports="8000/http,22/tcp",
+            ports="5000/http,8000/http",
             env=config.env_vars or {},
         )
 
@@ -61,26 +61,20 @@ class RunPodProvider(GPUProvider):
         runtime = pod.get("runtime") or {}
 
         has_runtime = raw_status == "RUNNING" and bool(runtime)
-        ip_address = None
-        ssh_port = None
 
+        # RunPod HTTP proxy URL for the worker API on port 5000.
+        # Format: https://{pod_id}-5000.proxy.runpod.net
+        # Set ip_address to the proxy URL so callers can reach the worker API.
+        ip_address = None
         if has_runtime:
-            ports = runtime.get("ports") or []
-            for port in ports:
-                if port.get("privatePort") == 22:
-                    ip_address = port.get("ip")
-                    ssh_port = port.get("publicPort")
-                    break
-            # RunPod pods may not expose ports immediately — if runtime exists, pod is ready
-            if not ip_address:
-                ip_address = instance_id  # Use pod ID as placeholder — exec works via API, not SSH
+            ip_address = f"https://{instance_id}-5000.proxy.runpod.net"
 
         return GPUInstance(
             instance_id=instance_id,
             provider="runpod",
             gpu_type=pod.get("machine", {}).get("gpuDisplayName", "unknown"),
             ip_address=ip_address,
-            ssh_port=ssh_port,
+            ssh_port=None,
             status="running" if has_runtime else "provisioning",
         )
 
@@ -90,16 +84,18 @@ class RunPodProvider(GPUProvider):
         runpod.terminate_pod(instance_id)
 
     async def execute_command(self, instance_id: str, command: str) -> str:
-        """Execute a command on the running pod.
+        """Not used with HTTP approach — kept for interface compatibility."""
+        return ""
 
-        Uses RunPod's runsync API for serverless, or SSH for on-demand pods.
-        For on-demand pods, we use the HTTP exec endpoint.
-        """
-        # Use runpod's exec endpoint
-        try:
-            result = runpod.run_sync(instance_id, {"input": {"command": command}})
-            return result.get("output", "")
-        except Exception as e:
-            logger.warning(f"RunPod exec failed, trying alternative: {e}")
-            # Fallback: some pod types don't support runsync
-            return ""
+    async def submit_job(self, instance_id: str, seed_text: str, goal: str, max_rounds: int) -> dict:
+        """Submit a job to the worker API via HTTP."""
+        import httpx
+        url = f"https://{instance_id}-5000.proxy.runpod.net/job"
+        async with httpx.AsyncClient(timeout=3600) as client:
+            resp = await client.post(url, json={
+                "seed_text": seed_text,
+                "goal": goal,
+                "max_rounds": max_rounds,
+            })
+            resp.raise_for_status()
+            return resp.json()

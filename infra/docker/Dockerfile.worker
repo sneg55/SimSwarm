@@ -20,19 +20,22 @@ RUN pip install --no-cache-dir --ignore-installed -r /app/mirofish-requirements.
 COPY vendor/mirofish/backend/ /app/mirofish/backend/
 COPY vendor/mirofish/package.json /app/mirofish/package.json
 
-# Copy our job runner
+# Copy our job runner and worker API
 COPY infra/docker/run_job.py /app/run_job.py
-RUN chmod +x /app/run_job.py
+COPY infra/docker/worker_api.py /app/worker_api.py
+COPY infra/docker/start.sh /app/start.sh
+RUN chmod +x /app/run_job.py /app/start.sh
+
+# Ensure flask is available (MiroFish requirements may already include it)
+RUN pip install --no-cache-dir flask || true
 
 # Create directories for job data
 RUN mkdir -p /tmp/results /tmp/seed
 
-EXPOSE 8000
+# Port 8000: vLLM OpenAI-compatible API
+# Port 5000: worker HTTP job API
+EXPOSE 5000 8000
 
-# Entrypoint: start vLLM server with model passed via env
+# Entrypoint: start both vLLM and the worker API via start.sh
 # MODEL_ID and VLLM_ARGS are set by the orchestrator
-CMD python3 -m vllm.entrypoints.openai.api_server \
-    --host 0.0.0.0 \
-    --port 8000 \
-    --model ${MODEL_ID:-Qwen/Qwen2.5-32B-Instruct-AWQ} \
-    ${VLLM_ARGS:---quantization awq --max-model-len 32768}
+CMD ["/app/start.sh"]

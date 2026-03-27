@@ -1,14 +1,15 @@
 """
 Tests for the GPU worker pipeline wiring:
   - run_job.py argument parsing
-  - JobRunner._execute_pipeline() command sequence (mocked GPU provider)
+  - worker_api.py Flask endpoints
+  - JobRunner._execute_pipeline() HTTP approach (mocked httpx)
 """
 from __future__ import annotations
 
 import importlib.util
 import sys
 from pathlib import Path
-from unittest.mock import AsyncMock, call, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -20,6 +21,7 @@ from saas.workers.job_runner import JobConfig, JobRunner
 # ---------------------------------------------------------------------------
 
 RUN_JOB_PATH = Path(__file__).parent.parent / "infra" / "docker" / "run_job.py"
+WORKER_API_PATH = Path(__file__).parent.parent / "infra" / "docker" / "worker_api.py"
 
 
 def _load_run_job_module():
@@ -53,8 +55,8 @@ def _make_instance(instance_id: str = "inst-abc") -> GPUInstance:
         instance_id=instance_id,
         provider="runpod",
         gpu_type="RTX4090",
-        ip_address="10.0.0.1",
-        ssh_port=22,
+        ip_address=f"https://{instance_id}-5000.proxy.runpod.net",
+        ssh_port=None,
         status="running",
     )
 
@@ -127,146 +129,339 @@ class TestRunJobArgParsing:
 
 
 # ===========================================================================
-# Section 2: JobRunner._execute_pipeline() command sequence
+# Section 2: worker_api.py Flask endpoints
 # ===========================================================================
 
 
-class TestExecutePipeline:
-    """Verify _execute_pipeline() sends the correct commands to the GPU provider."""
+class TestWorkerApi:
+    """Test the worker Flask API endpoints."""
+
+    @pytest.fixture()
+    def client(self):
+        """Create a Flask test client with a fresh job state."""
+        spec = importlib.util.spec_from_file_location("worker_api", WORKER_API_PATH)
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        mod._current_job["status"] = "idle"
+        mod._current_job["result"] = None
+        mod._current_job["error"] = None
+        mod.app.config["TESTING"] = True
+        return mod.app.test_client(), mod
+
+    def test_health_returns_ok(self, client):
+        flask_client, _ = client
+        resp = flask_client.get("/health")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "ok"
+        assert data["job_status"] == "idle"
+
+    def test_status_endpoint(self, client):
+        flask_client, _ = client
+        resp = flask_client.get("/status")
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "idle"
+
+    def test_job_conflict_when_running(self, client):
+        flask_client, mod = client
+        mod._current_job["status"] = "running"
+        resp = flask_client.post(
+            "/job",
+            json={"seed_text": "text", "goal": "goal", "max_rounds": 10},
+        )
+        assert resp.status_code == 409
+        assert "already running" in resp.get_json()["error"]
+
+    def test_job_success(self, client, tmp_path):
+        """Successful job writes results and returns report + chat_log."""
+        flask_client, mod = client
+
+        report_content = "# Report\nAnalysis done."
+        chat_log_content = '[{"action": "post"}]'
+
+        def fake_run(cmd, **kwargs):
+            # Simulate the pipeline writing output files
+            results_dir = tmp_path / "results"
+            results_dir.mkdir(parents=True, exist_ok=True)
+            (results_dir / "report.md").write_text(report_content)
+            (results_dir / "chat_log.json").write_text(chat_log_content)
+            result = MagicMock()
+            result.returncode = 0
+            result.stdout = ""
+            result.stderr = ""
+            return result
+
+        import subprocess
+        with patch.object(mod, "subprocess") as mock_subprocess, \
+             patch("pathlib.Path.exists", return_value=True), \
+             patch("pathlib.Path.read_text") as mock_read, \
+             patch("pathlib.Path.write_text"):
+            mock_subprocess.run.side_effect = fake_run
+            mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
+            mock_read.side_effect = [report_content, chat_log_content]
+
+            resp = flask_client.post(
+                "/job",
+                json={"seed_text": "Climate", "goal": "Analyse", "max_rounds": 10},
+            )
+
+        assert resp.status_code == 200
+        data = resp.get_json()
+        assert data["status"] == "completed"
+
+    def test_job_failure_returns_500(self, client):
+        """Pipeline returning non-zero exit code gives 500 with error info."""
+        flask_client, mod = client
+
+        import subprocess
+
+        def fake_run_fail(cmd, **kwargs):
+            result = MagicMock()
+            result.returncode = 1
+            result.stderr = "Fatal error: something went wrong"
+            result.stdout = ""
+            return result
+
+        with patch.object(mod, "subprocess") as mock_subprocess, \
+             patch("pathlib.Path.write_text"):
+            mock_subprocess.run.side_effect = fake_run_fail
+            mock_subprocess.TimeoutExpired = subprocess.TimeoutExpired
+
+            resp = flask_client.post(
+                "/job",
+                json={"seed_text": "text", "goal": "goal", "max_rounds": 10},
+            )
+
+        assert resp.status_code == 500
+        data = resp.get_json()
+        assert data["status"] == "failed"
+        assert "error" in data
+
+    def test_worker_api_file_exists(self):
+        assert WORKER_API_PATH.exists(), f"worker_api.py not found at {WORKER_API_PATH}"
+
+
+# ===========================================================================
+# Section 3: JobRunner._execute_pipeline() HTTP approach
+# ===========================================================================
+
+
+class TestExecutePipelineHTTP:
+    """Verify _execute_pipeline() uses HTTP to submit jobs and poll health."""
+
+    def _make_mock_http_client(self, health_status=200, job_response=None):
+        """Create a mock httpx.AsyncClient context manager."""
+        if job_response is None:
+            job_response = {
+                "status": "completed",
+                "report": "# Report",
+                "chat_log": '[{"action":"post"}]',
+            }
+
+        health_resp = MagicMock()
+        health_resp.status_code = health_status
+
+        job_resp = MagicMock()
+        job_resp.status_code = 200
+        job_resp.json.return_value = job_response
+        job_resp.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = health_resp
+        mock_client.post.return_value = job_resp
+
+        mock_ctx = AsyncMock()
+        mock_ctx.__aenter__.return_value = mock_client
+        mock_ctx.__aexit__.return_value = False
+        return mock_ctx, mock_client
 
     @pytest.mark.asyncio
-    async def test_uploads_seed_text(self):
-        """Pipeline uploads seed text to /tmp/seed.txt on the instance."""
+    async def test_polls_health_before_submitting(self):
+        """_execute_pipeline polls /health before posting to /job."""
+        mock_ctx, mock_client = self._make_mock_http_client()
         gpu = AsyncMock()
-        gpu.execute_command.return_value = "ok"
 
         runner = JobRunner(gpu_provider=gpu)
-        config = _make_job_config(seed_text="Hello world")
-        await runner._execute_pipeline("inst-1", config)
+        config = _make_job_config()
 
-        # First execute_command call should write seed text
-        first_call_cmd: str = gpu.execute_command.call_args_list[0][0][1]
-        assert "/tmp/seed.txt" in first_call_cmd
-        assert "Hello world" in first_call_cmd
+        with patch("saas.workers.job_runner.httpx.AsyncClient", return_value=mock_ctx):
+            await runner._execute_pipeline("pod-123", config)
+
+        # Should have called GET /health
+        health_calls = [
+            c for c in mock_client.get.call_args_list
+            if "/health" in str(c)
+        ]
+        assert len(health_calls) >= 1
 
     @pytest.mark.asyncio
-    async def test_runs_run_job_script(self):
-        """Pipeline calls run_job.py with --seed-file, --goal and --max-rounds."""
+    async def test_submits_job_with_correct_payload(self):
+        """Job POST includes seed_text, goal, and max_rounds."""
+        mock_ctx, mock_client = self._make_mock_http_client()
         gpu = AsyncMock()
-        gpu.execute_command.return_value = "ok"
 
         runner = JobRunner(gpu_provider=gpu)
-        config = _make_job_config(goal="Analyse opinions", max_rounds=99)
-        await runner._execute_pipeline("inst-2", config)
+        config = _make_job_config(
+            seed_text="Test seed material",
+            goal="Research objective",
+            max_rounds=42,
+        )
 
-        # Second execute_command call should launch run_job.py
-        pipeline_cmd: str = gpu.execute_command.call_args_list[1][0][1]
-        assert "run_job.py" in pipeline_cmd
-        assert "--seed-file /tmp/seed.txt" in pipeline_cmd
-        assert "--max-rounds 99" in pipeline_cmd
-        assert "--output-dir /tmp/results" in pipeline_cmd
+        with patch("saas.workers.job_runner.httpx.AsyncClient", return_value=mock_ctx):
+            await runner._execute_pipeline("pod-456", config)
+
+        post_call = mock_client.post.call_args
+        assert post_call is not None
+        payload = post_call.kwargs.get("json") or post_call[1].get("json") or post_call[0][1]
+        assert payload["seed_text"] == "Test seed material"
+        assert payload["goal"] == "Research objective"
+        assert payload["max_rounds"] == 42
 
     @pytest.mark.asyncio
-    async def test_goal_included_in_run_command(self):
-        """The --goal flag value is present in the run_job.py invocation."""
+    async def test_uses_correct_runpod_proxy_url(self):
+        """Worker URL is constructed as https://{pod_id}-5000.proxy.runpod.net."""
+        mock_ctx, mock_client = self._make_mock_http_client()
         gpu = AsyncMock()
-        gpu.execute_command.return_value = "ok"
 
         runner = JobRunner(gpu_provider=gpu)
-        config = _make_job_config(goal="Unique research goal XYZ")
-        await runner._execute_pipeline("inst-3", config)
+        config = _make_job_config()
 
-        pipeline_cmd: str = gpu.execute_command.call_args_list[1][0][1]
-        assert "Unique research goal XYZ" in pipeline_cmd
+        with patch("saas.workers.job_runner.httpx.AsyncClient", return_value=mock_ctx):
+            await runner._execute_pipeline("mypod-789", config)
 
-    @pytest.mark.asyncio
-    async def test_downloads_report(self):
-        """Pipeline issues a cat command to download /tmp/results/report.md."""
-        gpu = AsyncMock()
-        gpu.execute_command.return_value = "# Report"
-
-        runner = JobRunner(gpu_provider=gpu)
-        await runner._execute_pipeline("inst-4", _make_job_config())
-
-        download_cmds = [str(c) for c in gpu.execute_command.call_args_list]
-        assert any("/tmp/results/report.md" in cmd for cmd in download_cmds)
-
-    @pytest.mark.asyncio
-    async def test_downloads_chat_log(self):
-        """Pipeline issues a cat command to download /tmp/results/chat_log.json."""
-        gpu = AsyncMock()
-        gpu.execute_command.return_value = "[]"
-
-        runner = JobRunner(gpu_provider=gpu)
-        await runner._execute_pipeline("inst-5", _make_job_config())
-
-        download_cmds = [str(c) for c in gpu.execute_command.call_args_list]
-        assert any("/tmp/results/chat_log.json" in cmd for cmd in download_cmds)
+        post_call = mock_client.post.call_args
+        url = post_call[0][0] if post_call[0] else post_call.args[0]
+        assert "mypod-789-5000.proxy.runpod.net" in url
 
     @pytest.mark.asyncio
     async def test_returns_report_and_chat_log(self):
-        """_execute_pipeline() returns a dict with 'report' and 'chat_log' keys."""
+        """Result dict has report and chat_log from the HTTP response."""
+        mock_ctx, _ = self._make_mock_http_client(job_response={
+            "status": "completed",
+            "report": "# My Report Content",
+            "chat_log": '[{"action":"comment"}]',
+        })
         gpu = AsyncMock()
-        # Return values correspond to the four execute_command calls:
-        # 1. upload seed, 2. run pipeline, 3. cat report.md, 4. cat chat_log.json
-        gpu.execute_command.side_effect = ["ok", "ok", "# My Report", '[{"action":"post"}]']
 
         runner = JobRunner(gpu_provider=gpu)
-        result = await runner._execute_pipeline("inst-6", _make_job_config())
+        config = _make_job_config(job_id=99)
 
-        assert result["report"] == "# My Report"
-        assert result["chat_log"] == '[{"action":"post"}]'
+        with patch("saas.workers.job_runner.httpx.AsyncClient", return_value=mock_ctx):
+            result = await runner._execute_pipeline("pod-ret", config)
+
+        assert result["report"] == "# My Report Content"
+        assert result["chat_log"] == '[{"action":"comment"}]'
 
     @pytest.mark.asyncio
     async def test_returns_job_id_and_instance_id(self):
-        """Result dict also carries job_id and instance_id for traceability."""
+        """Result also carries job_id and instance_id for traceability."""
+        mock_ctx, _ = self._make_mock_http_client()
         gpu = AsyncMock()
-        gpu.execute_command.return_value = "ok"
 
         runner = JobRunner(gpu_provider=gpu)
-        config = _make_job_config(job_id=777)
-        result = await runner._execute_pipeline("inst-777", config)
+        config = _make_job_config(job_id=555)
 
-        assert result["job_id"] == 777
-        assert result["instance_id"] == "inst-777"
+        with patch("saas.workers.job_runner.httpx.AsyncClient", return_value=mock_ctx):
+            result = await runner._execute_pipeline("inst-555", config)
+
+        assert result["job_id"] == 555
+        assert result["instance_id"] == "inst-555"
 
     @pytest.mark.asyncio
-    async def test_execute_pipeline_called_exactly_four_times(self):
-        """Four execute_command calls: upload, run, cat report, cat chat_log."""
+    async def test_health_polling_retries_on_failure(self):
+        """Health polling retries when the worker API is not yet up."""
+        fail_resp = MagicMock()
+        fail_resp.status_code = 503
+
+        ok_resp = MagicMock()
+        ok_resp.status_code = 200
+
+        job_resp = MagicMock()
+        job_resp.status_code = 200
+        job_resp.json.return_value = {"status": "completed", "report": "", "chat_log": "[]"}
+        job_resp.raise_for_status = MagicMock()
+
+        mock_client = AsyncMock()
+        # First health call fails, second succeeds
+        mock_client.get.side_effect = [fail_resp, ok_resp]
+        mock_client.post.return_value = job_resp
+
+        mock_ctx = AsyncMock()
+        mock_ctx.__aenter__.return_value = mock_client
+        mock_ctx.__aexit__.return_value = False
+
         gpu = AsyncMock()
-        gpu.execute_command.return_value = "ok"
-
         runner = JobRunner(gpu_provider=gpu)
-        await runner._execute_pipeline("inst-8", _make_job_config())
+        config = _make_job_config()
 
-        assert gpu.execute_command.call_count == 4
+        with patch("saas.workers.job_runner.httpx.AsyncClient", return_value=mock_ctx), \
+             patch("saas.workers.job_runner.asyncio.sleep", new_callable=AsyncMock):
+            await runner._execute_pipeline("pod-retry", config)
+
+        # Should have called health at least twice
+        assert mock_client.get.call_count >= 2
 
     @pytest.mark.asyncio
-    async def test_goal_single_quotes_escaped(self):
-        """Single quotes in goal are shell-escaped so the command is valid."""
+    async def test_timeout_raised_if_health_never_ready(self):
+        """TimeoutError is raised if worker API never becomes healthy."""
+        fail_resp = MagicMock()
+        fail_resp.status_code = 503
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = fail_resp
+
+        mock_ctx = AsyncMock()
+        mock_ctx.__aenter__.return_value = mock_client
+        mock_ctx.__aexit__.return_value = False
+
         gpu = AsyncMock()
-        gpu.execute_command.return_value = "ok"
-
         runner = JobRunner(gpu_provider=gpu)
-        config = _make_job_config(goal="It's a test")
-        await runner._execute_pipeline("inst-9", config)
+        config = _make_job_config()
 
-        pipeline_cmd: str = gpu.execute_command.call_args_list[1][0][1]
-        # The raw single-quote must not appear unescaped inside the quoted goal
-        # Our implementation uses the '\'' technique
-        assert "It" in pipeline_cmd
-        assert "s a test" in pipeline_cmd
+        with patch("saas.workers.job_runner.httpx.AsyncClient", return_value=mock_ctx), \
+             patch("saas.workers.job_runner.asyncio.sleep", new_callable=AsyncMock):
+            with pytest.raises(TimeoutError, match="did not become ready"):
+                await runner._execute_pipeline("pod-timeout", config)
 
     @pytest.mark.asyncio
     async def test_full_run_terminates_gpu_on_success(self):
-        """runner.run() still terminates the GPU even with the updated pipeline."""
+        """runner.run() terminates the GPU instance after pipeline completes."""
+        mock_ctx, _ = self._make_mock_http_client()
         gpu = AsyncMock()
         instance = _make_instance("inst-full")
         gpu.provision.return_value = instance
-        gpu.execute_command.return_value = "ok"
         gpu.terminate.return_value = None
 
         runner = JobRunner(gpu_provider=gpu)
-        await runner.run(_make_job_config())
+
+        with patch("saas.workers.job_runner.httpx.AsyncClient", return_value=mock_ctx):
+            await runner.run(_make_job_config())
 
         gpu.terminate.assert_called_once_with("inst-full")
+
+    @pytest.mark.asyncio
+    async def test_full_run_terminates_gpu_on_failure(self):
+        """runner.run() terminates the GPU instance even if pipeline raises."""
+        gpu = AsyncMock()
+        instance = _make_instance("inst-fail")
+        gpu.provision.return_value = instance
+        gpu.terminate.return_value = None
+
+        runner = JobRunner(gpu_provider=gpu)
+
+        # Make the health check always fail so TimeoutError is raised
+        fail_resp = MagicMock()
+        fail_resp.status_code = 503
+        mock_client = AsyncMock()
+        mock_client.get.return_value = fail_resp
+        mock_ctx = AsyncMock()
+        mock_ctx.__aenter__.return_value = mock_client
+        mock_ctx.__aexit__.return_value = False
+
+        with patch("saas.workers.job_runner.httpx.AsyncClient", return_value=mock_ctx), \
+             patch("saas.workers.job_runner.asyncio.sleep", new_callable=AsyncMock):
+            with pytest.raises(TimeoutError):
+                await runner.run(_make_job_config())
+
+        gpu.terminate.assert_called_once_with("inst-fail")
