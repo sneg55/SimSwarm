@@ -26,12 +26,14 @@ class CreditLedger:
         amount: int,
         description: str,
         stripe_session_id: str | None = None,
+        payment_intent_id: str | None = None,
     ) -> CreditEntry:
         entry = CreditEntry(
             user_id=user_id,
             amount=amount,
             description=description,
             stripe_session_id=stripe_session_id,
+            payment_intent_id=payment_intent_id,
         )
         self.session.add(entry)
         await self.session.flush()
@@ -70,6 +72,15 @@ class CreditLedger:
             )
         )
         return result.scalar() > 0
+
+    async def get_credit_by_payment_intent(self, payment_intent_id: str) -> CreditEntry | None:
+        result = await self.session.execute(
+            select(CreditEntry).where(
+                CreditEntry.payment_intent_id == payment_intent_id,
+                CreditEntry.amount > 0,
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def get_history(self, user_id: str) -> list[CreditEntry]:
         result = await self.session.execute(

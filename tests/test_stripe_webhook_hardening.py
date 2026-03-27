@@ -38,12 +38,13 @@ async def test_session_credited_ignores_null_session_ids(db_session):
 # ── Helpers ─────────────────────────────────────────────────────────────
 
 
-def _make_checkout_event(session_id: str, user_id: str, pack_id: str = "starter", credits: str = "100"):
+def _make_checkout_event(session_id: str, user_id: str, pack_id: str = "starter", credits: str = "100", payment_intent: str | None = None):
     """Build a mock Stripe checkout.session.completed event."""
     metadata = {"user_id": user_id, "pack_id": pack_id, "credits": credits}
     session_obj = MagicMock()
     session_obj.id = session_id
     session_obj.metadata = metadata
+    session_obj.payment_intent = payment_intent
 
     event = MagicMock()
     event.type = "checkout.session.completed"
@@ -140,3 +141,53 @@ async def test_webhook_with_missing_pack_id_does_not_credit(client, auth_headers
     ledger = CreditLedger(db_session)
     balance = await ledger.get_balance(user_id)
     assert balance == 0
+
+
+# ── Helpers: refund events ─────────────────────────────────────────────
+
+
+def _make_refund_event(charge_id, payment_intent_id, amount_refunded):
+    mock_event = MagicMock()
+    mock_event.type = "charge.refunded"
+    mock_event.data.object.id = charge_id
+    mock_event.data.object.payment_intent = payment_intent_id
+    mock_event.data.object.amount_refunded = amount_refunded
+    mock_event.data.object.metadata = {}
+    return mock_event
+
+
+# ── Task 4: Refund webhook handler ────────────────────────────────────
+
+
+async def test_refund_webhook_debits_credits(client, auth_headers, db_session):
+    """Credit user via checkout (with payment_intent), then refund → balance 0."""
+    user_id = auth_headers["_user_id"]
+
+    # 1. Credit via checkout with a payment_intent
+    checkout_event = _make_checkout_event(
+        "cs_refund_test", user_id, payment_intent="pi_test"
+    )
+    resp = await _post_webhook(client, checkout_event)
+    assert resp.status_code == 200
+
+    # Verify credits were added
+    ledger = CreditLedger(db_session)
+    balance = await ledger.get_balance(user_id)
+    assert balance == 100
+
+    # 2. Send refund event with same payment_intent
+    refund_event = _make_refund_event("ch_test", "pi_test", 1000)
+    resp = await _post_webhook(client, refund_event)
+    assert resp.status_code == 200
+
+    # 3. Balance should be 0
+    balance = await ledger.get_balance(user_id)
+    assert balance == 0
+
+
+async def test_refund_for_unknown_session_returns_200(client, auth_headers):
+    """Refund for unknown payment_intent returns 200, no crash."""
+    refund_event = _make_refund_event("ch_unknown", "pi_unknown", 5000)
+    resp = await _post_webhook(client, refund_event)
+    assert resp.status_code == 200
+    assert resp.json() == {"status": "ok"}

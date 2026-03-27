@@ -102,14 +102,39 @@ async def stripe_webhook(
             return {"status": "ok"}
 
         credits = pack.credits  # trust pack definition, not metadata
+        payment_intent_id = getattr(stripe_session, "payment_intent", None)
         await ledger.credit(
             user_id=user_id,
             amount=credits,
             description=f"Credit purchase via Stripe session {stripe_session_id}",
             stripe_session_id=stripe_session_id,
+            payment_intent_id=payment_intent_id,
         )
         await session.commit()
         logger.info("Credited %d credits to user %s for session %s", credits, user_id, stripe_session_id)
+
+    elif event.type == "charge.refunded":
+        charge = event.data.object
+        payment_intent_id = charge.payment_intent
+        ledger = CreditLedger(session)
+
+        original_credit = await ledger.get_credit_by_payment_intent(payment_intent_id)
+        if original_credit is None:
+            logger.warning("Refund for unknown payment_intent %s — ignoring", payment_intent_id)
+            return {"status": "ok"}
+
+        await ledger.debit(
+            user_id=original_credit.user_id,
+            amount=original_credit.amount,
+            description=f"Refund for payment_intent {payment_intent_id}",
+        )
+        await session.commit()
+        logger.info(
+            "Debited %d credits from user %s for refund on payment_intent %s",
+            original_credit.amount,
+            original_credit.user_id,
+            payment_intent_id,
+        )
 
     return {"status": "ok"}
 
