@@ -342,10 +342,14 @@ def extract_graph_data(graph_id: str) -> dict:
     """
     try:
         from app.services.zep_tools import ZepToolService  # noqa: PLC0415
+        import os
 
-        zep = ZepToolService()
+        api_key = os.environ.get("ZEP_API_KEY", "")
+        print(f"[run_job] Extracting graph data for graph_id={graph_id}, ZEP_API_KEY={'set' if api_key else 'MISSING'}", flush=True)
+        zep = ZepToolService(api_key=api_key)
         raw_nodes = zep.get_all_nodes(graph_id)
         raw_edges = zep.get_all_edges(graph_id)
+        print(f"[run_job] Zep returned {len(raw_nodes)} nodes, {len(raw_edges)} edges", flush=True)
 
         # Build connection_count per node by counting edges
         connection_count: dict[str, int] = {}
@@ -409,7 +413,9 @@ def extract_graph_data(graph_id: str) -> dict:
         return graph_data
 
     except Exception as exc:
+        import traceback
         print(f"[run_job] WARNING: graph extraction failed: {exc}", flush=True)
+        traceback.print_exc()
         return {"nodes": [], "edges": [], "metadata": {"entity_types": [], "total_nodes": 0, "total_edges": 0}}
 
 
