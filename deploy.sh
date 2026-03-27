@@ -16,7 +16,7 @@ fi
 REPO_DIR="/opt/fishcloud"
 if [ ! -d "$REPO_DIR" ]; then
     echo "Cloning repo..."
-    git clone https://github.com/sneg55/fishandcat.git "$REPO_DIR"
+    git clone https://github.com/sneg55/SimSwarm.git "$REPO_DIR"
     cd "$REPO_DIR"
     git submodule update --init --recursive
 else
