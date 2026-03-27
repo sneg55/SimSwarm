@@ -40,11 +40,13 @@ def _make_checkout_completed_event(
     credits: int,
     pack_id: str = "starter",
     session_id: str = "cs_test_abc123",
+    payment_intent: str | None = None,
 ) -> MagicMock:
     """Return a mock of a checkout.session.completed Stripe Event."""
     event = MagicMock()
     event.type = "checkout.session.completed"
     event.data.object.id = session_id
+    event.data.object.payment_intent = payment_intent
     event.data.object.metadata = {
         "user_id": user_id,
         "pack_id": pack_id,
@@ -269,13 +271,14 @@ async def test_webhook_missing_user_id_does_not_crash(client):
 
 
 @pytest.mark.asyncio
-async def test_webhook_zero_credits_does_not_credit_account(client, auth_headers):
-    """A completed checkout with credits=0 should not alter the balance."""
+async def test_webhook_unknown_pack_does_not_credit_account(client, auth_headers):
+    """A completed checkout with an unknown pack_id should not alter the balance."""
     user_id = auth_headers["_user_id"]
     event_mock = _make_checkout_completed_event(
         user_id=user_id,
-        credits=0,
-        session_id="cs_test_zero",
+        credits=100,
+        pack_id="nonexistent_pack",
+        session_id="cs_test_unknown_pack",
     )
 
     with patch("saas.billing.stripe_service.stripe.Webhook.construct_event", return_value=event_mock):
