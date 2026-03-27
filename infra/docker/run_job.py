@@ -107,8 +107,8 @@ def build_graph(seed_text: str, goal: str) -> tuple[str, str]:
 
     print("[run_job] Step 1: Generating ontology...", flush=True)
     ontology_gen = OntologyGenerator()
-    ontology = ontology_gen.generate_ontology(
-        text=seed_text,
+    ontology = ontology_gen.generate(
+        document_texts=[seed_text],
         simulation_requirement=goal,
     )
 
