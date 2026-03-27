@@ -127,11 +127,20 @@ class JobRunner:
         import time
         provision_start = time.monotonic()
         instance = await self.gpu_provider.provision(gpu_config)
-        provision_elapsed = int(time.monotonic() - provision_start)
-        logger.info(f"Job {config.job_id}: GPU provisioned in {provision_elapsed}s (pod {instance.instance_id})")
+        provision_seconds = int(time.monotonic() - provision_start)
+        pod_id = instance.instance_id
+        logger.info(
+            "job.gpu_provisioned job_id=%d pod_id=%s provision_seconds=%d",
+            config.job_id, pod_id, provision_seconds,
+        )
 
         try:
+            pipeline_start = time.monotonic()
             result = await self._execute_pipeline(instance.instance_id, config)
+            pipeline_seconds = int(time.monotonic() - pipeline_start)
+            result["pod_id"] = pod_id
+            result["provision_seconds"] = provision_seconds
+            result["pipeline_seconds"] = pipeline_seconds
             return result
         except Exception as e:
             logger.error(f"Pipeline failed for pod {instance.instance_id}: {e}")

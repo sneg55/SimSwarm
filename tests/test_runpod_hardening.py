@@ -91,3 +91,30 @@ def test_worker_image_fallback_without_env_var():
     with patch.dict(os.environ, env, clear=True):
         result = get_worker_image()
         assert result.startswith("ghcr.io/sneg55/simswarm-worker:")
+
+
+# ── Task 4: JobRunner Returns pod_id and Durations ──
+
+
+@pytest.mark.asyncio
+async def test_job_runner_result_includes_pod_id():
+    gpu = AsyncMock()
+    gpu.provision.return_value = GPUInstance(
+        instance_id="pod_xyz", provider="runpod", gpu_type="RTX4090",
+        ip_address="https://pod_xyz-5000.proxy.runpod.net", ssh_port=None, status="running",
+    )
+    runner = JobRunner(gpu_provider=gpu)
+
+    async def mock_pipeline(instance_id, config):
+        return {"report": "test", "chat_log": "[]", "graph_data": "{}"}
+    runner._execute_pipeline = mock_pipeline
+
+    config = JobConfig(
+        job_id=1, user_id="u1", seed_text="test", goal="test", tier="small",
+        model_id="m", gpu_type="RTX4090", max_rounds=10, vllm_args="",
+        llm_api_key="k", zep_api_key="z",
+    )
+    result = await runner.run(config)
+    assert result["pod_id"] == "pod_xyz"
+    assert "provision_seconds" in result
+    assert "pipeline_seconds" in result
