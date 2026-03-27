@@ -69,7 +69,7 @@ def markdown_to_pdf(markdown_text: str, title: str) -> bytes:
     )
 
     story = []
-    story.append(Paragraph("FishCloud Prediction Report", title_style))
+    story.append(Paragraph("SimSwarm Prediction Report", title_style))
     story.append(Paragraph(title, h2_style))
     story.append(Spacer(1, 20))
 

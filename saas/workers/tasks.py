@@ -1,4 +1,4 @@
-"""Celery task definitions for FishCloud GPU job orchestration."""
+"""Celery task definitions for SimSwarm GPU job orchestration."""
 from __future__ import annotations
 
 import asyncio

@@ -2,7 +2,7 @@
   <div class="min-h-screen flex items-center justify-center bg-gray-50">
     <div class="max-w-md w-full space-y-8 p-8 bg-white rounded-lg shadow">
       <div>
-        <h2 class="text-3xl font-bold text-center text-gray-900">Sign in to FishCloud</h2>
+        <h2 class="text-3xl font-bold text-center text-gray-900">Sign in to SimSwarm</h2>
       </div>
       <form @submit.prevent="handleLogin" class="space-y-4">
         <div v-if="error" class="bg-red-50 text-red-700 p-3 rounded text-sm">{{ error }}</div>

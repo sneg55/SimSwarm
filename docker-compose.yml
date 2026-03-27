@@ -1,7 +1,7 @@
 services:
   app:
     build: .
-    container_name: fishcloud-api
+    container_name: simswarm-api
     restart: unless-stopped
     env_file: .env
     environment:
@@ -19,7 +19,7 @@ services:
 
   celery:
     build: .
-    container_name: fishcloud-celery
+    container_name: simswarm-celery
     restart: unless-stopped
     env_file: .env
     environment:
@@ -34,7 +34,7 @@ services:
 
   db:
     image: postgres:16-alpine
-    container_name: fishcloud-db
+    container_name: simswarm-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: fishcloud
@@ -50,7 +50,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: fishcloud-redis
+    container_name: simswarm-redis
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
@@ -60,7 +60,7 @@ services:
 
   caddy:
     image: caddy:2-alpine
-    container_name: fishcloud-caddy
+    container_name: simswarm-caddy
     restart: unless-stopped
     ports:
       - "80:80"
@@ -79,7 +79,7 @@ services:
   # Copy frontend build into shared volume
   frontend-init:
     build: .
-    container_name: fishcloud-frontend-init
+    container_name: simswarm-frontend-init
     command: cp -r /app/frontend/dist/. /srv/frontend/
     volumes:
       - frontend_dist:/srv/frontend
@@ -88,7 +88,7 @@ services:
   # Run migrations on deploy (one-shot)
   migrate:
     build: .
-    container_name: fishcloud-migrate
+    container_name: simswarm-migrate
     env_file: .env
     environment:
       - DATABASE_URL=postgresql+asyncpg://fishcloud:${POSTGRES_PASSWORD}@db:5432/fishcloud

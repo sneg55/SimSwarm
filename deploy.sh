@@ -1,10 +1,10 @@
 #!/bin/bash
-# FishCloud deployment script for Hetzner
+# SimSwarm deployment script for Hetzner
 # Usage: ssh root@your-server 'bash -s' < deploy.sh
 
 set -euo pipefail
 
-echo "=== FishCloud Deploy ==="
+echo "=== SimSwarm Deploy ==="
 
 # Install Docker if not present
 if ! command -v docker &> /dev/null; then

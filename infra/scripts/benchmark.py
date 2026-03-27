@@ -1,5 +1,5 @@
 """
-FishCloud Benchmark Suite
+SimSwarm Benchmark Suite
 Measures GPU cost (COGS) per job tier and validates pricing margins.
 """
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""Celery application configuration for FishCloud workers."""
+"""Celery application configuration for SimSwarm workers."""
 import os
 
 from celery import Celery

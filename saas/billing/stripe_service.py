@@ -30,7 +30,7 @@ class StripeService:
                     "price_data": {
                         "currency": "usd",
                         "product_data": {
-                            "name": f"FishCloud Credits — {pack_id.capitalize()} Pack",
+                            "name": f"SimSwarm Credits — {pack_id.capitalize()} Pack",
                         },
                         "unit_amount": price_cents,
                     },

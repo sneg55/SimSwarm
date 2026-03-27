@@ -1,5 +1,5 @@
 """
-FishCloud Benchmark Report Generator
+SimSwarm Benchmark Report Generator
 Produces a Markdown report from benchmark results and validates pricing margins.
 """
 from __future__ import annotations
@@ -28,7 +28,7 @@ def generate_markdown_report(results: dict) -> str:
     dry_run = results.get("dry_run", False)
     num_runs = results.get("num_runs", "?")
 
-    lines.append("# FishCloud Benchmark Report")
+    lines.append("# SimSwarm Benchmark Report")
     lines.append("")
     lines.append(f"**Generated:** {generated_at}  ")
     lines.append(f"**Mode:** {'dry-run (simulated)' if dry_run else 'live'}  ")

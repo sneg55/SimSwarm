@@ -3,7 +3,7 @@
     <div class="max-w-6xl mx-auto px-4">
       <div class="flex items-center justify-between h-16">
         <div class="flex items-center gap-6">
-          <router-link to="/" class="text-xl font-bold text-blue-600">FishCloud</router-link>
+          <router-link to="/" class="text-xl font-bold text-blue-600">SimSwarm</router-link>
           <div v-if="authStore.isLoggedIn" class="flex items-center gap-4">
             <router-link
               to="/dashboard"

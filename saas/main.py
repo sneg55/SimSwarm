@@ -20,7 +20,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         settings = Settings()
     _app_settings = settings
 
-    app = FastAPI(title="FishCloud", version="0.1.0")
+    app = FastAPI(title="SimSwarm", version="0.1.0")
     app.state.settings = settings
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

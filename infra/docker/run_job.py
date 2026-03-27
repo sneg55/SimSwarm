@@ -177,7 +177,7 @@ def build_graph(seed_text: str, goal: str) -> tuple[str, str]:
 
     print("[run_job] Step 2: Building Zep knowledge graph...", flush=True)
     builder = GraphBuilderService()
-    graph_id = builder.create_graph(name=f"FishCloud-{int(time.time())}")
+    graph_id = builder.create_graph(name=f"SimSwarm-{int(time.time())}")
     builder.set_ontology(graph_id, ontology)
 
     # Split text, ingest in batches, wait for Zep processing
