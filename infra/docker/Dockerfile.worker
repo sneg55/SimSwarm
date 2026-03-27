@@ -22,6 +22,10 @@ RUN pip install --no-cache-dir flask flask-cors requests zep-cloud 2>/dev/null |
 # Restore vLLM's pinned versions (vLLM is fragile about FastAPI/Starlette versions)
 RUN pip install --no-cache-dir -r /tmp/vllm-pins.txt
 
+# Ensure Flask is installed AFTER vLLM pin restore (pin restore can remove it)
+RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests zep-cloud && \
+    python3 -c "import flask; print(f'Flask {flask.__version__} OK')"
+
 # Copy MiroFish engine
 COPY vendor/mirofish/backend/ /app/mirofish/backend/
 COPY vendor/mirofish/package.json /app/mirofish/package.json

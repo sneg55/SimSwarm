@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+# Don't use set -e — vLLM might fail and we still want worker_api to serve logs
 
 echo "[start.sh] MODEL_ID=${MODEL_ID:-not set}"
 echo "[start.sh] VLLM_ARGS=${VLLM_ARGS:-not set}"
