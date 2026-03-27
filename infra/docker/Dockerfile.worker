@@ -1,30 +1,33 @@
 # GPU Worker Image for FishCloud
-# Based on vLLM's official image (has CUDA + vLLM pre-installed)
-FROM vllm/vllm-openai:v0.6.6.post1 AS base
+# Uses Python 3.11 for camel-oasis compatibility
+FROM nvidia/cuda:12.1.0-devel-ubuntu22.04
 
-USER root
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Install additional system deps
+# Install Python 3.11 + system deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    nodejs npm git \
+    software-properties-common && \
+    add-apt-repository -y ppa:deadsnakes/ppa && \
+    apt-get update && apt-get install -y --no-install-recommends \
+    python3.11 python3.11-venv python3.11-dev \
+    git curl wget build-essential \
     && rm -rf /var/lib/apt/lists/*
+
+# Make python3.11 the default
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 && \
+    curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
 
 WORKDIR /app
 
-# Save vLLM's pinned dependency versions before installing MiroFish deps
-RUN pip freeze | grep -iE "fastapi|starlette|uvicorn|pydantic" > /tmp/vllm-pins.txt
+# Install vLLM (compatible with Python 3.11)
+RUN pip install --no-cache-dir "vllm>=0.6.0,<0.7.0"
 
-# Install MiroFish Python dependencies (may conflict with vLLM)
+# Install MiroFish dependencies
 COPY vendor/mirofish/backend/requirements.txt /app/mirofish-requirements.txt
-RUN pip install --no-cache-dir -r /app/mirofish-requirements.txt 2>/dev/null || true
-RUN pip install --no-cache-dir flask flask-cors requests zep-cloud 2>/dev/null || true
+RUN pip install --no-cache-dir --ignore-installed -r /app/mirofish-requirements.txt
 
-# Restore vLLM's pinned versions (vLLM is fragile about FastAPI/Starlette versions)
-RUN pip install --no-cache-dir -r /tmp/vllm-pins.txt
-
-# Ensure Flask is installed AFTER vLLM pin restore (pin restore can remove it)
-RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests zep-cloud && \
-    python3 -c "import flask; print(f'Flask {flask.__version__} OK')"
+# Install Flask + remaining deps
+RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests zep-cloud
 
 # Copy MiroFish engine
 COPY vendor/mirofish/backend/ /app/mirofish/backend/
@@ -43,7 +46,4 @@ RUN mkdir -p /tmp/results /tmp/seed
 # Port 5000: worker HTTP job API
 EXPOSE 5000 8000
 
-# Override base image entrypoint (vllm/vllm-openai sets ENTRYPOINT to vLLM server)
-# We need our own start script that launches both vLLM and the worker API
-ENTRYPOINT []
 CMD ["/bin/bash", "/app/start.sh"]
