@@ -75,11 +75,16 @@ async def test_run_provisions_gpu():
     gpu_provider = AsyncMock()
     instance = _make_instance("inst-prov")
     gpu_provider.provision.return_value = instance
-    gpu_provider.execute_command.return_value = "done"
     gpu_provider.terminate.return_value = None
 
     runner = JobRunner(gpu_provider=gpu_provider)
     config = _make_job_config()
+
+    # Mock _execute_pipeline to avoid real HTTP calls
+    async def mock_pipeline(instance_id, cfg):
+        return {"report": "", "chat_log": "[]", "graph_data": "{}"}
+
+    runner._execute_pipeline = mock_pipeline
     await runner.run(config)
 
     gpu_provider.provision.assert_called_once()
@@ -94,10 +99,14 @@ async def test_run_terminates_on_success():
     gpu_provider = AsyncMock()
     instance = _make_instance("inst-success")
     gpu_provider.provision.return_value = instance
-    gpu_provider.execute_command.return_value = "pipeline complete"
     gpu_provider.terminate.return_value = None
 
     runner = JobRunner(gpu_provider=gpu_provider)
+
+    async def mock_pipeline(instance_id, cfg):
+        return {"report": "", "chat_log": "[]", "graph_data": "{}"}
+
+    runner._execute_pipeline = mock_pipeline
     await runner.run(_make_job_config())
 
     gpu_provider.terminate.assert_called_once_with("inst-success")
@@ -109,10 +118,14 @@ async def test_run_terminates_on_failure():
     gpu_provider = AsyncMock()
     instance = _make_instance("inst-fail")
     gpu_provider.provision.return_value = instance
-    gpu_provider.execute_command.side_effect = RuntimeError("Pipeline crashed")
     gpu_provider.terminate.return_value = None
 
     runner = JobRunner(gpu_provider=gpu_provider)
+
+    async def mock_pipeline(instance_id, cfg):
+        raise RuntimeError("Pipeline crashed")
+
+    runner._execute_pipeline = mock_pipeline
     with pytest.raises(RuntimeError, match="Pipeline crashed"):
         await runner.run(_make_job_config())
 

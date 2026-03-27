@@ -32,7 +32,7 @@ async def test_full_job_lifecycle(client, auth_headers, funded_user, seeded_rout
     assert create_resp.status_code == 201
     job = create_resp.json()
     assert job["credits_charged"] == 30
-    assert job["status"] == "pending"
+    assert job["status"] == "PENDING"
     job_id = job["id"]
 
     # 3. Retrieve the job

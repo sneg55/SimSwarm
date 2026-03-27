@@ -24,7 +24,7 @@ async def test_create_job(client, auth_headers, funded_user, seeded_routing):
     assert data["user_id"] == auth_headers["_user_id"]
     assert data["tier"] == "small"
     assert data["credits_charged"] == 30
-    assert data["status"] == "pending"
+    assert data["status"] == "PENDING"
     assert "id" in data
 
 
@@ -73,7 +73,7 @@ async def test_get_job_status(client, auth_headers, funded_user, seeded_routing)
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == job_id
-    assert data["status"] == "pending"
+    assert data["status"] == "PENDING"
     assert data["credits_charged"] == 90
 
 

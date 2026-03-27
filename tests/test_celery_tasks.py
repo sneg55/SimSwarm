@@ -29,24 +29,33 @@ def test_task_calls_runner():
     from saas.workers.tasks import run_simulation_task
 
     instance = _make_instance()
-    mock_result = {"job_id": 1, "status": "completed", "output": "done"}
+    mock_result = {
+        "job_id": 1,
+        "status": "completed",
+        "report": "test report",
+        "chat_log": "[]",
+        "graph_data": "{}",
+        "pod_id": "inst-celery",
+        "provision_seconds": 10,
+        "pipeline_seconds": 60,
+    }
 
     mock_provider = MagicMock()
 
     async def fake_provision(config):
         return instance
 
-    async def fake_execute_command(instance_id, command):
-        return "done"
-
     async def fake_terminate(instance_id):
         return None
 
     mock_provider.provision = fake_provision
-    mock_provider.execute_command = fake_execute_command
     mock_provider.terminate = fake_terminate
 
-    with patch("saas.workers.tasks._get_gpu_provider", return_value=mock_provider):
+    # Mock JobRunner.run to return a canned result (avoids real HTTP polling)
+    with patch("saas.workers.tasks._get_gpu_provider", return_value=mock_provider), \
+         patch("saas.workers.tasks.JobRunner.run", new_callable=AsyncMock, return_value=mock_result), \
+         patch("saas.workers.tasks._save_job_results"), \
+         patch("saas.workers.tasks._update_job_metadata"):
         result = run_simulation_task(
             job_id=1,
             user_id="user-test",
