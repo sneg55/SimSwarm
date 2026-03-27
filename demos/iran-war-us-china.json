@@ -17,7 +17,7 @@
       "agent_name": "Meta",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "Meta表示，AI政治广告禁令将影响其广告业务，并对民主进程产生负面影响。",
+        "content": "Meta states the AI political ads ban will impact its advertising business and negatively affect democratic processes.",
         "post_id": 5
       },
       "result": null,
@@ -31,7 +31,7 @@
       "agent_name": "Google",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "Google也发声反对AI政治广告禁令，称这将损害言论自由并阻碍技术创新。",
+        "content": "Google also voices opposition to the AI political ads ban, stating it will harm free speech and hinder technological innovation.",
         "post_id": 4
       },
       "result": null,
@@ -45,7 +45,7 @@
       "agent_name": "OpenAI",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "然而，一些关注个人隐私和民主自由的组织对此持谨慎态度，认为AI政治广告可能被滥用，影响选民决策。",
+        "content": "However, some organizations focused on personal privacy and democratic freedom express caution, arguing AI political ads could be misused to influence voter decisions.",
         "post_id": 3
       },
       "result": null,
@@ -59,7 +59,7 @@
       "agent_name": "OpenAI",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "OpenAI认为，欧盟议会的禁令是对其创新技术的不当限制，强调AI在民主进程中的积极作用。",
+        "content": "OpenAI expresses concern about the EU ban on AI political ads, emphasizing the need for balanced regulation that preserves innovation while protecting democratic integrity.",
         "post_id": 2
       },
       "result": null,
@@ -73,7 +73,7 @@
       "agent_name": "OpenAI",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "欧盟议会近日宣布禁止AI政治广告，旨在确保2027年选举的公正性。不过，科技巨头如OpenAI、Google和Meta对此表示强烈反对，认为此禁令侵犯了言论自由。",
+        "content": "OpenAI expresses concern about the EU ban on AI political ads, emphasizing the need for balanced regulation that preserves innovation while protecting democratic integrity.",
         "post_id": 1
       },
       "result": null,
@@ -87,7 +87,7 @@
       "agent_name": "Meta",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "Meta表示，AI政治广告禁令将影响其广告业务，并对民主进程产生负面影响。",
+        "content": "Meta states the AI political ads ban will impact its advertising business and negatively affect democratic processes.",
         "post_id": 3
       },
       "result": null,
@@ -101,7 +101,7 @@
       "agent_name": "Google",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "Google也发声反对AI政治广告禁令，称这将损害言论自由并阻碍技术创新。",
+        "content": "Google also voices opposition to the AI political ads ban, stating it will harm free speech and hinder technological innovation.",
         "post_id": 2
       },
       "result": null,
@@ -115,7 +115,7 @@
       "agent_name": "OpenAI",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "然而，一些关注个人隐私和民主自由的组织对此持谨慎态度，认为AI政治广告可能被滥用，影响选民决策。",
+        "content": "However, some organizations focused on personal privacy and democratic freedom express caution, arguing AI political ads could be misused to influence voter decisions.",
         "post_id": 1
       },
       "result": null,
@@ -129,7 +129,7 @@
       "agent_name": "OpenAI",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "然而，一些关注个人隐私和民主自由的组织对此持谨慎态度，认为AI政治广告可能被滥用，影响选民决策。"
+        "content": "However, some organizations focused on personal privacy and democratic freedom express caution, arguing AI political ads could be misused to influence voter decisions."
       },
       "result": null,
       "success": true
@@ -142,7 +142,7 @@
       "agent_name": "Meta",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "Meta表示，AI政治广告禁令将影响其广告业务，并对民主进程产生负面影响。"
+        "content": "Meta states the AI political ads ban will impact its advertising business and negatively affect democratic processes."
       },
       "result": null,
       "success": true
@@ -155,7 +155,7 @@
       "agent_name": "Google",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "Google也发声反对AI政治广告禁令，称这将损害言论自由并阻碍技术创新。"
+        "content": "Google also voices opposition to the AI political ads ban, stating it will harm free speech and hinder technological innovation."
       },
       "result": null,
       "success": true
@@ -168,7 +168,7 @@
       "agent_name": "OpenAI",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "OpenAI认为，欧盟议会的禁令是对其创新技术的不当限制，强调AI在民主进程中的积极作用。"
+        "content": "OpenAI expresses concern about the EU ban on AI political ads, emphasizing the need for balanced regulation that preserves innovation while protecting democratic integrity."
       },
       "result": null,
       "success": true
@@ -181,7 +181,7 @@
       "agent_name": "OpenAI",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "欧盟议会近日宣布禁止AI政治广告，旨在确保2027年选举的公正性。不过，科技巨头如OpenAI、Google和Meta对此表示强烈反对，认为此禁令侵犯了言论自由。"
+        "content": "OpenAI expresses concern about the EU ban on AI political ads, emphasizing the need for balanced regulation that preserves innovation while protecting democratic integrity."
       },
       "result": null,
       "success": true
@@ -194,7 +194,7 @@
       "agent_name": "OpenAI",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "然而，一些关注个人隐私和民主自由的组织对此持谨慎态度，认为AI政治广告可能被滥用，影响选民决策。"
+        "content": "However, some organizations focused on personal privacy and democratic freedom express caution, arguing AI political ads could be misused to influence voter decisions."
       },
       "result": null,
       "success": true
@@ -207,7 +207,7 @@
       "agent_name": "Meta",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "Meta表示，AI政治广告禁令将影响其广告业务，并对民主进程产生负面影响。"
+        "content": "Meta states the AI political ads ban will impact its advertising business and negatively affect democratic processes."
       },
       "result": null,
       "success": true
@@ -220,7 +220,7 @@
       "agent_name": "Google",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "Google也发声反对AI政治广告禁令，称这将损害言论自由并阻碍技术创新。"
+        "content": "Google also voices opposition to the AI political ads ban, stating it will harm free speech and hinder technological innovation."
       },
       "result": null,
       "success": true
@@ -233,7 +233,7 @@
       "agent_name": "OpenAI",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "OpenAI认为，欧盟议会的禁令是对其创新技术的不当限制，强调AI在民主进程中的积极作用。"
+        "content": "OpenAI expresses concern about the EU ban on AI political ads, emphasizing the need for balanced regulation that preserves innovation while protecting democratic integrity."
       },
       "result": null,
       "success": true
@@ -246,7 +246,7 @@
       "agent_name": "OpenAI",
       "action_type": "CREATE_POST",
       "action_args": {
-        "content": "欧盟议会近日宣布禁止AI政治广告，旨在确保2027年选举的公正性。不过，科技巨头如OpenAI、Google和Meta对此表示强烈反对，认为此禁令侵犯了言论自由。"
+        "content": "OpenAI expresses concern about the EU ban on AI political ads, emphasizing the need for balanced regulation that preserves innovation while protecting democratic integrity."
       },
       "result": null,
       "success": true
