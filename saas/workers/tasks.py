@@ -419,49 +419,47 @@ def cleanup_orphaned_pods() -> dict:
         try:
             runpod.terminate_pod(pod_id)
             gpu = pod.get("machine", {}).get("gpuDisplayName", "?")
-            logger.warning(f"Orphan cleanup: terminated pod {pod_id} ({gpu}, name={name})")
+            logger.warning(
+                "cleanup.terminated pod_id=%s gpu=%s name=%s", pod_id, gpu, name,
+            )
             terminated.append(pod_id)
         except Exception as e:
-            logger.warning(f"Orphan cleanup: failed to terminate {pod_id}: {e}")
+            logger.warning("cleanup.terminate_failed pod_id=%s error=%s", pod_id, e)
 
     result = {"active_pods": len(pods), "terminated": len(terminated), "pod_ids": terminated}
     if terminated:
-        logger.info(f"Orphan cleanup: {result}")
+        logger.info("cleanup.summary active_pods=%d terminated=%d", len(pods), len(terminated))
     return result
 
 
 def _get_active_job_pod_ids() -> set[str]:
-    """Return RunPod pod IDs for jobs that are currently RUNNING or PENDING.
+    """Return RunPod pod IDs for jobs that are currently RUNNING, PENDING, or PROVISIONING.
 
-    We don't have a direct pod_id column, so we can't do an exact match.
-    Instead, we check if any non-terminal job exists — if so, don't
-    terminate pods created in the last 2 hours (conservative).
-    For now, we only terminate pods older than 2 hours with no active jobs.
+    Queries the pod_id column directly for an exact match against running pods.
+    Returns {"__db_error__"} on failure to prevent accidental termination.
     """
     from sqlalchemy import create_engine, text
 
     database_url = os.getenv("DATABASE_URL", "")
     if not database_url:
-        return set()
+        return {"__db_error__"}
 
     # Convert async URL to sync for this simple query
     sync_url = database_url.replace("+asyncpg", "").replace("postgresql://", "postgresql+psycopg2://")
     try:
-        from sqlalchemy import create_engine, text
         engine = create_engine(sync_url)
         with engine.connect() as conn:
             result = conn.execute(
-                text("SELECT COUNT(*) FROM simulation_jobs WHERE status IN ('PENDING', 'RUNNING', 'PROVISIONING')")
+                text(
+                    "SELECT pod_id FROM simulation_jobs "
+                    "WHERE status IN ('PENDING', 'RUNNING', 'PROVISIONING') "
+                    "AND pod_id IS NOT NULL"
+                )
             )
-            active_count = result.scalar()
+            pod_ids = {row[0] for row in result}
         engine.dispose()
     except Exception as e:
-        logger.warning(f"Orphan cleanup: DB check failed: {e}")
-        return set()  # conservative: don't terminate anything
+        logger.warning("cleanup.db_error error=%s", e)
+        return {"__db_error__"}
 
-    if active_count > 0:
-        # There are active jobs — don't terminate any pods
-        # (we can't map pods to jobs without a pod_id column)
-        return {"__has_active_jobs__"}
-
-    return set()
+    return pod_ids

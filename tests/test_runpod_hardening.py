@@ -126,3 +126,28 @@ async def test_job_runner_result_includes_pod_id():
 def test_task_has_max_retries_1():
     from saas.workers.tasks import run_simulation_task
     assert run_simulation_task.max_retries == 1
+
+
+# ── Task 6: Rewrite Orphan Pod Cleanup ──
+
+
+def test_cleanup_terminates_pod_not_in_active_jobs():
+    from saas.workers.tasks import cleanup_orphaned_pods
+    mock_pods = [{"id": "pod_orphan", "name": "fishcloud-sim", "machine": {"gpuDisplayName": "A100"}}]
+    with patch.dict(os.environ, {"RUNPOD_API_KEY": "test-key", "DATABASE_URL": ""}):
+        with patch("runpod.get_pods", return_value=mock_pods):
+            with patch("runpod.terminate_pod") as mock_terminate:
+                with patch("saas.workers.tasks._get_active_job_pod_ids", return_value=set()):
+                    result = cleanup_orphaned_pods()
+    mock_terminate.assert_called_once_with("pod_orphan")
+
+
+def test_cleanup_preserves_pod_with_active_job():
+    from saas.workers.tasks import cleanup_orphaned_pods
+    mock_pods = [{"id": "pod_active", "name": "fishcloud-sim", "machine": {"gpuDisplayName": "A100"}}]
+    with patch.dict(os.environ, {"RUNPOD_API_KEY": "test-key", "DATABASE_URL": ""}):
+        with patch("runpod.get_pods", return_value=mock_pods):
+            with patch("runpod.terminate_pod") as mock_terminate:
+                with patch("saas.workers.tasks._get_active_job_pod_ids", return_value={"pod_active"}):
+                    result = cleanup_orphaned_pods()
+    mock_terminate.assert_not_called()
