@@ -1,49 +1,37 @@
 """
 Lightweight HTTP API running on GPU worker pods.
-Receives simulation jobs, runs the MiroFish pipeline, returns results.
+Receives simulation jobs, runs MiroFish pipeline in background thread, results via polling.
 
 Runs alongside vLLM (port 8000) on port 5000.
+
+Flow:
+  POST /job   -> starts pipeline in background, returns {"status": "accepted"} immediately
+  GET /status -> poll until status is "completed" or "failed", includes report + chat_log
+  GET /health -> liveness check
 """
 from flask import Flask, request, jsonify
 import subprocess
-import json
 import os
 import threading
 from pathlib import Path
 
 app = Flask(__name__)
 
-# Track running job
-_current_job = {"status": "idle", "result": None, "error": None}
+_job = {
+    "status": "idle",  # idle, running, completed, failed
+    "result": None,
+    "error": None,
+    "stdout": None,
+}
 _lock = threading.Lock()
 
 
-@app.route("/health", methods=["GET"])
-def health():
-    return jsonify({"status": "ok", "job_status": _current_job["status"]})
-
-
-@app.route("/job", methods=["POST"])
-def submit_job():
-    """Submit a simulation job. Runs synchronously (blocks until complete)."""
-    data = request.json
-    seed_text = data.get("seed_text", "")
-    goal = data.get("goal", "")
-    max_rounds = data.get("max_rounds", 200)
-
-    with _lock:
-        if _current_job["status"] == "running":
-            return jsonify({"error": "A job is already running"}), 409
-        _current_job["status"] = "running"
-        _current_job["result"] = None
-        _current_job["error"] = None
-
+def _run_pipeline(seed_text, goal, max_rounds):
+    """Run the MiroFish pipeline in a background thread."""
     try:
-        # Write seed to file
         seed_file = Path("/tmp/seed.txt")
         seed_file.write_text(seed_text)
 
-        # Run the pipeline script
         result = subprocess.run(
             [
                 "python3", "/app/run_job.py",
@@ -54,22 +42,17 @@ def submit_job():
             ],
             capture_output=True,
             text=True,
-            timeout=3600,  # 1 hour max
+            timeout=3600,
             env={**os.environ},
         )
 
         if result.returncode != 0:
-            error_msg = result.stderr[-2000:] if result.stderr else "Unknown error"
             with _lock:
-                _current_job["status"] = "failed"
-                _current_job["error"] = error_msg
-            return jsonify({
-                "status": "failed",
-                "error": error_msg,
-                "stdout": result.stdout[-1000:],
-            }), 500
+                _job["status"] = "failed"
+                _job["error"] = result.stderr[-3000:] if result.stderr else "Unknown error"
+                _job["stdout"] = result.stdout[-3000:] if result.stdout else ""
+            return
 
-        # Read results
         results_dir = Path("/tmp/results")
         report = ""
         chat_log = "[]"
@@ -79,30 +62,63 @@ def submit_job():
             chat_log = (results_dir / "chat_log.json").read_text()
 
         with _lock:
-            _current_job["status"] = "completed"
-            _current_job["result"] = {"report": report, "chat_log": chat_log}
-
-        return jsonify({
-            "status": "completed",
-            "report": report,
-            "chat_log": chat_log,
-        })
+            _job["status"] = "completed"
+            _job["result"] = {"report": report, "chat_log": chat_log}
+            _job["stdout"] = result.stdout[-3000:] if result.stdout else ""
 
     except subprocess.TimeoutExpired:
         with _lock:
-            _current_job["status"] = "failed"
-            _current_job["error"] = "Job timed out after 1 hour"
-        return jsonify({"status": "failed", "error": "Job timed out"}), 500
+            _job["status"] = "failed"
+            _job["error"] = "Job timed out after 1 hour"
     except Exception as e:
         with _lock:
-            _current_job["status"] = "failed"
-            _current_job["error"] = str(e)
-        return jsonify({"status": "failed", "error": str(e)}), 500
+            _job["status"] = "failed"
+            _job["error"] = str(e)
+
+
+@app.route("/health", methods=["GET"])
+def health():
+    return jsonify({"status": "ok", "job_status": _job["status"]})
+
+
+@app.route("/job", methods=["POST"])
+def submit_job():
+    """Submit a job — returns immediately, pipeline runs in background thread."""
+    data = request.json or {}
+    seed_text = data.get("seed_text", "")
+    goal = data.get("goal", "")
+    max_rounds = data.get("max_rounds", 200)
+
+    with _lock:
+        if _job["status"] == "running":
+            return jsonify({"error": "A job is already running"}), 409
+        _job["status"] = "running"
+        _job["result"] = None
+        _job["error"] = None
+        _job["stdout"] = None
+
+    thread = threading.Thread(
+        target=_run_pipeline,
+        args=(seed_text, goal, max_rounds),
+        daemon=True,
+    )
+    thread.start()
+
+    return jsonify({"status": "accepted"})
 
 
 @app.route("/status", methods=["GET"])
 def job_status():
-    return jsonify(_current_job)
+    """Poll for job completion. Returns report + chat_log when done."""
+    with _lock:
+        resp = {"status": _job["status"]}
+        if _job["status"] == "completed" and _job["result"]:
+            resp["report"] = _job["result"]["report"]
+            resp["chat_log"] = _job["result"]["chat_log"]
+        if _job["status"] == "failed":
+            resp["error"] = _job["error"]
+            resp["stdout"] = _job["stdout"]
+        return jsonify(resp)
 
 
 if __name__ == "__main__":

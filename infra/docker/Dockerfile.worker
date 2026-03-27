@@ -26,8 +26,9 @@ COPY infra/docker/worker_api.py /app/worker_api.py
 COPY infra/docker/start.sh /app/start.sh
 RUN chmod +x /app/run_job.py /app/start.sh
 
-# Ensure flask is available (MiroFish requirements may already include it)
-RUN pip install --no-cache-dir flask || true
+# Ensure flask and MiroFish's key dependencies are available
+RUN pip install --no-cache-dir flask zep-cloud camel-ai 2>/dev/null || \
+    pip install --no-cache-dir flask zep-cloud || true
 
 # Create directories for job data
 RUN mkdir -p /tmp/results /tmp/seed

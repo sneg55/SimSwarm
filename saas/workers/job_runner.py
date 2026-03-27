@@ -80,6 +80,18 @@ class JobRunner:
         try:
             result = await self._execute_pipeline(instance.instance_id, config)
             return result
+        except Exception as e:
+            # Pull pod logs before termination for debugging
+            logger.error(f"Pipeline failed for pod {instance.instance_id}: {e}")
+            try:
+                worker_url = f"https://{instance.instance_id}-5000.proxy.runpod.net"
+                async with httpx.AsyncClient(timeout=10) as client:
+                    status_resp = await client.get(f"{worker_url}/status")
+                    if status_resp.status_code == 200:
+                        logger.error(f"Worker status at failure: {status_resp.json()}")
+            except Exception:
+                logger.warning("Could not retrieve worker status before termination")
+            raise
         finally:
             await self.gpu_provider.terminate(instance.instance_id)
 
@@ -111,17 +123,57 @@ class JobRunner:
             raise TimeoutError(f"Worker API at {worker_url} did not become ready within 300s")
 
         # ------------------------------------------------------------------
-        # 2. Submit job — blocks until the pipeline completes (up to 1 hour)
+        # 2. Submit job — returns immediately, pipeline runs in background
         # ------------------------------------------------------------------
         logger.info(f"Submitting job to {worker_url}/job (max_rounds={config.max_rounds})")
-        async with httpx.AsyncClient(timeout=3600) as client:  # 1 hour timeout
+        async with httpx.AsyncClient(timeout=30) as client:
             resp = await client.post(f"{worker_url}/job", json={
                 "seed_text": config.seed_text,
                 "goal": config.goal,
                 "max_rounds": config.max_rounds,
             })
-            resp.raise_for_status()
-            result = resp.json()
+            if resp.status_code != 200:
+                try:
+                    error_body = resp.json()
+                    error_msg = error_body.get("error", resp.text[:2000])
+                except Exception:
+                    error_msg = resp.text[:2000]
+                raise RuntimeError(f"Worker rejected job: {error_msg}")
+
+        logger.info("Job accepted by worker, polling /status...")
+
+        # ------------------------------------------------------------------
+        # 2b. Poll /status until completed or failed (up to 1 hour)
+        # ------------------------------------------------------------------
+        max_polls = 360  # 360 * 10s = 1 hour
+        for poll in range(max_polls):
+            await asyncio.sleep(10)
+            try:
+                async with httpx.AsyncClient(timeout=15) as client:
+                    status_resp = await client.get(f"{worker_url}/status")
+                    status_data = status_resp.json()
+            except Exception as e:
+                logger.warning(f"Status poll {poll + 1} failed: {e}")
+                continue
+
+            job_status = status_data.get("status", "unknown")
+
+            if poll % 6 == 0:  # Log every 60s
+                logger.info(f"Pipeline status: {job_status} (poll {poll + 1})")
+
+            if job_status == "completed":
+                result = status_data
+                logger.info("Pipeline completed!")
+                break
+            elif job_status == "failed":
+                error_msg = status_data.get("error", "Unknown error")
+                stdout = status_data.get("stdout", "")
+                logger.error(f"Pipeline failed: {error_msg}")
+                if stdout:
+                    logger.error(f"Pipeline stdout: {stdout[:2000]}")
+                raise RuntimeError(f"Worker pipeline failed: {error_msg}")
+        else:
+            raise TimeoutError("Pipeline did not complete within 1 hour")
 
         # ------------------------------------------------------------------
         # 3. Return structured result for the Celery task to persist
