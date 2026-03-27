@@ -19,15 +19,15 @@ RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
 
 WORKDIR /app
 
-# Install vLLM (compatible with Python 3.11)
-RUN pip install --no-cache-dir "vllm>=0.6.0,<0.7.0"
-
-# Install MiroFish dependencies
+# Install MiroFish dependencies FIRST
 COPY vendor/mirofish/backend/requirements.txt /app/mirofish-requirements.txt
 RUN pip install --no-cache-dir --ignore-installed -r /app/mirofish-requirements.txt
 
 # Install Flask + remaining deps
 RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests zep-cloud
+
+# Install vLLM LAST so its pinned transformers/torch versions take precedence
+RUN pip install --no-cache-dir "vllm>=0.6.0,<0.7.0"
 
 # Copy MiroFish engine
 COPY vendor/mirofish/backend/ /app/mirofish/backend/
