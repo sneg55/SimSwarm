@@ -36,6 +36,7 @@ RUN mkdir -p /tmp/results /tmp/seed
 # Port 5000: worker HTTP job API
 EXPOSE 5000 8000
 
-# Entrypoint: start both vLLM and the worker API via start.sh
-# MODEL_ID and VLLM_ARGS are set by the orchestrator
-CMD ["/app/start.sh"]
+# Override base image entrypoint (vllm/vllm-openai sets ENTRYPOINT to vLLM server)
+# We need our own start script that launches both vLLM and the worker API
+ENTRYPOINT []
+CMD ["/bin/bash", "/app/start.sh"]
