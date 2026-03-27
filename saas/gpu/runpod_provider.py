@@ -13,8 +13,14 @@ logger = logging.getLogger(__name__)
 
 MAX_POLL_ATTEMPTS = 120  # 120 * 5s = 10 min max wait for image pull
 
-# Network volume with pre-loaded model weights (eliminates download on cold start)
-NETWORK_VOLUME_ID = os.environ.get("RUNPOD_NETWORK_VOLUME_ID", "ogc6x11rrc")
+# Network volumes with pre-loaded model weights across datacenters.
+# The provider tries each volume until it finds one with GPU availability.
+NETWORK_VOLUMES = [
+    {"id": "ogc6x11rrc", "dc": "EU-RO-1"},   # Qwen 7B pre-loaded
+    {"id": "62cztdzwk3", "dc": "EU-RO-1"},   # backup EU-RO-1
+    {"id": "lg2ay64v86", "dc": "US-TX-3"},   # needs model load on first use
+    {"id": "atapkvxipt", "dc": "US-KS-2"},   # needs model load on first use
+]
 
 
 class RunPodProvider(GPUProvider):
@@ -25,27 +31,38 @@ class RunPodProvider(GPUProvider):
         runpod.api_key = api_key
 
     async def provision(self, config: GPUProviderConfig) -> GPUInstance:
-        """Create a RunPod pod with the given configuration."""
+        """Create a RunPod pod, trying multiple datacenter volumes for availability."""
         logger.info(f"RunPod: provisioning {config.gpu_type} with image {config.docker_image}")
 
-        # Merge HF_HOME env var to use network volume for model cache
         env = dict(config.env_vars or {})
         env["HF_HOME"] = "/models/huggingface"
         env["TRANSFORMERS_CACHE"] = "/models/huggingface"
 
-        pod = runpod.create_pod(
-            name="fishcloud-sim",
-            image_name=config.docker_image,
-            gpu_type_id=config.gpu_type,
-            cloud_type="ALL",
-            gpu_count=1,
-            volume_in_gb=0,
-            container_disk_in_gb=15,
-            network_volume_id=NETWORK_VOLUME_ID,
-            volume_mount_path="/models",
-            ports="5000/http,8000/http",
-            env=env,
-        )
+        # Try each network volume (different datacenters) until one has GPU availability
+        last_error = None
+        for vol in NETWORK_VOLUMES:
+            try:
+                pod = runpod.create_pod(
+                    name="fishcloud-sim",
+                    image_name=config.docker_image,
+                    gpu_type_id=config.gpu_type,
+                    cloud_type="ALL",
+                    gpu_count=1,
+                    volume_in_gb=0,
+                    container_disk_in_gb=15,
+                    network_volume_id=vol["id"],
+                    volume_mount_path="/models",
+                    ports="5000/http,8000/http",
+                    env=env,
+                )
+                logger.info(f"RunPod: pod created in {vol['dc']} with volume {vol['id']}")
+                break
+            except Exception as e:
+                last_error = e
+                logger.warning(f"RunPod: {vol['dc']} ({vol['id']}): {e}")
+                continue
+        else:
+            raise RuntimeError(f"No RunPod GPUs available in any datacenter. Last: {last_error}")
 
         pod_id = pod["id"]
         logger.info(f"RunPod: pod {pod_id} created, waiting for it to be ready...")
