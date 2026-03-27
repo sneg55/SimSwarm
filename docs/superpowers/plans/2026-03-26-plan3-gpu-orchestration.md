@@ -2,11 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement the Celery job queue, GPU provider abstraction (RunPod + Vast.ai failover), job lifecycle management with progress tracking, and automatic refund on failure.
+**Goal:** Implement the Celery job queue, GPU provider abstraction (RunPod-only for MVP), job lifecycle management with progress tracking, and automatic refund on failure.
 
-**Architecture:** Celery workers pick up jobs from Redis, provision ephemeral GPU instances via provider SDK, launch MiroFish pipeline, monitor progress via file-system IPC, extract results on completion, and tear down GPU resources. Operator model routing table controls which model/GPU combo is used per tier.
+**Architecture:** Celery workers pick up jobs from Redis, provision ephemeral GPU instances via RunPod SDK, launch MiroFish pipeline, monitor progress via file-system IPC, extract results on completion, and tear down GPU resources. Operator model routing table controls which model/GPU combo is used per tier.
 
-**Tech Stack:** Celery, Redis, RunPod SDK, Vast.ai SDK, Docker, pytest, pytest-celery
+**Tech Stack:** Celery, Redis, RunPod SDK, Docker, pytest, pytest-celery
+
+> **Note (2026-03-27):** Vast.ai fallback removed from MVP scope. Vast.ai was never tested successfully (API format issues, no working sim), Network Volume is RunPod-specific, and maintaining two providers doubles debugging surface. The abstract `GPUProvider` interface is kept so Vast.ai can be re-added later if RunPod capacity becomes an issue.
 
 **Depends on:** Plan 1 (adapter, models), Plan 2 (credit ledger for refunds)
 
@@ -26,14 +28,11 @@ saas/
 ├── gpu/
 │   ├── __init__.py
 │   ├── provider.py            # Abstract GPU provider interface
-│   ├── runpod_provider.py     # RunPod implementation
-│   ├── vastai_provider.py     # Vast.ai implementation
-│   └── failover.py            # Multi-provider failover logic
+│   └── runpod_provider.py     # RunPod implementation (Vast.ai + failover removed for MVP)
 ├── api/
 │   └── jobs.py                # Modified: dispatch to Celery on create
 tests/
 ├── test_gpu_provider.py       # GPU provider unit tests
-├── test_failover.py           # Failover logic tests
 ├── test_job_runner.py         # Job lifecycle tests
 ├── test_celery_tasks.py       # Celery task tests (mocked)
 ├── test_model_routing.py      # Routing table query tests
@@ -179,11 +178,10 @@ git commit -m "feat: add GPU provider abstraction with instance model"
 
 ---
 
-### Task 2: RunPod + Vast.ai Implementations
+### Task 2: RunPod Implementation
 
 **Files:**
 - Create: `saas/gpu/runpod_provider.py`
-- Create: `saas/gpu/vastai_provider.py`
 
 - [ ] **Step 1: Implement RunPod provider**
 
@@ -270,310 +268,16 @@ class RunPodProvider(GPUProvider):
         return result.get("output", "")
 ```
 
-- [ ] **Step 2: Implement Vast.ai provider**
-
-```python
-# saas/gpu/vastai_provider.py
-"""Vast.ai GPU provider implementation.
-
-Uses Vast.ai's REST API for spot GPU provisioning.
-Requires VASTAI_API_KEY env var.
-"""
-from __future__ import annotations
-
-import asyncio
-import httpx
-
-from saas.gpu.provider import GPUProvider, GPUProviderConfig, GPUInstance
-
-VASTAI_BASE_URL = "https://console.vast.ai/api/v0"
-MAX_POLL_ATTEMPTS = 60
-
-
-class VastAIProvider(GPUProvider):
-    def __init__(self, api_key: str):
-        self.api_key = api_key
-        self.headers = {"Authorization": f"Bearer {api_key}"}
-
-    async def provision(self, config: GPUProviderConfig) -> GPUInstance:
-        async with httpx.AsyncClient() as client:
-            # Search for matching offers
-            search_resp = await client.get(
-                f"{VASTAI_BASE_URL}/bundles",
-                headers=self.headers,
-                params={
-                    "q": f"gpu_name={config.gpu_type} rentable=true",
-                    "order": "dph_total",
-                    "type": "interruptible",
-                },
-            )
-            search_resp.raise_for_status()
-            offers = search_resp.json().get("offers", [])
-
-            if not offers:
-                raise RuntimeError(f"No Vast.ai offers for {config.gpu_type}")
-
-            # Rent cheapest offer
-            offer = offers[0]
-            create_resp = await client.put(
-                f"{VASTAI_BASE_URL}/asks/{offer['id']}/",
-                headers=self.headers,
-                json={
-                    "image": config.docker_image,
-                    "env": config.env_vars or {},
-                    "disk": 50,
-                },
-            )
-            create_resp.raise_for_status()
-            instance_id = str(create_resp.json().get("new_contract"))
-
-            # Poll until ready
-            for _ in range(MAX_POLL_ATTEMPTS):
-                instance = await self.get_status(instance_id)
-                if instance.is_ready:
-                    return instance
-                await asyncio.sleep(5)
-
-            raise TimeoutError(f"Vast.ai instance {instance_id} did not become ready")
-
-    async def get_status(self, instance_id: str) -> GPUInstance:
-        async with httpx.AsyncClient() as client:
-            resp = await client.get(
-                f"{VASTAI_BASE_URL}/instances/{instance_id}/",
-                headers=self.headers,
-            )
-            resp.raise_for_status()
-            data = resp.json()
-
-            status = "running" if data.get("actual_status") == "running" else "provisioning"
-            return GPUInstance(
-                instance_id=instance_id,
-                provider="vastai",
-                gpu_type=data.get("gpu_name", "unknown"),
-                ip_address=data.get("public_ipaddr"),
-                ssh_port=data.get("ssh_port"),
-                status=status,
-            )
-
-    async def terminate(self, instance_id: str) -> None:
-        async with httpx.AsyncClient() as client:
-            await client.delete(
-                f"{VASTAI_BASE_URL}/instances/{instance_id}/",
-                headers=self.headers,
-            )
-
-    async def execute_command(self, instance_id: str, command: str) -> str:
-        async with httpx.AsyncClient() as client:
-            resp = await client.put(
-                f"{VASTAI_BASE_URL}/instances/{instance_id}/exec/",
-                headers=self.headers,
-                json={"command": command},
-            )
-            resp.raise_for_status()
-            return resp.json().get("output", "")
-```
-
-- [ ] **Step 3: Commit**
+- [ ] **Step 2: Commit**
 
 ```bash
-git add saas/gpu/runpod_provider.py saas/gpu/vastai_provider.py
-git commit -m "feat: add RunPod and Vast.ai GPU provider implementations"
+git add saas/gpu/runpod_provider.py
+git commit -m "feat: add RunPod GPU provider implementation"
 ```
 
 ---
 
-### Task 3: Failover Logic
-
-**Files:**
-- Create: `saas/gpu/failover.py`
-- Create: `tests/test_failover.py`
-
-- [ ] **Step 1: Write failover tests**
-
-```python
-# tests/test_failover.py
-import pytest
-from unittest.mock import AsyncMock, MagicMock
-from saas.gpu.provider import GPUProviderConfig, GPUInstance
-from saas.gpu.failover import FailoverGPUProvider
-
-
-@pytest.fixture
-def config():
-    return GPUProviderConfig(
-        gpu_type="a100-40gb",
-        docker_image="fishcloud/worker:latest",
-        max_cost_per_hour_usd=2.0,
-        timeout_seconds=2700,
-    )
-
-
-@pytest.fixture
-def running_instance():
-    return GPUInstance(
-        instance_id="test-123",
-        provider="runpod",
-        gpu_type="a100-40gb",
-        ip_address="10.0.0.1",
-        ssh_port=22,
-        status="running",
-    )
-
-
-async def test_primary_provider_succeeds(config, running_instance):
-    primary = AsyncMock()
-    primary.provision = AsyncMock(return_value=running_instance)
-    fallback = AsyncMock()
-
-    failover = FailoverGPUProvider(primary=primary, fallback=fallback)
-    result = await failover.provision(config)
-
-    assert result.instance_id == "test-123"
-    assert result.provider == "runpod"
-    primary.provision.assert_awaited_once_with(config)
-    fallback.provision.assert_not_awaited()
-
-
-async def test_failover_to_secondary(config):
-    primary = AsyncMock()
-    primary.provision = AsyncMock(side_effect=RuntimeError("No capacity"))
-
-    fallback_instance = GPUInstance(
-        instance_id="vast-456",
-        provider="vastai",
-        gpu_type="a100-40gb",
-        ip_address="10.0.0.2",
-        ssh_port=22,
-        status="running",
-    )
-    fallback = AsyncMock()
-    fallback.provision = AsyncMock(return_value=fallback_instance)
-
-    failover = FailoverGPUProvider(primary=primary, fallback=fallback)
-    result = await failover.provision(config)
-
-    assert result.instance_id == "vast-456"
-    assert result.provider == "vastai"
-    primary.provision.assert_awaited_once()
-    fallback.provision.assert_awaited_once()
-
-
-async def test_both_providers_fail(config):
-    primary = AsyncMock()
-    primary.provision = AsyncMock(side_effect=RuntimeError("No capacity"))
-    fallback = AsyncMock()
-    fallback.provision = AsyncMock(side_effect=RuntimeError("No capacity"))
-
-    failover = FailoverGPUProvider(primary=primary, fallback=fallback)
-    with pytest.raises(RuntimeError, match="All GPU providers failed"):
-        await failover.provision(config)
-
-
-async def test_terminate_delegates_to_correct_provider(running_instance):
-    primary = AsyncMock()
-    fallback = AsyncMock()
-    failover = FailoverGPUProvider(primary=primary, fallback=fallback)
-
-    # Track which provider owns this instance
-    failover._active_instances["test-123"] = primary
-
-    await failover.terminate("test-123")
-    primary.terminate.assert_awaited_once_with("test-123")
-    fallback.terminate.assert_not_awaited()
-```
-
-- [ ] **Step 2: Run tests to verify they fail**
-
-```bash
-pytest tests/test_failover.py -v
-```
-
-Expected: FAIL — `ModuleNotFoundError`
-
-- [ ] **Step 3: Implement failover provider**
-
-```python
-# saas/gpu/failover.py
-from __future__ import annotations
-
-import logging
-
-from saas.gpu.provider import GPUProvider, GPUProviderConfig, GPUInstance
-
-logger = logging.getLogger(__name__)
-
-
-class FailoverGPUProvider:
-    """Wraps two GPU providers with automatic failover."""
-
-    def __init__(self, primary: GPUProvider, fallback: GPUProvider):
-        self.primary = primary
-        self.fallback = fallback
-        self._active_instances: dict[str, GPUProvider] = {}
-
-    async def provision(self, config: GPUProviderConfig) -> GPUInstance:
-        # Try primary first
-        try:
-            instance = await self.primary.provision(config)
-            self._active_instances[instance.instance_id] = self.primary
-            return instance
-        except Exception as e:
-            logger.warning(f"Primary GPU provider failed: {e}. Trying fallback.")
-
-        # Fallback
-        try:
-            instance = await self.fallback.provision(config)
-            self._active_instances[instance.instance_id] = self.fallback
-            return instance
-        except Exception as e:
-            logger.error(f"Fallback GPU provider also failed: {e}")
-            raise RuntimeError(f"All GPU providers failed. Last error: {e}") from e
-
-    async def terminate(self, instance_id: str) -> None:
-        provider = self._active_instances.get(instance_id)
-        if provider:
-            await provider.terminate(instance_id)
-            del self._active_instances[instance_id]
-        else:
-            # Try both
-            for p in [self.primary, self.fallback]:
-                try:
-                    await p.terminate(instance_id)
-                    return
-                except Exception:
-                    continue
-
-    async def get_status(self, instance_id: str) -> GPUInstance:
-        provider = self._active_instances.get(instance_id)
-        if provider:
-            return await provider.get_status(instance_id)
-        raise ValueError(f"Unknown instance: {instance_id}")
-
-    async def execute_command(self, instance_id: str, command: str) -> str:
-        provider = self._active_instances.get(instance_id)
-        if provider:
-            return await provider.execute_command(instance_id, command)
-        raise ValueError(f"Unknown instance: {instance_id}")
-```
-
-- [ ] **Step 4: Run tests to verify they pass**
-
-```bash
-pytest tests/test_failover.py -v
-```
-
-Expected: 4 passed.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add saas/gpu/failover.py tests/test_failover.py
-git commit -m "feat: add GPU provider failover with primary/fallback logic"
-```
-
----
-
-### Task 4: Model Routing Table Service
+### Task 3: Model Routing Table Service
 
 **Files:**
 - Create: `tests/test_model_routing.py`
@@ -677,7 +381,7 @@ git commit -m "test: add model routing table query tests"
 
 ---
 
-### Task 5: Job Runner (Lifecycle Orchestration)
+### Task 4: Job Runner (Lifecycle Orchestration)
 
 **Files:**
 - Create: `saas/workers/__init__.py`
@@ -810,8 +514,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from saas.gpu.failover import FailoverGPUProvider
-from saas.gpu.provider import GPUProviderConfig
+from saas.gpu.provider import GPUProvider, GPUProviderConfig
 
 logger = logging.getLogger(__name__)
 
@@ -853,7 +556,7 @@ class JobConfig:
 class JobRunner:
     """Orchestrates the full lifecycle of a simulation job."""
 
-    def __init__(self, gpu_provider: FailoverGPUProvider):
+    def __init__(self, gpu_provider: GPUProvider):
         self.gpu_provider = gpu_provider
 
     async def run(self, config: JobConfig) -> dict[str, Any]:
@@ -922,7 +625,7 @@ git commit -m "feat: add job runner with GPU lifecycle and timeout management"
 
 ---
 
-### Task 6: Celery Task Definitions
+### Task 5: Celery Task Definitions
 
 **Files:**
 - Create: `saas/workers/celery_app.py`
@@ -1053,15 +756,11 @@ def _run_simulation(
         )
 
         try:
-            # Run the async job runner
+            # Run the async job runner (RunPod only for MVP)
             from saas.gpu.runpod_provider import RunPodProvider
-            from saas.gpu.vastai_provider import VastAIProvider
-            from saas.gpu.failover import FailoverGPUProvider
             from saas.workers.job_runner import JobRunner
 
-            primary = RunPodProvider(api_key=os.getenv("RUNPOD_API_KEY", ""))
-            fallback = VastAIProvider(api_key=os.getenv("VASTAI_API_KEY", ""))
-            gpu = FailoverGPUProvider(primary=primary, fallback=fallback)
+            gpu = RunPodProvider(api_key=os.getenv("RUNPOD_API_KEY", ""))
             runner = JobRunner(gpu_provider=gpu)
 
             result = asyncio.run(runner.run(config))
@@ -1137,9 +836,10 @@ git commit -m "feat: add Celery task definitions with GPU provisioning and auto-
 | File | Tests | What it covers |
 |------|-------|----------------|
 | `test_gpu_provider.py` | 3 | Instance model, readiness, config |
-| `test_failover.py` | 4 | Primary success, failover, both fail, terminate delegation |
 | `test_model_routing.py` | 3 | Seed defaults, tier lookup, config conversion |
 | `test_job_runner.py` | 5 | Timeout by tier, env vars, GPU provision, terminate on failure |
 | `test_celery_tasks.py` | 2 | Task registration, dispatch |
 | *(Plan 1+2 tests)* | 49 | |
-| **Total** | **66** | |
+| **Total** | **62** | |
+
+> **Note:** Failover tests (4) removed — Vast.ai fallback dropped from MVP scope.

@@ -6,7 +6,7 @@
 
 **Architecture:** A Python benchmarking script that runs 3 simulations per tier on actual GPU infrastructure, measures COGS (GPU-hours, tokens, wall-clock time), and generates a pricing validation report.
 
-**Tech Stack:** Python, pytest, RunPod/Vast.ai SDK, JSON reporting
+**Tech Stack:** Python, pytest, RunPod SDK, JSON reporting
 
 **Depends on:** Plan 3 (GPU orchestration, job runner)
 
@@ -337,13 +337,9 @@ def _execute_benchmark_run(tier: str, config: dict) -> BenchmarkRun:
     import asyncio
     import os
     from saas.gpu.runpod_provider import RunPodProvider
-    from saas.gpu.vastai_provider import VastAIProvider
-    from saas.gpu.failover import FailoverGPUProvider
     from saas.workers.job_runner import JobRunner, JobConfig
 
-    primary = RunPodProvider(api_key=os.getenv("RUNPOD_API_KEY", ""))
-    fallback = VastAIProvider(api_key=os.getenv("VASTAI_API_KEY", ""))
-    gpu = FailoverGPUProvider(primary=primary, fallback=fallback)
+    gpu = RunPodProvider(api_key=os.getenv("RUNPOD_API_KEY", ""))
     runner = JobRunner(gpu_provider=gpu)
 
     job_config = JobConfig(
@@ -752,8 +748,8 @@ git commit -m "feat: add benchmark integration tests with dry-run pipeline valid
 | `test_benchmark_report.py` | 2 | Report content, recommendations |
 | `test_benchmark_integration.py` | 2 | Full dry-run pipeline, margin positivity |
 | **Plan 6 Total** | **11** | |
-| *(Plans 1-5)* | 96 | |
-| **Grand Total** | **107** | |
+| *(Plans 1-5)* | 92 | |
+| **Grand Total** | **103** | |
 
 ---
 
@@ -761,7 +757,7 @@ git commit -m "feat: add benchmark integration tests with dry-run pipeline valid
 
 After all 6 plans are implemented:
 
-1. Run `pytest -v` — all 107 tests must pass
+1. Run `pytest -v` — all 103 tests must pass
 2. Run `python -m infra.scripts.benchmark --all --runs 3` (with real GPUs) — validates pricing
 3. Review `docs/benchmarks/pricing_validation.md` — all tiers must show >= 60% margin
 4. If any tier fails margin check: adjust `TIER_CREDITS` in `saas/billing/credit_packs.py` and re-run

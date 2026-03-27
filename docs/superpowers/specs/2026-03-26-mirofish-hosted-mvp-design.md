@@ -70,7 +70,7 @@ MiroFish engine stays as close to upstream as possible (git submodule). The SaaS
             |
 +-----------v--------------------------------------+
 |            GPU Worker Layer                       |
-|   Spot H100/A100 on RunPod/Vast.ai               |
+|   Spot H100/A100 on RunPod                        |
 |   +--------------------------------------+       |
 |   |  MiroFish Engine (git submodule)     |       |
 |   |  + vLLM (operator-configured model)  |       |
@@ -94,7 +94,7 @@ MiroFish engine stays as close to upstream as possible (git submodule). The SaaS
 |-----------|----------|-------|
 | Frontend <-> SaaS API | REST JSON (OpenAPI) | Standard CRUD + SSE for progress |
 | SaaS API <-> Job Queue | Celery task dispatch | Redis pub/sub for progress |
-| Job Queue <-> GPU Worker | RunPod/Vast.ai SDK | Provisioning + SSH/API for execution |
+| Job Queue <-> GPU Worker | RunPod SDK | Provisioning + SSH/API for execution |
 | GPU Worker <-> MiroFish Engine | Python function calls | Thin adapter wrapping MiroFish API |
 
 ---
@@ -159,7 +159,8 @@ MiroFish engine stays as close to upstream as possible (git submodule). The SaaS
 ### Reliability
 
 - 99% job success rate
-- Multi-provider failover: RunPod primary, Vast.ai fallback
+- RunPod-only for MVP (Vast.ai was never tested successfully; add back later if RunPod capacity becomes an issue)
+- Retry once on same provider before marking failed
 - Graceful failure: if a job dies mid-run, credits are refunded automatically
 
 ### Security
@@ -252,9 +253,10 @@ Benchmarking must validate that credit pricing yields >= 60% gross margin. If it
 
 ### Provider Strategy
 
-- **Primary:** RunPod (serverless or on-demand spot)
-- **Fallback:** Vast.ai (if RunPod capacity unavailable)
+- **RunPod only** for MVP (serverless or on-demand spot)
 - Spot instances only for MVP (no on-demand)
+- Vast.ai dropped from MVP scope: never tested successfully (API format issues, no working sim), Network Volume is RunPod-specific, and maintaining two providers doubles debugging surface
+- **Future:** Re-add Vast.ai as a fallback if RunPod capacity becomes an issue
 
 ### GPU Targets
 
@@ -294,7 +296,7 @@ large     | Qwen2.5-32B-Instruct-AWQ      | h100-80gb  | 200        | ...
 4. Progress callbacks sent via Redis pub/sub -> forwarded to frontend via SSE/polling
 5. On completion: results (report JSON, agent chat logs) uploaded to PostgreSQL + S3
 6. GPU instance terminated
-7. On failure: retry once on same provider, then failover to Vast.ai, then mark failed + refund credits
+7. On failure: retry once on RunPod, then mark failed + refund credits
 
 ### Pre-Built Docker Image
 
