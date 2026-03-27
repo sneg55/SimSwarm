@@ -5,10 +5,15 @@ echo "[start.sh] MODEL_ID=${MODEL_ID:-not set}"
 echo "[start.sh] VLLM_ARGS=${VLLM_ARGS:-not set}"
 echo "[start.sh] Starting vLLM server..."
 
+# Use network volume for model downloads (avoid filling container disk)
+DOWNLOAD_DIR="${HF_HOME:-/models/huggingface}"
+echo "[start.sh] DOWNLOAD_DIR=${DOWNLOAD_DIR}"
+
 # Start vLLM in background, log to file
 python3 -m vllm.entrypoints.openai.api_server \
     --host 0.0.0.0 --port 8000 \
     --model ${MODEL_ID:-Qwen/Qwen2.5-32B-Instruct-AWQ} \
+    --download-dir ${DOWNLOAD_DIR} \
     ${VLLM_ARGS:---quantization awq --max-model-len 32768} \
     > /tmp/vllm.log 2>&1 &
 
