@@ -72,8 +72,8 @@ def _refund_credits(job_id: int, user_id: str, credits: int) -> None:
     _run_async(_do_refund())
 
 
-def _save_job_results(job_id: int, report: str, chat_log: str) -> None:
-    """Persist pipeline results (report + chat_log) to the SimulationJob row."""
+def _save_job_results(job_id: int, report: str, chat_log: str, graph_data: str = "{}") -> None:
+    """Persist pipeline results (report + chat_log + graph_data) to the SimulationJob row."""
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
     from sqlalchemy import text
 
@@ -93,12 +93,14 @@ def _save_job_results(job_id: int, report: str, chat_log: str) -> None:
                         "SET status = 'COMPLETED', "
                         "    result_report = :report, "
                         "    result_chat_log = :chat_log, "
+                        "    result_graph = :graph_data, "
                         "    completed_at = :completed_at "
                         "WHERE id = :job_id"
                     ),
                     {
                         "report": report,
                         "chat_log": chat_log,
+                        "graph_data": graph_data,
                         "completed_at": datetime.now(timezone.utc),
                         "job_id": job_id,
                     },
@@ -261,7 +263,8 @@ def run_simulation_task(
         # Persist results to the SimulationJob table
         report = result.get("report", "")
         chat_log = result.get("chat_log", "")
-        _save_job_results(job_id=job_id, report=report, chat_log=chat_log)
+        graph_data = result.get("graph_data", "{}")
+        _save_job_results(job_id=job_id, report=report, chat_log=chat_log, graph_data=graph_data)
 
         logger.info(
             "Job %d completed — report=%d chars, chat_log=%d chars",

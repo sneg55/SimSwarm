@@ -229,5 +229,6 @@ class JobRunner:
             "instance_id": instance_id,
             "report": result.get("report", ""),
             "chat_log": result.get("chat_log", "[]"),
+            "graph_data": result.get("graph_data", "{}"),
             "status": "completed",
         }

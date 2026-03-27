@@ -1,3 +1,5 @@
+import json
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -6,6 +8,7 @@ from saas.database import get_session
 from saas.models.job import SimulationJob, JobStatus
 from saas.models.model_routing import ModelRouting
 from saas.schemas.jobs import JobCreate, JobResponse, TIER_CREDITS
+from saas.schemas.graph import GraphResponse
 from saas.billing.ledger import CreditLedger, InsufficientCreditsError
 from saas.auth.dependencies import get_current_user
 import os
@@ -96,6 +99,26 @@ async def get_job(
     if job.user_id != current_user["user_id"]:
         raise HTTPException(status_code=403, detail="Not authorized to view this job")
     return job
+
+
+@router.get("/{job_id}/graph", response_model=GraphResponse)
+async def get_job_graph(
+    job_id: int,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    job = await session.get(SimulationJob, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.user_id != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Not authorized to view this job")
+    if not job.result_graph:
+        raise HTTPException(status_code=404, detail="Graph data not available for this job")
+    try:
+        graph_data = json.loads(job.result_graph)
+    except (json.JSONDecodeError, TypeError):
+        raise HTTPException(status_code=500, detail="Invalid graph data stored for this job")
+    return graph_data
 
 
 @router.get("", response_model=list[JobResponse])
