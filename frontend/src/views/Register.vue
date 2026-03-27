@@ -4,7 +4,17 @@
       <div>
         <h2 class="text-3xl font-bold text-center text-gray-900">Create your account</h2>
       </div>
-      <form @submit.prevent="handleRegister" class="space-y-4">
+
+      <!-- Post-registration verification notice -->
+      <div v-if="registered" class="bg-blue-50 border border-blue-200 text-blue-800 p-4 rounded text-sm">
+        <p class="font-medium">Account created successfully!</p>
+        <p class="mt-1">Check your email for a verification link. You can still log in while your email is unverified.</p>
+        <router-link to="/dashboard" class="mt-2 inline-block text-blue-600 hover:underline font-medium">
+          Go to dashboard
+        </router-link>
+      </div>
+
+      <form v-else @submit.prevent="handleRegister" class="space-y-4">
         <div v-if="error" class="bg-red-50 text-red-700 p-3 rounded text-sm">{{ error }}</div>
         <div>
           <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
@@ -37,7 +47,8 @@
           {{ loading ? 'Creating account...' : 'Create account' }}
         </button>
       </form>
-      <p class="text-center text-sm text-gray-600">
+
+      <p v-if="!registered" class="text-center text-sm text-gray-600">
         Already have an account?
         <router-link to="/login" class="text-blue-600 hover:underline">Sign in</router-link>
       </p>
@@ -47,17 +58,16 @@
 
 <script setup>
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/auth.js'
 import { register } from '../api/auth.js'
 
-const router = useRouter()
 const authStore = useAuthStore()
 
 const email = ref('')
 const password = ref('')
 const loading = ref(false)
 const error = ref('')
+const registered = ref(false)
 
 async function handleRegister() {
   loading.value = true
@@ -65,9 +75,9 @@ async function handleRegister() {
   try {
     const data = await register(email.value, password.value)
     authStore.setAuth(data.user, data.token)
-    router.push('/dashboard')
+    registered.value = true
   } catch (err) {
-    error.value = err.response?.data?.message || 'Registration failed. Please try again.'
+    error.value = err.response?.data?.detail || err.response?.data?.message || 'Registration failed. Please try again.'
   } finally {
     loading.value = false
   }
