@@ -37,31 +37,45 @@ class RunPodProvider(GPUProvider):
         env["HF_HOME"] = "/models/huggingface"
         env["TRANSFORMERS_CACHE"] = "/models/huggingface"
 
-        # Try each network volume (different datacenters) until one has GPU availability
+        # GPU types to try in order of preference
+        gpu_types = [config.gpu_type, "NVIDIA L40S", "NVIDIA GeForce RTX 4090", "NVIDIA A40", "NVIDIA RTX A6000"]
+        # Deduplicate while preserving order
+        seen = set()
+        gpu_types = [g for g in gpu_types if not (g in seen or seen.add(g))]
+
+        # Try each volume+GPU combo, then try without volume as last resort
         last_error = None
-        for vol in NETWORK_VOLUMES:
-            try:
-                pod = runpod.create_pod(
-                    name="fishcloud-sim",
-                    image_name=config.docker_image,
-                    gpu_type_id=config.gpu_type,
-                    cloud_type="ALL",
-                    gpu_count=1,
-                    volume_in_gb=0,
-                    container_disk_in_gb=15,
-                    network_volume_id=vol["id"],
-                    volume_mount_path="/models",
-                    ports="5000/http,8000/http",
-                    env=env,
-                )
-                logger.info(f"RunPod: pod created in {vol['dc']} with volume {vol['id']}")
-                break
-            except Exception as e:
-                last_error = e
-                logger.warning(f"RunPod: {vol['dc']} ({vol['id']}): {e}")
+        volume_configs = [*[{"id": v["id"], "dc": v["dc"]} for v in NETWORK_VOLUMES], None]
+
+        for vol in volume_configs:
+            for gpu in gpu_types:
+                try:
+                    kwargs = dict(
+                        name="fishcloud-sim",
+                        image_name=config.docker_image,
+                        gpu_type_id=gpu,
+                        cloud_type="ALL",
+                        gpu_count=1,
+                        volume_in_gb=0,
+                        container_disk_in_gb=30 if vol is None else 15,
+                        ports="5000/http,8000/http",
+                        env=env,
+                    )
+                    if vol:
+                        kwargs["network_volume_id"] = vol["id"]
+                        kwargs["volume_mount_path"] = "/models"
+                    pod = runpod.create_pod(**kwargs)
+                    dc_label = vol["dc"] if vol else "any (no volume)"
+                    logger.info(f"RunPod: pod created on {gpu} in {dc_label}")
+                    break
+                except Exception as e:
+                    last_error = e
+                    continue
+            else:
                 continue
+            break
         else:
-            raise RuntimeError(f"No RunPod GPUs available in any datacenter. Last: {last_error}")
+            raise RuntimeError(f"No RunPod GPUs available. Last: {last_error}")
 
         pod_id = pod["id"]
         logger.info(f"RunPod: pod {pod_id} created, waiting for it to be ready...")
