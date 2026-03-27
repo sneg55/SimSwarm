@@ -17,9 +17,8 @@ MAX_POLL_ATTEMPTS = 120  # 120 * 5s = 10 min max wait for image pull
 # The provider tries each volume until it finds one with GPU availability.
 NETWORK_VOLUMES = [
     {"id": "ogc6x11rrc", "dc": "EU-RO-1"},   # Qwen 7B pre-loaded
-    {"id": "62cztdzwk3", "dc": "EU-RO-1"},   # backup EU-RO-1
-    {"id": "lg2ay64v86", "dc": "US-TX-3"},   # needs model load on first use
-    {"id": "atapkvxipt", "dc": "US-KS-2"},   # needs model load on first use
+    {"id": "lg2ay64v86", "dc": "US-TX-3"},   # auto-loads on first use
+    {"id": "atapkvxipt", "dc": "US-KS-2"},   # auto-loads on first use
 ]
 
 
