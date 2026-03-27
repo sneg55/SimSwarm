@@ -1,0 +1,288 @@
+<template>
+  <div
+    ref="wrapperRef"
+    class="relative bg-gray-50 rounded-xl border border-gray-200 overflow-hidden"
+    :class="isFullscreen ? 'fixed inset-0 z-50 rounded-none' : 'h-[600px]'"
+  >
+    <!-- Loading state -->
+    <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/80 z-40">
+      <div class="flex flex-col items-center gap-2">
+        <svg class="animate-spin h-8 w-8 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+        </svg>
+        <span class="text-sm text-gray-500">Loading graph...</span>
+      </div>
+    </div>
+
+    <!-- Error state -->
+    <div v-else-if="error" class="absolute inset-0 flex items-center justify-center">
+      <div class="text-center">
+        <p class="text-sm text-red-600 mb-2">{{ error }}</p>
+      </div>
+    </div>
+
+    <!-- Graph content -->
+    <template v-else>
+      <GraphCanvas
+        ref="canvasRef"
+        :nodes="visibleNodes"
+        :edges="edges"
+        :hidden-types="hiddenTypes"
+        :show-edge-labels="showEdgeLabels"
+        :layout-name="layoutName"
+        :selected-node-id="selectedNode?.id || null"
+        @node-click="onNodeClick"
+        @node-hover="onNodeHover"
+        @node-unhover="onNodeUnhover"
+        @ready="onCanvasReady"
+      />
+
+      <!-- Search bar (top-left) -->
+      <div class="absolute top-3 left-3 z-10">
+        <GraphSearchBar
+          :nodes="allNodes"
+          @select-node="onSearchSelect"
+        />
+      </div>
+
+      <!-- Controls (top-right) -->
+      <div class="absolute top-3 right-3 z-10">
+        <GraphControls
+          :show-edge-labels="showEdgeLabels"
+          :layout-name="layoutName"
+          :is-fullscreen="isFullscreen"
+          @refresh="onRefresh"
+          @toggle-fullscreen="toggleFullscreen"
+          @toggle-edge-labels="showEdgeLabels = !showEdgeLabels"
+          @change-layout="layoutName = $event"
+          @export="onExport"
+        />
+      </div>
+
+      <!-- Legend (bottom-left) -->
+      <div class="absolute bottom-3 left-3 z-10">
+        <GraphLegend
+          :entity-types="entityTypeSummary"
+          :hidden-types="hiddenTypes"
+          :filter-banner="filterBanner"
+          @toggle-type="toggleType"
+          @show-all="showAllTypes"
+          @hide-all="hideAllTypes"
+          @show-all-nodes="showAllNodes"
+        />
+      </div>
+
+      <!-- Detail panel (right side) -->
+      <GraphDetailPanel
+        :node="selectedNode"
+        @close="selectedNode = null"
+        @navigate-to="navigateToNode"
+      />
+
+      <!-- Hover tooltip -->
+      <div
+        v-if="hoveredNode"
+        class="absolute pointer-events-none z-20 bg-gray-900 text-white text-xs rounded-md px-2.5 py-1.5 shadow-lg"
+        :style="{ left: hoveredNode.x + 12 + 'px', top: hoveredNode.y - 8 + 'px' }"
+      >
+        <span class="font-medium">{{ hoveredNode.name }}</span>
+        <span class="text-gray-400 ml-1">{{ hoveredNode.entityType }}</span>
+      </div>
+    </template>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { getEntityColor, getPrimaryLabel } from './graphColors.js'
+import GraphCanvas from './GraphCanvas.vue'
+import GraphControls from './GraphControls.vue'
+import GraphSearchBar from './GraphSearchBar.vue'
+import GraphLegend from './GraphLegend.vue'
+import GraphDetailPanel from './GraphDetailPanel.vue'
+
+const NODE_LIMIT = 50
+const NODE_THRESHOLD = 100
+
+const props = defineProps({
+  nodes: { type: Array, default: () => [] },
+  edges: { type: Array, default: () => [] },
+  metadata: { type: Object, default: () => ({}) },
+  loading: { type: Boolean, default: false },
+  error: { type: String, default: '' },
+})
+
+const emit = defineEmits(['node-selected'])
+
+const canvasRef = ref(null)
+const wrapperRef = ref(null)
+
+const showEdgeLabels = ref(false)
+const layoutName = ref('cose-bilkent')
+const isFullscreen = ref(false)
+const hiddenTypes = ref(new Set())
+const selectedNode = ref(null)
+const hoveredNode = ref(null)
+const showAll = ref(false)
+
+let hoverTimer = null
+
+// All nodes regardless of filtering
+const allNodes = computed(() => props.nodes || [])
+
+// Smart filtering: if > NODE_THRESHOLD nodes, show top NODE_LIMIT by connection_count
+const visibleNodes = computed(() => {
+  const nodes = allNodes.value
+  if (showAll.value || nodes.length <= NODE_THRESHOLD) return nodes
+  return [...nodes]
+    .sort((a, b) => (b.connection_count || 0) - (a.connection_count || 0))
+    .slice(0, NODE_LIMIT)
+})
+
+const filterBanner = computed(() => {
+  if (showAll.value || allNodes.value.length <= NODE_THRESHOLD) return ''
+  return `Showing ${NODE_LIMIT} of ${allNodes.value.length} nodes.`
+})
+
+// Entity type summary from ALL nodes
+const entityTypeSummary = computed(() => {
+  const map = {}
+  for (const node of allNodes.value) {
+    const et = getPrimaryLabel(node.labels || ['Entity'])
+    if (!map[et]) map[et] = { name: et, count: 0, color: getEntityColor(et) }
+    map[et].count++
+  }
+  return Object.values(map).sort((a, b) => b.count - a.count)
+})
+
+function onNodeClick(data) {
+  if (data) {
+    selectedNode.value = data
+    emit('node-selected', data.name)
+  } else {
+    selectedNode.value = null
+  }
+}
+
+function onNodeHover(data) {
+  clearTimeout(hoverTimer)
+  hoverTimer = setTimeout(() => {
+    hoveredNode.value = data
+  }, 200)
+}
+
+function onNodeUnhover() {
+  clearTimeout(hoverTimer)
+  hoveredNode.value = null
+}
+
+function onCanvasReady() {
+  // Canvas is ready
+}
+
+function onSearchSelect(uuid) {
+  if (canvasRef.value) {
+    canvasRef.value.focusNode(uuid)
+  }
+  // Find the node data and select it
+  const node = allNodes.value.find((n) => n.uuid === uuid)
+  if (node) {
+    const entityType = getPrimaryLabel(node.labels || ['Entity'])
+    selectedNode.value = {
+      id: node.uuid,
+      name: node.name || node.uuid,
+      entityType,
+      summary: node.summary || '',
+      connectionCount: node.connection_count || 0,
+      relationships: node.relationships || [],
+    }
+    emit('node-selected', node.name)
+  }
+}
+
+function onRefresh() {
+  if (canvasRef.value) canvasRef.value.runLayout()
+}
+
+function toggleFullscreen() {
+  isFullscreen.value = !isFullscreen.value
+}
+
+function onEscKey(evt) {
+  if (evt.key === 'Escape' && isFullscreen.value) {
+    isFullscreen.value = false
+  }
+}
+
+function toggleType(name) {
+  const next = new Set(hiddenTypes.value)
+  if (next.has(name)) next.delete(name)
+  else next.add(name)
+  hiddenTypes.value = next
+}
+
+function showAllTypes() {
+  hiddenTypes.value = new Set()
+}
+
+function hideAllTypes() {
+  hiddenTypes.value = new Set(entityTypeSummary.value.map((et) => et.name))
+}
+
+function showAllNodes() {
+  showAll.value = true
+}
+
+function navigateToNode(nodeId) {
+  if (canvasRef.value) {
+    canvasRef.value.focusNode(nodeId)
+  }
+  const node = allNodes.value.find((n) => n.uuid === nodeId)
+  if (node) {
+    const entityType = getPrimaryLabel(node.labels || ['Entity'])
+    selectedNode.value = {
+      id: node.uuid,
+      name: node.name || node.uuid,
+      entityType,
+      summary: node.summary || '',
+      connectionCount: node.connection_count || 0,
+      relationships: node.relationships || [],
+    }
+  }
+}
+
+function onExport(format) {
+  if (!canvasRef.value) return
+  const dataUrl = canvasRef.value.exportImage(format)
+  if (!dataUrl) return
+
+  if (format === 'svg') {
+    // For SVG, create a blob from the data URL
+    fetch(dataUrl)
+      .then((res) => res.blob())
+      .then((blob) => {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = 'graph-export.svg'
+        a.click()
+        URL.revokeObjectURL(url)
+      })
+  } else {
+    const a = document.createElement('a')
+    a.href = dataUrl
+    a.download = 'graph-export.png'
+    a.click()
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', onEscKey)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onEscKey)
+  clearTimeout(hoverTimer)
+})
+</script>
