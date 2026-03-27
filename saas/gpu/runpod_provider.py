@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 
 import runpod  # type: ignore[import]
 
@@ -11,6 +12,9 @@ from saas.gpu.provider import GPUProvider, GPUProviderConfig, GPUInstance
 logger = logging.getLogger(__name__)
 
 MAX_POLL_ATTEMPTS = 120  # 120 * 5s = 10 min max wait for image pull
+
+# Network volume with pre-loaded model weights (eliminates download on cold start)
+NETWORK_VOLUME_ID = os.environ.get("RUNPOD_NETWORK_VOLUME_ID", "ogc6x11rrc")
 
 
 class RunPodProvider(GPUProvider):
@@ -24,6 +28,11 @@ class RunPodProvider(GPUProvider):
         """Create a RunPod pod with the given configuration."""
         logger.info(f"RunPod: provisioning {config.gpu_type} with image {config.docker_image}")
 
+        # Merge HF_HOME env var to use network volume for model cache
+        env = dict(config.env_vars or {})
+        env["HF_HOME"] = "/models/huggingface"
+        env["TRANSFORMERS_CACHE"] = "/models/huggingface"
+
         pod = runpod.create_pod(
             name="fishcloud-sim",
             image_name=config.docker_image,
@@ -31,9 +40,11 @@ class RunPodProvider(GPUProvider):
             cloud_type="ALL",
             gpu_count=1,
             volume_in_gb=0,
-            container_disk_in_gb=30,
+            container_disk_in_gb=15,
+            network_volume_id=NETWORK_VOLUME_ID,
+            volume_mount_path="/models",
             ports="5000/http,8000/http",
-            env=config.env_vars or {},
+            env=env,
         )
 
         pod_id = pod["id"]
