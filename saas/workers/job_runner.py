@@ -18,7 +18,7 @@ TIER_TIMEOUTS: dict[str, int] = {
     "large": 43200,
 }
 
-WORKER_IMAGE = "ghcr.io/sneg55/simswarm-worker:latest"
+WORKER_IMAGE = "ghcr.io/sneg55/simswarm-worker:v2"
 
 TIER_DOCKER_IMAGES: dict[str, str] = {
     "small": WORKER_IMAGE,
