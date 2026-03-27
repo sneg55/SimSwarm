@@ -16,6 +16,8 @@ dependencies = [
     "celery[redis]>=5.4.0",
     "bcrypt>=4.2.0",
     "pyjwt>=2.9.0",
+    "runpod>=1.7.0",
+    "httpx>=0.28.0",
 ]
 
 [project.optional-dependencies]

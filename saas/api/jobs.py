@@ -4,9 +4,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from saas.database import get_session
 from saas.models.job import SimulationJob, JobStatus
+from saas.models.model_routing import ModelRouting
 from saas.schemas.jobs import JobCreate, JobResponse, TIER_CREDITS
 from saas.billing.ledger import CreditLedger, InsufficientCreditsError
 from saas.auth.dependencies import get_current_user
+import os
+
+from saas.workers.tasks import run_simulation_task
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -53,6 +57,30 @@ async def create_job(
     session.add(job)
     await session.commit()
     await session.refresh(job)
+
+    # Look up model routing for this tier
+    route = await session.execute(
+        select(ModelRouting).where(ModelRouting.sim_tier == body.tier.value)
+    )
+    routing = route.scalar_one_or_none()
+    if not routing:
+        raise HTTPException(status_code=500, detail=f"No model routing configured for tier: {body.tier.value}")
+
+    # Dispatch to Celery worker
+    run_simulation_task.delay(
+        job_id=job.id,
+        user_id=user_id,
+        seed_text=body.seed_text,
+        goal=body.goal,
+        tier=body.tier.value,
+        model_id=routing.model_id,
+        gpu_type=routing.gpu_type,
+        max_rounds=routing.max_rounds,
+        vllm_args=routing.vllm_args or "",
+        llm_api_key=os.getenv("LLM_API_KEY", "not-needed"),
+        zep_api_key=os.getenv("ZEP_API_KEY", ""),
+    )
+
     return job
 
 

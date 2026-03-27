@@ -1,7 +1,11 @@
 """GPU provider failover logic."""
 from __future__ import annotations
 
+import logging
+
 from saas.gpu.provider import GPUProvider, GPUProviderConfig, GPUInstance
+
+logger = logging.getLogger(__name__)
 
 
 class FailoverGPUProvider:
@@ -18,15 +22,16 @@ class FailoverGPUProvider:
             instance = await self.primary.provision(config)
             self._active_instances[instance.instance_id] = self.primary
             return instance
-        except Exception:
-            pass
+        except Exception as e:
+            logger.warning(f"Primary GPU provider failed: {e}")
 
         try:
             instance = await self.fallback.provision(config)
             self._active_instances[instance.instance_id] = self.fallback
             return instance
-        except Exception:
-            raise RuntimeError("All GPU providers failed")
+        except Exception as e:
+            logger.error(f"Fallback GPU provider also failed: {e}")
+            raise RuntimeError(f"All GPU providers failed. Last error: {e}") from e
 
     async def get_status(self, instance_id: str) -> GPUInstance:
         """Delegate get_status to the provider that owns the instance."""
