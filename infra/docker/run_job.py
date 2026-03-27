@@ -341,12 +341,12 @@ def extract_graph_data(graph_id: str) -> dict:
     pipeline can still complete.
     """
     try:
-        from app.services.zep_tools import ZepToolService  # noqa: PLC0415
+        from app.services.zep_tools import ZepToolsService  # noqa: PLC0415
         import os
 
         api_key = os.environ.get("ZEP_API_KEY", "")
         print(f"[run_job] Extracting graph data for graph_id={graph_id}, ZEP_API_KEY={'set' if api_key else 'MISSING'}", flush=True)
-        zep = ZepToolService(api_key=api_key)
+        zep = ZepToolsService(api_key=api_key)
         raw_nodes = zep.get_all_nodes(graph_id)
         raw_edges = zep.get_all_edges(graph_id)
         print(f"[run_job] Zep returned {len(raw_nodes)} nodes, {len(raw_edges)} edges", flush=True)
