@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -9,6 +10,7 @@ from saas.api.router import api_router
 from saas.config import Settings
 from saas.database import init_db
 from saas.limiter import limiter
+from saas.logging import setup_logging
 
 # Module-level reference updated each time create_app is called
 _app_settings: Settings | None = None
@@ -19,6 +21,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     if settings is None:
         settings = Settings()
     _app_settings = settings
+
+    log_format = os.getenv("LOG_FORMAT", "json")
+    setup_logging(json_output=(log_format == "json"))
 
     app = FastAPI(title="SimSwarm", version="0.1.0")
     app.state.settings = settings

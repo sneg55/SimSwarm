@@ -132,6 +132,8 @@ class JobRunner:
         logger.info(
             "job.gpu_provisioned job_id=%d pod_id=%s provision_seconds=%d",
             config.job_id, pod_id, provision_seconds,
+            extra={"event": "gpu_provisioned", "job_id": config.job_id,
+                   "pod_id": pod_id, "elapsed_s": provision_seconds},
         )
 
         try:
@@ -180,7 +182,10 @@ class JobRunner:
                         elapsed = int(time.monotonic() - health_start)
                         health_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
                         vllm_ready = health_data.get("vllm_ready", "?")
-                        logger.info(f"Worker API ready in {elapsed}s (vllm_ready={vllm_ready})")
+                        logger.info(
+                            f"Worker API ready in {elapsed}s (vllm_ready={vllm_ready})",
+                            extra={"event": "health_ready", "elapsed_s": elapsed},
+                        )
                         break
                     elif attempt % 6 == 0:  # every 30s
                         elapsed = int(time.monotonic() - health_start)
@@ -270,7 +275,11 @@ class JobRunner:
             if job_status == "completed":
                 result = status_data
                 elapsed = int(time.monotonic() - pipeline_start)
-                logger.info(f"Pipeline completed in {elapsed}s!")
+                logger.info(
+                    f"Pipeline completed in {elapsed}s!",
+                    extra={"event": "pipeline_completed", "job_id": config.job_id,
+                           "elapsed_s": elapsed},
+                )
                 break
             elif job_status == "failed":
                 error_msg = status_data.get("error", "Unknown error")

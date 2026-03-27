@@ -356,6 +356,8 @@ def run_simulation_task(
         logger.info(
             "job.completed job_id=%d pod_id=%s provision_s=%s pipeline_s=%s",
             job_id, pod_id, provision_seconds, pipeline_seconds,
+            extra={"event": "job_completed", "job_id": job_id,
+                   "pod_id": pod_id, "duration_s": pipeline_seconds},
         )
         return result
 
@@ -367,6 +369,7 @@ def run_simulation_task(
         logger.error(
             "job.failed job_id=%d error_kind=%s error=%s",
             job_id, error_kind, error_msg, exc_info=True,
+            extra={"event": "job_failed", "job_id": job_id, "error": error_msg},
         )
 
         if error_kind == "transient" and self.request.retries < self.max_retries:
@@ -421,6 +424,7 @@ def cleanup_orphaned_pods() -> dict:
             gpu = pod.get("machine", {}).get("gpuDisplayName", "?")
             logger.warning(
                 "cleanup.terminated pod_id=%s gpu=%s name=%s", pod_id, gpu, name,
+                extra={"event": "cleanup_terminated", "pod_id": pod_id},
             )
             terminated.append(pod_id)
         except Exception as e:

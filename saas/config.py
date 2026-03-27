@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     STRIPE_SUCCESS_URL: str = "http://localhost:3000/billing?success=1"
     STRIPE_CANCEL_URL: str = "http://localhost:3000/billing?cancel=1"
 
+    # Logging
+    LOG_FORMAT: str = "json"  # "json" or "text"
+
     # Seed limits
     MAX_SEED_CHARS: int = 50_000
     MAX_SIMULATION_ROUNDS: int = 200

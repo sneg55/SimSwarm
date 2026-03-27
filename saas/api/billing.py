@@ -111,7 +111,11 @@ async def stripe_webhook(
             payment_intent_id=payment_intent_id,
         )
         await session.commit()
-        logger.info("Credited %d credits to user %s for session %s", credits, user_id, stripe_session_id)
+        logger.info(
+            "Credited %d credits to user %s for session %s", credits, user_id, stripe_session_id,
+            extra={"event": "credits_added", "user_id": user_id,
+                   "credits": credits, "session_id": stripe_session_id},
+        )
 
     elif event.type == "charge.refunded":
         charge = event.data.object
@@ -134,6 +138,8 @@ async def stripe_webhook(
             original_credit.amount,
             original_credit.user_id,
             payment_intent_id,
+            extra={"event": "refund_processed", "user_id": original_credit.user_id,
+                   "credits": original_credit.amount},
         )
 
     return {"status": "ok"}
