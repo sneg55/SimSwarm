@@ -2,6 +2,13 @@
   <div class="max-w-3xl mx-auto px-4 py-8">
     <h1 class="text-2xl font-bold text-gray-900 mb-8">Account</h1>
 
+    <div v-if="paymentSuccess" class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-md mb-6">
+      Payment successful! Your credits will be added shortly once the payment is confirmed.
+    </div>
+    <div v-if="paymentCancelled" class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md mb-6">
+      Payment was cancelled. You were not charged.
+    </div>
+
     <!-- Balance Section -->
     <div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
       <h2 class="text-lg font-semibold text-gray-800 mb-4">Credit Balance</h2>
@@ -68,12 +75,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
 import CreditBadge from '../components/CreditBadge.vue'
 import { useCreditsStore } from '../stores/credits.js'
 import { getBalance, purchaseCredits, getHistory } from '../api/billing.js'
 
+const route = useRoute()
 const creditsStore = useCreditsStore()
+
+const paymentSuccess = computed(() => route.query.success === '1')
+const paymentCancelled = computed(() => route.query.cancel === '1')
 
 const history = ref([])
 const historyLoading = ref(true)
@@ -105,11 +117,17 @@ async function handlePurchase(pack) {
   purchaseError.value = ''
   try {
     const result = await purchaseCredits(pack.id)
+    // Redirect to Stripe Checkout
+    if (result.checkout_url) {
+      window.location.href = result.checkout_url
+      return
+    }
+    // Fallback if no redirect URL
     creditsStore.setBalance(result.balance ?? result)
     purchaseSuccess.value = true
     setTimeout(() => { purchaseSuccess.value = false }, 3000)
   } catch (err) {
-    purchaseError.value = err.response?.data?.message || 'Purchase failed.'
+    purchaseError.value = err.response?.data?.detail || err.response?.data?.message || 'Purchase failed.'
   } finally {
     purchasing.value = null
   }
