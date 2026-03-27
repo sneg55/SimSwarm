@@ -1,9 +1,14 @@
 """Tests for RunPod hardening: new DB columns and error classification."""
+import os
+from unittest.mock import patch, AsyncMock
+
 import httpx
 import pytest
 
 from saas.gpu.errors import TransientGPUError, PermanentGPUError, classify_gpu_error
+from saas.gpu.provider import GPUInstance
 from saas.models.job import SimulationJob
+from saas.workers.job_runner import JobConfig, JobRunner, get_worker_image
 
 
 # ── Task 1: DB Schema — New Columns on SimulationJob ──
@@ -70,3 +75,19 @@ def test_transient_gpu_error_is_exception():
 
 def test_permanent_gpu_error_is_exception():
     assert isinstance(PermanentGPUError("bad input"), Exception)
+
+
+# ── Task 3: Env-Based Worker Image Tag ──
+
+
+def test_worker_image_from_env_var():
+    with patch.dict(os.environ, {"WORKER_IMAGE_TAG": "abc123"}):
+        assert get_worker_image() == "ghcr.io/sneg55/simswarm-worker:abc123"
+
+
+def test_worker_image_fallback_without_env_var():
+    env = os.environ.copy()
+    env.pop("WORKER_IMAGE_TAG", None)
+    with patch.dict(os.environ, env, clear=True):
+        result = get_worker_image()
+        assert result.startswith("ghcr.io/sneg55/simswarm-worker:")

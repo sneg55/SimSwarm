@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from dataclasses import dataclass
 
 import httpx
@@ -18,13 +19,14 @@ TIER_TIMEOUTS: dict[str, int] = {
     "large": 43200,
 }
 
-WORKER_IMAGE = "ghcr.io/sneg55/simswarm-worker:v20260327155910"
+WORKER_IMAGE_REPO = "ghcr.io/sneg55/simswarm-worker"
+WORKER_IMAGE_DEFAULT_TAG = "v20260327155910"
 
-TIER_DOCKER_IMAGES: dict[str, str] = {
-    "small": WORKER_IMAGE,
-    "medium": WORKER_IMAGE,
-    "large": WORKER_IMAGE,
-}
+
+def get_worker_image() -> str:
+    """Return worker Docker image, preferring WORKER_IMAGE_TAG env var."""
+    tag = os.getenv("WORKER_IMAGE_TAG", WORKER_IMAGE_DEFAULT_TAG)
+    return f"{WORKER_IMAGE_REPO}:{tag}"
 
 TIER_MAX_COST_USD: dict[str, float] = {
     "small": 1.50,
@@ -95,7 +97,7 @@ class JobRunner:
         """
         gpu_config = GPUProviderConfig(
             gpu_type=config.gpu_type,
-            docker_image=TIER_DOCKER_IMAGES.get(config.tier, "mirofish:latest"),
+            docker_image=get_worker_image(),
             max_cost_per_hour_usd=TIER_MAX_COST_USD.get(config.tier, 4.00),
             timeout_seconds=config.timeout_seconds,
             env_vars=config.to_mirofish_env(),
