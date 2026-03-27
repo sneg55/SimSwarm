@@ -1,13 +1,11 @@
 """
-Lightweight HTTP API running on GPU worker pods.
-Receives simulation jobs, runs MiroFish pipeline in background thread, results via polling.
+GPU Worker HTTP API — runs on RunPod pods alongside vLLM.
 
-Runs alongside vLLM (port 8000) on port 5000.
-
-Flow:
-  POST /job   -> starts pipeline in background, returns {"status": "accepted"} immediately
-  GET /status -> poll until status is "completed" or "failed", includes report + chat_log
-  GET /health -> liveness check
+Endpoints:
+  GET  /health  -> liveness + vLLM readiness check
+  POST /job     -> starts pipeline in background, returns immediately
+  GET  /status  -> poll for completion, includes report + chat_log when done
+  GET  /logs    -> real-time stdout/stderr from the running pipeline
 """
 from flask import Flask, request, jsonify
 import subprocess
@@ -17,42 +15,50 @@ from pathlib import Path
 
 app = Flask(__name__)
 
+LOG_FILE = Path("/tmp/pipeline.log")
+
 _job = {
     "status": "idle",  # idle, running, completed, failed
     "result": None,
     "error": None,
-    "stdout": None,
 }
 _lock = threading.Lock()
 
 
 def _run_pipeline(seed_text, goal, max_rounds):
-    """Run the MiroFish pipeline in a background thread."""
+    """Run MiroFish pipeline in background, stream output to log file."""
     try:
         seed_file = Path("/tmp/seed.txt")
         seed_file.write_text(seed_text)
 
-        result = subprocess.run(
-            [
-                "python3", "/app/run_job.py",
-                "--seed-file", str(seed_file),
-                "--goal", goal,
-                "--max-rounds", str(max_rounds),
-                "--output-dir", "/tmp/results",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=3600,
-            env={**os.environ},
-        )
+        # Clear previous log
+        LOG_FILE.write_text("")
 
-        if result.returncode != 0:
+        with open(LOG_FILE, "w") as log_fh:
+            proc = subprocess.Popen(
+                [
+                    "python3", "-u", "/app/run_job.py",
+                    "--seed-file", str(seed_file),
+                    "--goal", goal,
+                    "--max-rounds", str(max_rounds),
+                    "--output-dir", "/tmp/results",
+                    "--skip-vllm-wait",
+                ],
+                stdout=log_fh,
+                stderr=subprocess.STDOUT,
+                env={**os.environ},
+            )
+            proc.wait(timeout=3600)
+
+        log_content = LOG_FILE.read_text()
+
+        if proc.returncode != 0:
             with _lock:
                 _job["status"] = "failed"
-                _job["error"] = result.stderr[-3000:] if result.stderr else "Unknown error"
-                _job["stdout"] = result.stdout[-3000:] if result.stdout else ""
+                _job["error"] = log_content[-5000:]
             return
 
+        # Read results
         results_dir = Path("/tmp/results")
         report = ""
         chat_log = "[]"
@@ -64,9 +70,9 @@ def _run_pipeline(seed_text, goal, max_rounds):
         with _lock:
             _job["status"] = "completed"
             _job["result"] = {"report": report, "chat_log": chat_log}
-            _job["stdout"] = result.stdout[-3000:] if result.stdout else ""
 
     except subprocess.TimeoutExpired:
+        proc.kill()
         with _lock:
             _job["status"] = "failed"
             _job["error"] = "Job timed out after 1 hour"
@@ -78,12 +84,24 @@ def _run_pipeline(seed_text, goal, max_rounds):
 
 @app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "ok", "job_status": _job["status"]})
+    """Liveness + vLLM readiness check."""
+    import requests as req
+    vllm_ok = False
+    try:
+        r = req.get("http://localhost:8000/v1/models", timeout=3)
+        vllm_ok = r.status_code == 200
+    except Exception:
+        pass
+    return jsonify({
+        "status": "ok" if vllm_ok else "waiting_for_vllm",
+        "vllm_ready": vllm_ok,
+        "job_status": _job["status"],
+    }), 200 if vllm_ok else 503
 
 
 @app.route("/job", methods=["POST"])
 def submit_job():
-    """Submit a job — returns immediately, pipeline runs in background thread."""
+    """Start pipeline in background. Returns immediately."""
     data = request.json or {}
     seed_text = data.get("seed_text", "")
     goal = data.get("goal", "")
@@ -95,7 +113,8 @@ def submit_job():
         _job["status"] = "running"
         _job["result"] = None
         _job["error"] = None
-        _job["stdout"] = None
+
+    LOG_FILE.write_text("")
 
     thread = threading.Thread(
         target=_run_pipeline,
@@ -103,13 +122,12 @@ def submit_job():
         daemon=True,
     )
     thread.start()
-
     return jsonify({"status": "accepted"})
 
 
 @app.route("/status", methods=["GET"])
 def job_status():
-    """Poll for job completion. Returns report + chat_log when done."""
+    """Poll for completion. Returns report + chat_log when done."""
     with _lock:
         resp = {"status": _job["status"]}
         if _job["status"] == "completed" and _job["result"]:
@@ -117,8 +135,21 @@ def job_status():
             resp["chat_log"] = _job["result"]["chat_log"]
         if _job["status"] == "failed":
             resp["error"] = _job["error"]
-            resp["stdout"] = _job["stdout"]
-        return jsonify(resp)
+    return jsonify(resp)
+
+
+@app.route("/logs", methods=["GET"])
+def logs():
+    """Real-time pipeline logs. Returns last N lines from the log file."""
+    tail = request.args.get("tail", 100, type=int)
+    if LOG_FILE.exists():
+        lines = LOG_FILE.read_text().splitlines()
+        return jsonify({
+            "lines": lines[-tail:],
+            "total_lines": len(lines),
+            "job_status": _job["status"],
+        })
+    return jsonify({"lines": [], "total_lines": 0, "job_status": _job["status"]})
 
 
 if __name__ == "__main__":

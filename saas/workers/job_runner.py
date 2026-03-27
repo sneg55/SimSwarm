@@ -160,6 +160,16 @@ class JobRunner:
 
             if poll % 6 == 0:  # Log every 60s
                 logger.info(f"Pipeline status: {job_status} (poll {poll + 1})")
+                # Pull recent logs from the worker
+                try:
+                    async with httpx.AsyncClient(timeout=10) as log_client:
+                        log_resp = await log_client.get(f"{worker_url}/logs?tail=10")
+                        if log_resp.status_code == 200:
+                            log_data = log_resp.json()
+                            for line in log_data.get("lines", []):
+                                logger.info(f"  [worker] {line}")
+                except Exception:
+                    pass
 
             if job_status == "completed":
                 result = status_data

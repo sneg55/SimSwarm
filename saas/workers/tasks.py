@@ -90,7 +90,7 @@ def _save_job_results(job_id: int, report: str, chat_log: str) -> None:
                 await session.execute(
                     text(
                         "UPDATE simulation_jobs "
-                        "SET status = 'completed', "
+                        "SET status = 'COMPLETED', "
                         "    result_report = :report, "
                         "    result_chat_log = :chat_log, "
                         "    completed_at = :completed_at "
@@ -130,7 +130,7 @@ def _mark_job_failed(job_id: int, error_message: str) -> None:
                 await session.execute(
                     text(
                         "UPDATE simulation_jobs "
-                        "SET status = 'failed', "
+                        "SET status = 'FAILED', "
                         "    error_message = :error_message, "
                         "    completed_at = :completed_at "
                         "WHERE id = :job_id"
