@@ -96,7 +96,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import ReportViewer from '../components/ReportViewer.vue'
 import ChatReplay from '../components/ChatReplay.vue'
