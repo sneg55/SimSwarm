@@ -42,7 +42,7 @@ def _run_pipeline(seed_text, goal, max_rounds):
                     "--goal", goal,
                     "--max-rounds", str(max_rounds),
                     "--output-dir", "/tmp/results",
-                    "--skip-vllm-wait",
+                    # Do NOT skip vLLM wait — verify localhost:8000 is actually serving
                 ],
                 stdout=log_fh,
                 stderr=subprocess.STDOUT,

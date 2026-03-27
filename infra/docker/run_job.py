@@ -38,7 +38,7 @@ MIROFISH_BACKEND = "/app/mirofish/backend"
 # Helpers
 # ---------------------------------------------------------------------------
 
-def wait_for_vllm(timeout: int = 300) -> None:
+def wait_for_vllm(timeout: int = 600) -> None:
     """Block until vLLM OpenAI-compatible server responds on /v1/models."""
     start = time.time()
     while time.time() - start < timeout:
