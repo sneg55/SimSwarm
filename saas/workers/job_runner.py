@@ -57,6 +57,9 @@ class JobConfig:
             "LLM_MODEL_NAME": self.model_id,
             "ZEP_API_KEY": self.zep_api_key,
             "OASIS_DEFAULT_MAX_ROUNDS": str(self.max_rounds),
+            # Used by start.sh to configure vLLM server
+            "MODEL_ID": self.model_id,
+            "VLLM_ARGS": self.vllm_args or "--max-model-len 32768",
         }
 
 
@@ -109,7 +112,7 @@ class JobRunner:
         # 1. Wait for worker API to be ready (vLLM model load takes ~2-5 min)
         # ------------------------------------------------------------------
         logger.info(f"Waiting for worker API at {worker_url}/health ...")
-        for attempt in range(60):  # 5 min max (60 * 5s)
+        for attempt in range(180):  # 15 min max (180 * 5s) — model download can take 10+ min
             try:
                 async with httpx.AsyncClient(timeout=10) as client:
                     resp = await client.get(f"{worker_url}/health")
@@ -120,7 +123,7 @@ class JobRunner:
                 pass
             await asyncio.sleep(5)
         else:
-            raise TimeoutError(f"Worker API at {worker_url} did not become ready within 300s")
+            raise TimeoutError(f"Worker API at {worker_url} did not become ready within 900s")
 
         # ------------------------------------------------------------------
         # 2. Submit job — returns immediately, pipeline runs in background
