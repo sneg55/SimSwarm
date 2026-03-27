@@ -6,7 +6,40 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-worker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set short SHA
+        id: vars
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push worker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: infra/docker/Dockerfile.worker
+          push: true
+          tags: |
+            ghcr.io/sneg55/simswarm-worker:${{ steps.vars.outputs.short_sha }}
+            ghcr.io/sneg55/simswarm-worker:latest
+
   deploy:
+    needs: build-worker
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -24,6 +57,15 @@ jobs:
             cd /opt/fishcloud
             git pull origin main
             git submodule update --recursive
+
+            # Set worker image tag to current git commit
+            SHORT_SHA=$(git rev-parse --short HEAD)
+            if grep -q '^WORKER_IMAGE_TAG=' .env; then
+                sed -i "s/^WORKER_IMAGE_TAG=.*/WORKER_IMAGE_TAG=${SHORT_SHA}/" .env
+            else
+                echo "WORKER_IMAGE_TAG=${SHORT_SHA}" >> .env
+            fi
+
             docker compose build
             docker compose run --rm migrate
             docker compose up -d app celery redis db caddy frontend-init
