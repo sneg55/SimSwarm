@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +14,8 @@ from saas.schemas.billing import (
     CreditHistoryEntry,
 )
 from saas.auth.dependencies import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/billing", tags=["billing"])
 
@@ -76,18 +80,36 @@ async def stripe_webhook(
     if event.type == "checkout.session.completed":
         stripe_session = event.data.object
         user_id = stripe_session.metadata.get("user_id")
-        credits = int(stripe_session.metadata.get("credits", "0"))
+        pack_id = stripe_session.metadata.get("pack_id")
         stripe_session_id = stripe_session.id
 
-        if user_id and credits > 0:
-            ledger = CreditLedger(session)
-            await ledger.credit(
-                user_id=user_id,
-                amount=credits,
-                description=f"Credit purchase via Stripe session {stripe_session_id}",
-                stripe_session_id=stripe_session_id,
-            )
-            await session.commit()
+        if not user_id or not pack_id:
+            logger.warning("Webhook missing user_id or pack_id in metadata: session=%s", stripe_session_id)
+            return {"status": "ok"}
+
+        # Validate pack_id against known packs
+        try:
+            pack = get_pack(pack_id)
+        except KeyError:
+            logger.warning("Unknown pack_id %r in webhook: session=%s", pack_id, stripe_session_id)
+            return {"status": "ok"}
+
+        ledger = CreditLedger(session)
+
+        # Idempotency: skip if already credited
+        if await ledger.session_credited(stripe_session_id):
+            logger.info("Duplicate webhook for session %s — skipping", stripe_session_id)
+            return {"status": "ok"}
+
+        credits = pack.credits  # trust pack definition, not metadata
+        await ledger.credit(
+            user_id=user_id,
+            amount=credits,
+            description=f"Credit purchase via Stripe session {stripe_session_id}",
+            stripe_session_id=stripe_session_id,
+        )
+        await session.commit()
+        logger.info("Credited %d credits to user %s for session %s", credits, user_id, stripe_session_id)
 
     return {"status": "ok"}
 
