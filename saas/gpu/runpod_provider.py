@@ -10,7 +10,7 @@ from saas.gpu.provider import GPUProvider, GPUProviderConfig, GPUInstance
 
 logger = logging.getLogger(__name__)
 
-MAX_POLL_ATTEMPTS = 60  # 60 * 5s = 5 min max wait
+MAX_POLL_ATTEMPTS = 120  # 120 * 5s = 10 min max wait for image pull
 
 
 class RunPodProvider(GPUProvider):
@@ -31,7 +31,7 @@ class RunPodProvider(GPUProvider):
             cloud_type="ALL",
             gpu_count=1,
             volume_in_gb=0,
-            container_disk_in_gb=50,
+            container_disk_in_gb=100,
             ports="8000/http,22/tcp",
             env=config.env_vars or {},
         )
@@ -74,7 +74,7 @@ class RunPodProvider(GPUProvider):
         return GPUInstance(
             instance_id=instance_id,
             provider="runpod",
-            gpu_type=config.gpu_type if hasattr(self, '_config') else "unknown",
+            gpu_type=pod.get("machine", {}).get("gpuDisplayName", "unknown"),
             ip_address=ip_address,
             ssh_port=ssh_port,
             status="running" if is_running else "provisioning",
