@@ -41,11 +41,15 @@ class RunPodProvider(GPUProvider):
 
         # Poll until running
         for attempt in range(MAX_POLL_ATTEMPTS):
-            status = await self.get_status(pod_id)
-            if status.is_ready:
-                logger.info(f"RunPod: pod {pod_id} is ready at {status.ip_address}")
-                self._pod_id = pod_id
-                return status
+            try:
+                status = await self.get_status(pod_id)
+                if status.is_ready:
+                    logger.info(f"RunPod: pod {pod_id} is ready at {status.ip_address}")
+                    return status
+                if attempt % 12 == 0:
+                    logger.info(f"RunPod: pod {pod_id} still provisioning... (attempt {attempt + 1})")
+            except Exception as e:
+                logger.warning(f"RunPod: poll error (attempt {attempt + 1}): {e}")
             await asyncio.sleep(5)
 
         raise TimeoutError(f"RunPod pod {pod_id} did not become ready in {MAX_POLL_ATTEMPTS * 5}s")
@@ -56,20 +60,20 @@ class RunPodProvider(GPUProvider):
         raw_status = (pod.get("desiredStatus") or "").upper()
         runtime = pod.get("runtime") or {}
 
-        is_running = raw_status == "RUNNING" and runtime
+        has_runtime = raw_status == "RUNNING" and bool(runtime)
         ip_address = None
         ssh_port = None
 
-        if is_running:
+        if has_runtime:
             ports = runtime.get("ports") or []
             for port in ports:
                 if port.get("privatePort") == 22:
                     ip_address = port.get("ip")
                     ssh_port = port.get("publicPort")
                     break
-            # If no SSH port found, use the pod IP
+            # RunPod pods may not expose ports immediately — if runtime exists, pod is ready
             if not ip_address:
-                ip_address = runtime.get("gpus", [{}])[0].get("ip") if runtime.get("gpus") else None
+                ip_address = instance_id  # Use pod ID as placeholder — exec works via API, not SSH
 
         return GPUInstance(
             instance_id=instance_id,
@@ -77,7 +81,7 @@ class RunPodProvider(GPUProvider):
             gpu_type=pod.get("machine", {}).get("gpuDisplayName", "unknown"),
             ip_address=ip_address,
             ssh_port=ssh_port,
-            status="running" if is_running else "provisioning",
+            status="running" if has_runtime else "provisioning",
         )
 
     async def terminate(self, instance_id: str) -> None:
