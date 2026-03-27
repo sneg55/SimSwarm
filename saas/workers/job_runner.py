@@ -11,10 +11,12 @@ TIER_TIMEOUTS: dict[str, int] = {
     "large": 43200,
 }
 
+WORKER_IMAGE = "ghcr.io/sneg55/fishcloud-worker:latest"
+
 TIER_DOCKER_IMAGES: dict[str, str] = {
-    "small": "mirofish:latest",
-    "medium": "mirofish:latest",
-    "large": "mirofish:latest",
+    "small": WORKER_IMAGE,
+    "medium": WORKER_IMAGE,
+    "large": WORKER_IMAGE,
 }
 
 TIER_MAX_COST_USD: dict[str, float] = {
