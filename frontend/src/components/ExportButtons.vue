@@ -3,9 +3,10 @@
     <span class="text-sm text-gray-600 font-medium">Export:</span>
     <button
       @click="exportPDF"
-      class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+      :disabled="pdfLoading"
+      class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      PDF
+      {{ pdfLoading ? 'Generating...' : 'PDF' }}
     </button>
     <button
       @click="exportJSON"
@@ -23,6 +24,8 @@
 </template>
 
 <script setup>
+import { ref } from 'vue'
+
 const props = defineProps({
   jobId: String,
   reportContent: String,
@@ -31,9 +34,34 @@ const props = defineProps({
 
 const emit = defineEmits(['export'])
 
-function exportPDF() {
+const pdfLoading = ref(false)
+
+async function exportPDF() {
+  pdfLoading.value = true
   emit('export', { format: 'pdf', jobId: props.jobId })
-  window.print()
+  try {
+    const token = localStorage.getItem('token')
+    const resp = await fetch(`/api/jobs/${props.jobId}/export/pdf`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}))
+      alert(`PDF export failed: ${err.detail || resp.statusText}`)
+      return
+    }
+    const blob = await resp.blob()
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `simulation-${props.jobId}.pdf`
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch (err) {
+    console.error('PDF export error:', err)
+    alert('PDF export failed. Please try again.')
+  } finally {
+    pdfLoading.value = false
+  }
 }
 
 function exportJSON() {

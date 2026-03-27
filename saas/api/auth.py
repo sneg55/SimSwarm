@@ -17,6 +17,7 @@ from saas.schemas.auth import (
     ForgotPasswordRequest,
     ResetPasswordRequest,
 )
+from saas.limiter import limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -36,9 +37,10 @@ def _get_base_url(request: Request) -> str:
 
 
 @router.post("/register", response_model=AuthResponse, status_code=201)
+@limiter.limit("5/minute")
 async def register(
-    body: RegisterRequest,
     request: Request,
+    body: RegisterRequest,
     session: AsyncSession = Depends(get_session),
 ) -> AuthResponse:
     # Validate email format
@@ -76,9 +78,10 @@ async def register(
 
 
 @router.post("/login", response_model=AuthResponse, status_code=200)
+@limiter.limit("10/minute")
 async def login(
-    body: LoginRequest,
     request: Request,
+    body: LoginRequest,
     session: AsyncSession = Depends(get_session),
 ) -> AuthResponse:
     # Look up user by email

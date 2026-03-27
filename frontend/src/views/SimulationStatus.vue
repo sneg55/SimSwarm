@@ -21,9 +21,13 @@
         </div>
 
         <PipelineProgress
-          :current-step="job.current_step"
-          :completed-steps="job.completed_steps || []"
+          :current-step="currentStep"
+          :completed-steps="completedSteps"
         />
+
+        <p v-if="job.pipeline_stage" class="text-xs text-gray-400 mt-3">
+          Stage {{ job.pipeline_stage }} of 5
+        </p>
       </div>
 
       <div v-if="job.status === 'completed'" class="text-center py-4">
@@ -53,11 +57,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import PipelineProgress from '../components/PipelineProgress.vue'
 import ChatReplay from '../components/ChatReplay.vue'
 import { getJob } from '../api/jobs.js'
+
+const STAGE_STEP_IDS = ['seed', 'research', 'prepare', 'simulate', 'report']
 
 const route = useRoute()
 const jobId = route.params.id
@@ -65,6 +71,17 @@ const jobId = route.params.id
 const job = ref(null)
 const loading = ref(true)
 let pollInterval = null
+
+const currentStep = computed(() => {
+  if (!job.value || !job.value.pipeline_stage) return null
+  const idx = job.value.pipeline_stage - 1
+  return STAGE_STEP_IDS[idx] ?? null
+})
+
+const completedSteps = computed(() => {
+  if (!job.value || !job.value.pipeline_stage) return []
+  return STAGE_STEP_IDS.slice(0, job.value.pipeline_stage - 1)
+})
 
 async function fetchJob() {
   try {

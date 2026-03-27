@@ -6,6 +6,7 @@ import logging
 from dataclasses import dataclass
 
 import httpx
+from sqlalchemy import update
 
 from saas.gpu.provider import GPUProvider, GPUProviderConfig
 
@@ -63,11 +64,29 @@ class JobConfig:
         }
 
 
+def _infer_pipeline_stage(log_lines: list[str]) -> int | None:
+    """Map worker log lines to a pipeline stage number (1-5)."""
+    log_text = " ".join(log_lines)
+    if "report" in log_text.lower():
+        return 5
+    if "Running simulation" in log_text or "round=" in log_text:
+        return 4
+    if "preparing" in log_text:
+        return 3
+    if "Building" in log_text:
+        return 2
+    if "Generating ontology" in log_text:
+        return 1
+    return None
+
+
 class JobRunner:
     """Manages the full lifecycle of a simulation job on a GPU instance."""
 
-    def __init__(self, gpu_provider: GPUProvider):
+    def __init__(self, gpu_provider: GPUProvider, stage_callback=None):
         self.gpu_provider = gpu_provider
+        # Optional async callable(job_id, stage) invoked when pipeline_stage changes
+        self._stage_callback = stage_callback
 
     async def run(self, config: JobConfig) -> dict:
         """Provision a GPU, run the pipeline, then terminate the instance."""
@@ -149,6 +168,7 @@ class JobRunner:
         # 2b. Poll /status until completed or failed (up to 1 hour)
         # ------------------------------------------------------------------
         max_polls = 360  # 360 * 10s = 1 hour
+        last_stage: int | None = None
         for poll in range(max_polls):
             await asyncio.sleep(10)
             try:
@@ -160,6 +180,7 @@ class JobRunner:
                 continue
 
             job_status = status_data.get("status", "unknown")
+            log_lines: list[str] = []
 
             if poll % 6 == 0:  # Log every 60s
                 logger.info(f"Pipeline status: {job_status} (poll {poll + 1})")
@@ -169,10 +190,22 @@ class JobRunner:
                         log_resp = await log_client.get(f"{worker_url}/logs?tail=10")
                         if log_resp.status_code == 200:
                             log_data = log_resp.json()
-                            for line in log_data.get("lines", []):
+                            log_lines = log_data.get("lines", [])
+                            for line in log_lines:
                                 logger.info(f"  [worker] {line}")
                 except Exception:
                     pass
+
+            # Infer pipeline stage from logs and notify callback if changed
+            stage = _infer_pipeline_stage(log_lines)
+            if stage is not None and stage != last_stage:
+                last_stage = stage
+                logger.info(f"Pipeline stage updated to {stage}")
+                if self._stage_callback is not None:
+                    try:
+                        await self._stage_callback(config.job_id, stage)
+                    except Exception as cb_exc:
+                        logger.warning(f"Stage callback failed: {cb_exc}")
 
             if job_status == "completed":
                 result = status_data

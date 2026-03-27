@@ -150,6 +150,34 @@ def _mark_job_failed(job_id: int, error_message: str) -> None:
     _run_async(_do_fail())
 
 
+def _update_pipeline_stage(job_id: int, stage: int) -> None:
+    """Update pipeline_stage on a SimulationJob row."""
+    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+    from sqlalchemy import text
+
+    database_url = os.getenv("DATABASE_URL", "")
+    if not database_url:
+        return
+
+    async def _do_update():
+        engine = create_async_engine(database_url)
+        session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+        async with session_factory() as session:
+            try:
+                await session.execute(
+                    text("UPDATE simulation_jobs SET pipeline_stage = :stage WHERE id = :job_id"),
+                    {"stage": stage, "job_id": job_id},
+                )
+                await session.commit()
+                logger.debug("Set pipeline_stage=%d for job %d", stage, job_id)
+            except Exception as exc:
+                logger.warning("Could not update pipeline_stage for job %d: %s", job_id, exc)
+            finally:
+                await engine.dispose()
+
+    _run_async(_do_update())
+
+
 def _run_async(coro) -> object:
     """
     Run an async coroutine from a synchronous Celery worker context.
@@ -221,7 +249,11 @@ def run_simulation_task(
     )
 
     gpu_provider = _get_gpu_provider()
-    runner = JobRunner(gpu_provider=gpu_provider)
+
+    async def _stage_cb(j_id: int, stage: int) -> None:
+        _update_pipeline_stage(j_id, stage)
+
+    runner = JobRunner(gpu_provider=gpu_provider, stage_callback=_stage_cb)
 
     try:
         result = _run_async(runner.run(config))

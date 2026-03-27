@@ -10,6 +10,16 @@ from saas.models.model_routing import ModelRouting  # noqa: F401 — registers t
 from saas.models.job import SimulationJob  # noqa: F401 — registers table in metadata
 from saas.database import get_session
 
+
+@pytest.fixture(autouse=True)
+def reset_rate_limiter():
+    """Reset the shared in-memory rate-limiter before every test to prevent
+    counters from leaking across test cases."""
+    from saas.limiter import limiter
+    limiter.reset()
+    yield
+    limiter.reset()
+
 _FORWARD_IMPORTS_OK = True
 
 TEST_DATABASE_URL = "sqlite+aiosqlite://"

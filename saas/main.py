@@ -2,9 +2,13 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+
 from saas.api.router import api_router
 from saas.config import Settings
 from saas.database import init_db
+from saas.limiter import limiter
 
 # Module-level reference updated each time create_app is called
 _app_settings: Settings | None = None
@@ -18,6 +22,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
 
     app = FastAPI(title="FishCloud", version="0.1.0")
     app.state.settings = settings
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     init_db(settings.DATABASE_URL)
     app.include_router(api_router)
 

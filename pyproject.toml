@@ -18,6 +18,8 @@ dependencies = [
     "pyjwt>=2.9.0",
     "runpod>=1.7.0",
     "httpx>=0.28.0",
+    "reportlab>=4.0.0",
+    "slowapi>=0.1.9",
 ]
 
 [project.optional-dependencies]
