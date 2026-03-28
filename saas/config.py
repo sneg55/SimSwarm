@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     # Logging
     LOG_FORMAT: str = "json"  # "json" or "text"
 
+    # Alerting
+    ALERT_WEBHOOK_URL: str = ""
+
     # Seed limits
     MAX_SEED_CHARS: int = 50_000
     MAX_SIMULATION_ROUNDS: int = 200

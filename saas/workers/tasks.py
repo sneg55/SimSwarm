@@ -12,7 +12,9 @@ from saas.workers.persistence import (
     _save_job_results,
     _update_job_metadata,
     _update_job_retry,
+    _update_heartbeat,
     _update_pipeline_stage,
+    _update_pod_id,
 )
 from saas.workers.refund import _refund_credits
 from saas.workers.cleanup import cleanup_orphaned_pods as _cleanup_orphaned_pods_impl
@@ -74,7 +76,18 @@ def run_simulation_task(
     async def _stage_cb(j_id: int, stage: int) -> None:
         _update_pipeline_stage(j_id, stage)
 
-    runner = JobRunner(gpu_provider=gpu_provider, stage_callback=_stage_cb)
+    async def _pod_id_cb(j_id: int, pod_id: str) -> None:
+        _update_pod_id(j_id, pod_id)
+
+    async def _heartbeat_cb(j_id: int) -> None:
+        _update_heartbeat(j_id)
+
+    runner = JobRunner(
+        gpu_provider=gpu_provider,
+        stage_callback=_stage_cb,
+        pod_id_callback=_pod_id_cb,
+        heartbeat_callback=_heartbeat_cb,
+    )
 
     try:
         result = _run_async(runner.run(config))
@@ -156,7 +169,14 @@ def resume_simulation_task(
     async def _stage_cb(j_id: int, stage: int) -> None:
         _update_pipeline_stage(j_id, stage)
 
-    runner = JobRunner(gpu_provider=gpu_provider, stage_callback=_stage_cb)
+    async def _heartbeat_cb(j_id: int) -> None:
+        _update_heartbeat(j_id)
+
+    runner = JobRunner(
+        gpu_provider=gpu_provider,
+        stage_callback=_stage_cb,
+        heartbeat_callback=_heartbeat_cb,
+    )
 
     try:
         result = _run_async(runner.resume(pod_id=pod_id, job_id=job_id))

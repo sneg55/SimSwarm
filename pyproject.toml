@@ -20,6 +20,7 @@ dependencies = [
     "httpx>=0.28.0",
     "reportlab>=4.0.0",
     "slowapi>=0.1.9",
+    "psycopg2-binary>=2.9.0",
 ]
 
 [project.optional-dependencies]
