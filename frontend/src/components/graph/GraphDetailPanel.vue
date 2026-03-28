@@ -2,7 +2,7 @@
   <transition name="slide">
     <div
       v-if="node"
-      class="absolute top-0 right-0 h-full w-80 bg-white border-l border-gray-200 shadow-lg overflow-y-auto z-30"
+      class="absolute top-0 right-0 h-full w-80 bg-ocean-deep border-l border-mist-depth shadow-[0_8px_32px_rgba(0,0,0,0.4)] overflow-y-auto z-30"
     >
       <div class="p-4">
         <!-- Header -->
@@ -12,11 +12,11 @@
               class="w-3 h-3 rounded-full flex-shrink-0"
               :style="{ backgroundColor: nodeColor }"
             ></span>
-            <h3 class="text-sm font-semibold text-gray-900 truncate">{{ node.name }}</h3>
+            <h3 class="text-sm font-semibold text-mist-foam truncate">{{ node.name }}</h3>
           </div>
           <button
             @click="$emit('close')"
-            class="p-1 text-gray-400 hover:text-gray-600 flex-shrink-0"
+            class="p-1 text-mist-slate hover:text-mist-drift flex-shrink-0"
           >
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -32,40 +32,40 @@
 
         <!-- Summary -->
         <div v-if="node.summary" class="mb-4">
-          <p class="text-xs text-gray-600 leading-relaxed">{{ node.summary }}</p>
+          <p class="text-xs text-mist-drift leading-relaxed">{{ node.summary }}</p>
         </div>
 
         <!-- Relationships -->
         <div v-if="relationships.length > 0">
-          <h4 class="text-[10px] font-bold tracking-wider text-gray-500 uppercase mb-2">Relationships</h4>
+          <h4 class="text-[10px] font-bold tracking-wider text-mist-slate uppercase mb-2">Relationships</h4>
 
           <!-- Outgoing -->
           <div v-if="outgoing.length > 0" class="mb-3">
-            <p class="text-[10px] text-gray-400 mb-1">Outgoing</p>
+            <p class="text-[10px] text-mist-slate mb-1">Outgoing</p>
             <button
               v-for="rel in outgoing"
               :key="rel.target_uuid || rel.targetName"
               @click="$emit('navigate-to', rel.target_uuid)"
-              class="w-full flex items-center gap-1.5 px-2 py-1.5 text-left rounded hover:bg-gray-50 transition-colors group"
+              class="w-full flex items-center gap-1.5 px-2 py-1.5 text-left rounded hover:bg-ocean-teal/10 transition-colors group"
             >
-              <span class="text-xs text-gray-400 group-hover:text-indigo-500">&#8594;</span>
-              <span class="text-xs text-gray-700 truncate flex-1">{{ rel.targetName || rel.target_uuid }}</span>
-              <span class="text-[10px] text-gray-400">{{ rel.type }}</span>
+              <span class="text-xs text-mist-slate group-hover:text-ocean-glow">&#8594;</span>
+              <span class="text-xs text-mist truncate flex-1">{{ rel.targetName || rel.target_uuid }}</span>
+              <span class="text-[10px] text-mist-slate">{{ rel.type }}</span>
             </button>
           </div>
 
           <!-- Incoming -->
           <div v-if="incoming.length > 0">
-            <p class="text-[10px] text-gray-400 mb-1">Incoming</p>
+            <p class="text-[10px] text-mist-slate mb-1">Incoming</p>
             <button
               v-for="rel in incoming"
               :key="rel.source_uuid || rel.sourceName"
               @click="$emit('navigate-to', rel.source_uuid)"
-              class="w-full flex items-center gap-1.5 px-2 py-1.5 text-left rounded hover:bg-gray-50 transition-colors group"
+              class="w-full flex items-center gap-1.5 px-2 py-1.5 text-left rounded hover:bg-ocean-teal/10 transition-colors group"
             >
-              <span class="text-xs text-gray-400 group-hover:text-indigo-500">&#8592;</span>
-              <span class="text-xs text-gray-700 truncate flex-1">{{ rel.sourceName || rel.source_uuid }}</span>
-              <span class="text-[10px] text-gray-400">{{ rel.type }}</span>
+              <span class="text-xs text-mist-slate group-hover:text-ocean-glow">&#8592;</span>
+              <span class="text-xs text-mist truncate flex-1">{{ rel.sourceName || rel.source_uuid }}</span>
+              <span class="text-[10px] text-mist-slate">{{ rel.type }}</span>
             </button>
           </div>
         </div>
@@ -106,7 +106,7 @@ const incoming = computed(() =>
 <style scoped>
 .slide-enter-active,
 .slide-leave-active {
-  transition: transform 0.25s ease;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 .slide-enter-from,
 .slide-leave-to {

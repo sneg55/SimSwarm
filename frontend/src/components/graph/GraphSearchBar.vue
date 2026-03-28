@@ -1,7 +1,7 @@
 <template>
   <div ref="wrapperRef" class="relative w-64">
-    <div class="flex items-center bg-white border border-gray-200 rounded-lg shadow-sm px-2.5 py-1.5">
-      <svg class="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div class="flex items-center bg-ocean-deep border border-mist-depth rounded-lg px-2.5 py-1.5">
+      <svg class="w-4 h-4 text-mist-slate mr-2 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
       </svg>
@@ -14,26 +14,26 @@
         @focus="open = true"
         type="text"
         placeholder="Search entities..."
-        class="w-full text-sm text-gray-700 placeholder-gray-400 bg-transparent outline-none"
+        class="w-full text-sm text-mist placeholder-mist-slate/50 bg-transparent outline-none"
       />
     </div>
 
     <div
       v-if="open && filteredNodes.length > 0"
-      class="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto z-20"
+      class="absolute top-full left-0 right-0 mt-1 bg-ocean-deep border border-mist-depth rounded-lg shadow-[0_8px_32px_rgba(0,0,0,0.4)] max-h-60 overflow-y-auto z-20"
     >
       <button
         v-for="node in filteredNodes"
         :key="node.uuid"
         @click="selectNode(node)"
-        class="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-gray-50 transition-colors"
+        class="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-ocean-teal/10 transition-colors"
       >
         <span
           class="w-2.5 h-2.5 rounded-full flex-shrink-0"
           :style="{ backgroundColor: node._color }"
         ></span>
-        <span class="text-sm text-gray-800 truncate flex-1">{{ node.name }}</span>
-        <span class="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{{ node._entityType }}</span>
+        <span class="text-sm text-mist-foam truncate flex-1">{{ node.name }}</span>
+        <span class="text-xs text-mist-slate bg-ocean-abyss px-1.5 py-0.5 rounded">{{ node._entityType }}</span>
       </button>
     </div>
   </div>

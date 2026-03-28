@@ -1,24 +1,24 @@
 <template>
   <div
     ref="wrapperRef"
-    class="relative bg-gray-50 rounded-xl border border-gray-200 overflow-hidden"
+    class="relative bg-ocean-abyss rounded-xl border border-mist-depth overflow-hidden"
     :class="isFullscreen ? 'fixed inset-0 z-50 rounded-none' : 'h-[600px]'"
   >
     <!-- Loading state -->
-    <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/80 z-40">
+    <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-ocean-abyss/80 z-40">
       <div class="flex flex-col items-center gap-2">
-        <svg class="animate-spin h-8 w-8 text-indigo-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+        <svg class="animate-spin h-8 w-8 text-ocean-glow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
         </svg>
-        <span class="text-sm text-gray-500">Loading graph...</span>
+        <span class="text-sm text-mist-slate">Loading graph...</span>
       </div>
     </div>
 
     <!-- Error state -->
     <div v-else-if="error" class="absolute inset-0 flex items-center justify-center">
       <div class="text-center">
-        <p class="text-sm text-red-600 mb-2">{{ error }}</p>
+        <p class="text-sm text-ocean-cyan mb-2">{{ error }}</p>
       </div>
     </div>
 
@@ -83,11 +83,11 @@
       <!-- Hover tooltip -->
       <div
         v-if="hoveredNode"
-        class="absolute pointer-events-none z-20 bg-gray-900 text-white text-xs rounded-md px-2.5 py-1.5 shadow-lg"
+        class="absolute pointer-events-none z-20 bg-gray-900 text-white text-xs rounded-md px-2.5 py-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
         :style="{ left: hoveredNode.x + 12 + 'px', top: hoveredNode.y - 8 + 'px' }"
       >
         <span class="font-medium">{{ hoveredNode.name }}</span>
-        <span class="text-gray-400 ml-1">{{ hoveredNode.entityType }}</span>
+        <span class="text-mist-slate ml-1">{{ hoveredNode.entityType }}</span>
       </div>
     </template>
   </div>
