@@ -13,4 +13,8 @@ def init_db(database_url: str):
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
     async with _session_factory() as session:
-        yield session
+        try:
+            yield session
+        except Exception:
+            await session.rollback()
+            raise
