@@ -158,6 +158,18 @@ class JobRunner:
         finally:
             await self.gpu_provider.terminate(instance.instance_id)
 
+    async def _log_worker_output(self, worker_url: str, source: str = "all", tail: int = 20) -> None:
+        """Pull recent logs from the worker pod and emit them."""
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(f"{worker_url}/logs?tail={tail}&source={source}")
+                if resp.status_code == 200:
+                    data = resp.json()
+                    for line in data.get("lines", []):
+                        logger.info(f"  [{source}] {line}")
+        except Exception:
+            pass
+
     async def _execute_pipeline(self, instance_id: str, config: JobConfig) -> dict:
         """Execute the MiroFish pipeline via the worker pod's HTTP API.
 
@@ -194,6 +206,8 @@ class JobRunner:
                             logger.info(f"Worker health: {health_data} ({elapsed}s elapsed)")
                         except Exception:
                             logger.info(f"Worker health: HTTP {resp.status_code} ({elapsed}s elapsed)")
+                        # Pull vLLM logs while waiting — this is the key debugging info
+                        await self._log_worker_output(worker_url, source="vllm", tail=20)
             except httpx.ConnectError:
                 if attempt % 12 == 0:  # every 60s
                     elapsed = int(time.monotonic() - health_start)
@@ -205,6 +219,10 @@ class JobRunner:
             await asyncio.sleep(5)
         else:
             elapsed = int(time.monotonic() - health_start)
+            # Dump full logs before raising — critical for debugging vLLM failures
+            logger.error(f"Worker health timeout after {elapsed}s — dumping vLLM and pipeline logs:")
+            await self._log_worker_output(worker_url, source="vllm", tail=50)
+            await self._log_worker_output(worker_url, source="pipeline", tail=20)
             raise TimeoutError(f"Worker API at {worker_url} did not become ready after {elapsed}s")
 
         # ------------------------------------------------------------------
