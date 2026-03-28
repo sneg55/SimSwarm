@@ -7,6 +7,42 @@ from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
+HEARTBEAT_STALE_POD_DEAD_S = 300    # 5 minutes
+HEARTBEAT_STALE_NO_PROGRESS_S = 900  # 15 minutes
+
+
+def _is_stale(
+    last_heartbeat: datetime | None,
+    created_at: datetime,
+    pod_alive: bool,
+    tier_timeout: int,
+) -> bool:
+    """Determine if a job should be considered stale."""
+    now = datetime.now(timezone.utc)
+
+    if last_heartbeat is not None:
+        if last_heartbeat.tzinfo is None:
+            last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
+        hb_age = (now - last_heartbeat).total_seconds()
+
+        if hb_age > HEARTBEAT_STALE_POD_DEAD_S and not pod_alive:
+            return True
+        if hb_age > HEARTBEAT_STALE_NO_PROGRESS_S:
+            return True
+        return False
+
+    # No heartbeat — legacy fallback based on created_at
+    if created_at.tzinfo is None:
+        created_at = created_at.replace(tzinfo=timezone.utc)
+    age = (now - created_at).total_seconds()
+    timeout_with_buffer = tier_timeout + 600
+
+    if not pod_alive and age > HEARTBEAT_STALE_POD_DEAD_S:
+        return True
+    if age > timeout_with_buffer:
+        return True
+    return False
+
 
 def recover_stale_jobs() -> dict:
     """Find jobs stuck in RUNNING/PROVISIONING after a worker restart and fail+refund them.
@@ -44,7 +80,8 @@ def recover_stale_jobs() -> dict:
             # Find all non-terminal jobs
             result = conn.execute(
                 text(
-                    "SELECT id, user_id, tier, credits_charged, pod_id, created_at "
+                    "SELECT id, user_id, tier, credits_charged, pod_id, "
+                    "created_at, last_heartbeat "
                     "FROM simulation_jobs "
                     "WHERE status IN ('PENDING', 'RUNNING', 'PROVISIONING') "
                     "ORDER BY created_at ASC"
@@ -67,34 +104,37 @@ def recover_stale_jobs() -> dict:
 
         with engine.connect() as conn:
             for row in stale_jobs:
-                job_id, user_id, tier, credits_charged, pod_id, created_at = row
-                timeout = TIER_TIMEOUTS.get(tier, 2700) + 600  # tier timeout + 10 min
+                job_id, user_id, tier, credits_charged, pod_id, created_at, last_heartbeat = row
+                timeout = TIER_TIMEOUTS.get(tier, 2700)
 
-                # Make created_at timezone-aware if needed
                 if created_at.tzinfo is None:
                     created_at = created_at.replace(tzinfo=timezone.utc)
 
-                age_seconds = (now - created_at).total_seconds()
                 pod_alive = pod_id in active_pods if pod_id else False
 
-                if pod_alive and age_seconds < timeout:
-                    # Pod is still running and within timeout — resume polling
-                    logger.info(
-                        "recover.resuming job_id=%d pod_id=%s age=%ds",
-                        job_id, pod_id, int(age_seconds),
-                    )
-                    resume_simulation_task.delay(
-                        job_id=job_id,
-                        user_id=user_id,
-                        pod_id=pod_id,
-                        credits_charged=credits_charged,
-                    )
-                    resumed.append({"job_id": job_id, "pod_id": pod_id})
+                if not _is_stale(last_heartbeat, created_at, pod_alive, timeout):
+                    if pod_alive and pod_id:
+                        logger.info(
+                            "recover.resuming job_id=%d pod_id=%s",
+                            job_id, pod_id,
+                        )
+                        resume_simulation_task.delay(
+                            job_id=job_id,
+                            user_id=user_id,
+                            pod_id=pod_id,
+                            credits_charged=credits_charged,
+                        )
+                        resumed.append({"job_id": job_id, "pod_id": pod_id})
                     continue
 
-                # Job is stale — pod gone or past timeout — mark failed and refund
-                reason = "pod_gone" if not pod_alive else "timeout"
-                error_msg = f"Job recovered after worker restart ({reason}, age={int(age_seconds)}s)"
+                reason = "heartbeat_stale" if last_heartbeat else "timeout"
+                if not pod_alive:
+                    reason = "pod_gone"
+                age_seconds = (datetime.now(timezone.utc) - created_at).total_seconds()
+                error_msg = (
+                    f"Job recovered after worker restart "
+                    f"({reason}, age={int(age_seconds)}s)"
+                )
 
                 conn.execute(
                     text(

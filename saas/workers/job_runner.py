@@ -88,12 +88,15 @@ def _infer_pipeline_stage(log_lines: list[str]) -> int | None:
 class JobRunner:
     """Manages the full lifecycle of a simulation job on a GPU instance."""
 
-    def __init__(self, gpu_provider: GPUProvider, stage_callback=None, pod_id_callback=None):
+    def __init__(self, gpu_provider: GPUProvider, stage_callback=None,
+                 pod_id_callback=None, heartbeat_callback=None):
         self.gpu_provider = gpu_provider
         # Optional async callable(job_id, stage) invoked when pipeline_stage changes
         self._stage_callback = stage_callback
         # Optional async callable(job_id, pod_id) invoked right after GPU provisioning
         self._pod_id_callback = pod_id_callback
+        # Optional async callable(job_id) invoked periodically during polling
+        self._heartbeat_callback = heartbeat_callback
 
     async def run(self, config: JobConfig) -> dict:
         """Provision a GPU, run the pipeline, then terminate the instance.
@@ -297,6 +300,7 @@ class JobRunner:
             poll_interval = 10
             max_polls = max(360, config.timeout_seconds // poll_interval)
             last_stage: int | None = None
+            last_heartbeat_time = 0.0
             for poll in range(max_polls):
                 await asyncio.sleep(poll_interval)
                 try:
@@ -305,6 +309,16 @@ class JobRunner:
                 except Exception as e:
                     logger.warning(f"Status poll {poll + 1} failed: {e}")
                     continue
+
+                # Update heartbeat every ~60s
+                now_mono = time.monotonic()
+                if (now_mono - last_heartbeat_time >= 60
+                        and self._heartbeat_callback is not None):
+                    last_heartbeat_time = now_mono
+                    try:
+                        await self._heartbeat_callback(config.job_id)
+                    except Exception:
+                        pass
 
                 job_status = status_data.get("status", "unknown")
                 log_lines: list[str] = []

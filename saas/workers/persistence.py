@@ -202,6 +202,31 @@ def _update_job_metadata(job_id: int, pod_id: str, provision_seconds: int | None
     _run_async(_do_update())
 
 
+def _update_heartbeat(job_id: int) -> None:
+    """Update last_heartbeat timestamp on a SimulationJob row."""
+    from sqlalchemy import text
+
+    factory = _get_worker_session_factory()
+    if factory is None:
+        return
+
+    async def _do_update():
+        async with factory() as session:
+            try:
+                await session.execute(
+                    text(
+                        "UPDATE simulation_jobs SET last_heartbeat = :now "
+                        "WHERE id = :job_id"
+                    ),
+                    {"now": datetime.now(timezone.utc), "job_id": job_id},
+                )
+                await session.commit()
+            except Exception as exc:
+                logger.warning("Could not update heartbeat for job %d: %s", job_id, exc)
+
+    _run_async(_do_update())
+
+
 def _update_job_retry(job_id: int, retry_count: int) -> None:
     """Update retry_count and reset status to PROVISIONING for a job being retried."""
     from sqlalchemy import text
