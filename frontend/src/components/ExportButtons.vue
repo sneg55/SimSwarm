@@ -1,22 +1,22 @@
 <template>
   <div class="flex items-center gap-3">
-    <span class="text-sm text-gray-600 font-medium">Export:</span>
+    <span class="text-sm text-mist-drift font-medium">Export:</span>
     <button
       @click="exportPDF"
       :disabled="pdfLoading"
-      class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+      class="inline-flex items-center px-3 py-1.5 border border-mist-depth rounded-lg text-sm text-mist-drift hover:bg-ocean-teal/10 hover:text-mist-foam transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {{ pdfLoading ? 'Generating...' : 'PDF' }}
     </button>
     <button
       @click="exportJSON"
-      class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+      class="inline-flex items-center px-3 py-1.5 border border-mist-depth rounded-lg text-sm text-mist-drift hover:bg-ocean-teal/10 hover:text-mist-foam transition-colors"
     >
       JSON
     </button>
     <button
       @click="exportCSV"
-      class="inline-flex items-center px-3 py-1.5 border border-gray-300 rounded text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+      class="inline-flex items-center px-3 py-1.5 border border-mist-depth rounded-lg text-sm text-mist-drift hover:bg-ocean-teal/10 hover:text-mist-foam transition-colors"
     >
       CSV
     </button>

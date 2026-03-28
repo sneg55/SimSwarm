@@ -83,7 +83,7 @@
       <!-- Hover tooltip -->
       <div
         v-if="hoveredNode"
-        class="absolute pointer-events-none z-20 bg-gray-900 text-white text-xs rounded-md px-2.5 py-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+        class="absolute pointer-events-none z-20 bg-mist-depth text-mist-foam text-xs rounded-lg px-2.5 py-1.5 border border-ocean-teal/30 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
         :style="{ left: hoveredNode.x + 12 + 'px', top: hoveredNode.y - 8 + 'px' }"
       >
         <span class="font-medium">{{ hoveredNode.name }}</span>

@@ -87,9 +87,9 @@
           </p>
           <router-link
             to="/register"
-            class="inline-block px-8 py-3 bg-white text-ocean-glow font-semibold rounded-2xl hover:shadow-[0_0_24px_rgba(14,116,144,0.4)] transition-all"
+            class="inline-block px-8 py-3 bg-gradient-to-br from-ocean-cyan to-cyan-500 text-white font-semibold rounded-2xl glow-cyan hover:glow-cyan-lg hover:-translate-y-0.5 transition-all ease-spring"
           >
-            Get started free
+            Get started
           </router-link>
         </div>
       </template>
