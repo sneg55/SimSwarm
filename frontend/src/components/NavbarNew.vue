@@ -21,7 +21,6 @@
         <template v-if="authStore.isLoggedIn">
           <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
           <router-link to="/sim/new" class="nav-link">New Simulation</router-link>
-          <router-link to="/account" class="nav-link">{{ authStore.user?.email }}</router-link>
           <CreditBadge />
           <button
             @click="handleLogout"
