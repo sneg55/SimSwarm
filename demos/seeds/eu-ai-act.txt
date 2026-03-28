@@ -1,31 +1,29 @@
-EU AI ACT HIGH-RISK PROVISIONS TAKE EFFECT — March 2026
+EU AI ACT ENFORCEMENT BEGINS — INDUSTRY IN TURMOIL
 
-The EU AI Act's high-risk provisions formally took effect in February 2026, requiring companies using AI in hiring, credit scoring, law enforcement, and critical infrastructure to demonstrate conformity assessments. This is the world's most comprehensive AI regulation.
+Brussels, February 2026 — The European Commission's AI Office announced the first formal compliance deadline for the EU AI Act's high-risk provisions. Companies operating AI systems in hiring, credit scoring, and law enforcement must file conformity assessments by April 30, 2026.
 
-Key requirements now in force:
-- Mandatory risk assessments for AI systems classified as "high-risk" under Annex III
-- Human oversight requirements: high-risk AI systems must allow human intervention and override
-- Transparency obligations: users must be informed when interacting with AI systems
-- Data governance: training data must be documented, relevant, and representative
-- Technical documentation and logging requirements for all high-risk deployments
-- Conformity assessments required before placing high-risk AI on the EU market
-- Penalties: up to EUR 35 million or 7% of global annual turnover for violations
+COMPANY RESPONSES:
 
-Industry response (first 30 days):
-- Microsoft, Google, and Meta announced compliance teams but warned of "regulatory fragmentation" with other jurisdictions
-- OpenAI paused deployment of several enterprise features in the EU pending conformity assessment
-- European AI startups reported 30-40% increases in compliance costs
-- The European AI Office received over 200 formal inquiries from companies seeking guidance
-- Several US companies threatened to pull AI products from the EU market
-- SAP and Siemens positioned as "compliance-ready" first movers
-- Civil society groups (AlgorithmWatch, Access Now) praised the regulation but warned about enforcement gaps
-- China's Ministry of Science and Technology published a comparison paper with its own AI regulations
+Microsoft CEO Satya Nadella told investors on an earnings call: "We are fully committed to compliance but believe the timeline is unrealistic for complex enterprise deployments." Microsoft has hired 200 additional compliance staff in Dublin and Berlin.
 
-Enforcement landscape:
-- Each EU member state must designate a national supervisory authority
-- The European AI Office coordinates cross-border enforcement
-- First enforcement actions expected within 6-12 months
-- Sandboxes available for startups to test compliance approaches
-- Financial services sector (credit scoring, insurance) expected to face earliest scrutiny
+Google DeepMind chief Demis Hassabis warned that the regulation "risks pushing AI innovation to the United States and China" and confirmed that Google is delaying the European launch of its Gemini medical diagnosis tool pending assessment.
 
-The regulation affects an estimated 6,000+ companies operating AI systems in the EU market.
+Meta's head of EU affairs, Marco Pancini, announced that Meta will restrict access to its Llama models for EU developers until compliance frameworks are finalized, affecting an estimated 50,000 developers.
+
+OpenAI suspended three enterprise features in the EU — automated resume screening, customer sentiment analysis for banks, and insurance claim processing — citing uncertainty about conformity requirements. CEO Sam Altman called for "regulatory reciprocity" with the US.
+
+SAP CEO Christian Klein positioned the company as "the compliance-ready partner" and announced a EUR 500 million AI governance platform targeting EU enterprises, partnering with Deloitte and PwC for implementation.
+
+Mistral AI CEO Arthur Mensch criticized the regulation as "designed by people who have never built an AI system" while simultaneously announcing that Mistral would be the first company to complete all conformity assessments, calling it a competitive advantage.
+
+STARTUP IMPACT:
+
+European AI startup association CLAIRE reported that 40% of surveyed startups are considering relocating their AI operations outside the EU. Berlin-based Aleph Alpha paused its Series C fundraising citing regulatory uncertainty.
+
+Y Combinator partner Gustaf Alstromer told TechCrunch: "We are advising all our EU-based AI startups to incorporate in Delaware and treat EU compliance as an export problem."
+
+ENFORCEMENT:
+
+EU AI Office director Lucilla Sioli confirmed that the first enforcement investigations would focus on large language models used in credit scoring by banks including Deutsche Bank, BNP Paribas, and ING Group. France's CNIL and Germany's BfDI have been designated as lead national supervisory authorities.
+
+AlgorithmWatch executive director Matthias Spielkamp praised the regulation but warned: "Without adequate funding for enforcement agencies, this risks becoming a paper tiger."
