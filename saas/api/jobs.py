@@ -105,6 +105,21 @@ async def get_job(
     return job
 
 
+@router.delete("/{job_id}", status_code=204)
+async def delete_job(
+    job_id: int,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    job = await session.get(SimulationJob, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.user_id != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this job")
+    await session.delete(job)
+    await session.commit()
+
+
 @router.get("/{job_id}/graph", response_model=GraphResponse)
 async def get_job_graph(
     job_id: int,

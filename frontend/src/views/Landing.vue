@@ -71,7 +71,7 @@
           The swarm reads it, extracts entities, and builds a living knowledge graph
           of every stakeholder, market force, and narrative thread.
         </template>
-        <template #detail>Supports PDF, TXT, CSV, Markdown — up to 50,000 characters.</template>
+        <template #detail>Supports PDF, DOCX, TXT, Markdown — up to 20,000 characters.</template>
         <template #mockup>
           <div class="border-2 border-dashed border-ocean-teal rounded-xl p-8 text-center transition-colors hover:border-ocean-cyan">
             <div class="text-4xl mb-2 animate-[float_4s_ease-in-out_infinite]">&#x1F30A;</div>
@@ -129,6 +129,24 @@
           </div>
         </template>
       </ExperienceStep>
+    </section>
+
+    <div class="max-w-[1100px] mx-auto h-px bg-gradient-to-r from-transparent via-mist-depth to-transparent" />
+
+    <!-- Demos -->
+    <section class="py-20 px-4 md:px-8 max-w-[1100px] mx-auto">
+      <div class="text-center mb-10">
+        <div class="text-[11px] font-bold uppercase tracking-[0.12em] text-ocean-cyan mb-3">See it in action</div>
+        <h2 class="text-[clamp(24px,3vw,36px)] font-extrabold text-mist-foam tracking-tight">
+          Explore real simulations
+        </h2>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <DemoCard
+          v-for="demo in demos" :key="demo.slug"
+          :slug="demo.slug" :title="demo.title" :description="demo.description"
+        />
+      </div>
     </section>
 
     <div class="max-w-[1100px] mx-auto h-px bg-gradient-to-r from-transparent via-mist-depth to-transparent" />
@@ -215,6 +233,15 @@ import ExperienceStep from '../components/ExperienceStep.vue'
 import PricingCard from '../components/PricingCard.vue'
 import ProofCard from '../components/ProofCard.vue'
 import LogoWavePulse from '../components/LogoWavePulse.vue'
+import DemoCard from '../components/DemoCard.vue'
+
+const demos = [
+  { slug: 'iran-war-us-china', title: 'US vs China: Iran Escalation', description: 'Simulating 1,000 agents across US and Chinese social media on Iran nuclear escalation.' },
+  { slug: 'tesla-earnings', title: 'Tesla Q1 Earnings Sentiment', description: 'How retail and institutional investors react to a major earnings miss.' },
+  { slug: 'dream-red-chamber', title: 'Lost Ending: Red Chamber', description: 'Literary agents reconstruct the lost ending of an 18th-century Chinese masterpiece.' },
+  { slug: 'eu-ai-act', title: 'EU AI Act Enforcement', description: 'Industry compliance behavior in the first 90 days of EU AI Act enforcement.' },
+  { slug: 'bitcoin-halving', title: 'Bitcoin Halving Sentiment', description: 'Crypto community narrative evolution in the 60 days post-halving.' },
+]
 
 const insights = [
   { label: 'Key Finding', color: '#FF6B6B', text: 'Public sentiment shifts negative within 48 hours of announcement, driven by regulatory agent cluster.' },

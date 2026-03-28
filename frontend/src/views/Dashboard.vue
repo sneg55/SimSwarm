@@ -46,7 +46,7 @@
             <div class="flex-1 h-px bg-gradient-to-r from-mist-depth to-transparent" />
           </div>
           <div class="space-y-3 mb-10">
-            <SimCard v-for="job in activeJobs" :key="job.id" :job="job" />
+            <SimCard v-for="job in activeJobs" :key="job.id" :job="job" @delete="handleDelete" />
           </div>
         </template>
 
@@ -56,7 +56,7 @@
           <div class="flex-1 h-px bg-gradient-to-r from-mist-depth to-transparent" />
         </div>
         <div class="space-y-3">
-          <SimCard v-for="job in recentJobs" :key="job.id" :job="job" />
+          <SimCard v-for="job in recentJobs" :key="job.id" :job="job" @delete="handleDelete" />
         </div>
       </template>
     </div>
@@ -68,7 +68,7 @@ import { ref, computed, onMounted } from 'vue'
 import CreditWarning from '../components/CreditWarning.vue'
 import DashboardEmpty from '../components/DashboardEmpty.vue'
 import SimCard from '../components/SimCard.vue'
-import { listJobs } from '../api/jobs.js'
+import { listJobs, deleteJob } from '../api/jobs.js'
 import { getBalance } from '../api/billing.js'
 import { useCreditsStore } from '../stores/credits.js'
 
@@ -95,4 +95,14 @@ onMounted(async () => {
     loading.value = false
   }
 })
+
+async function handleDelete(jobId) {
+  if (!confirm('Delete this simulation? This cannot be undone.')) return
+  try {
+    await deleteJob(jobId)
+    jobs.value = jobs.value.filter(j => j.id !== jobId)
+  } catch (err) {
+    console.error('Failed to delete job:', err)
+  }
+}
 </script>

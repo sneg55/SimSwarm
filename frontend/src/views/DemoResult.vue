@@ -83,7 +83,7 @@
         <div class="bg-gradient-to-r from-ocean-cyan to-cyan-500 rounded-2xl p-8 text-center text-white">
           <h2 class="text-2xl font-bold mb-2">Run Your Own Simulation</h2>
           <p class="text-cyan-100 mb-6">
-            Upload any seed document and let FishCloud simulate public opinion, market reactions, or narrative evolution at scale.
+            Upload any seed document and let SimSwarm simulate public opinion, market reactions, or narrative evolution at scale.
           </p>
           <router-link
             to="/register"

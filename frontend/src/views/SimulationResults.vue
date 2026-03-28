@@ -225,7 +225,7 @@ function exportJSON() {
     exportedAt: new Date().toISOString(),
   }
   const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  triggerDownload(blob, `fishcloud-${jobId}.json`)
+  triggerDownload(blob, `simswarm-${jobId}.json`)
 }
 
 function exportCSV() {
@@ -236,7 +236,7 @@ function exportCSV() {
   })
   const csv = rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
   const blob = new Blob([csv], { type: 'text/csv' })
-  triggerDownload(blob, `fishcloud-${jobId}.csv`)
+  triggerDownload(blob, `simswarm-${jobId}.csv`)
 }
 
 function exportPNG() {

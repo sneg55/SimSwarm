@@ -71,7 +71,7 @@ function exportJSON() {
     messages: props.messages,
     exportedAt: new Date().toISOString(),
   }
-  downloadFile(JSON.stringify(data, null, 2), `fishcloud-${props.jobId}.json`, 'application/json')
+  downloadFile(JSON.stringify(data, null, 2), `simswarm-${props.jobId}.json`, 'application/json')
   emit('export', { format: 'json', jobId: props.jobId })
 }
 
@@ -82,7 +82,7 @@ function exportCSV() {
     rows.push([msg.role || '', msg.agent || '', (msg.content || '').replace(/,/g, ';'), msg.timestamp || ''])
   })
   const csv = rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
-  downloadFile(csv, `fishcloud-${props.jobId}.csv`, 'text/csv')
+  downloadFile(csv, `simswarm-${props.jobId}.csv`, 'text/csv')
   emit('export', { format: 'csv', jobId: props.jobId })
 }
 

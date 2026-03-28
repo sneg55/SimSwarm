@@ -33,7 +33,7 @@
         <button class="mt-2 px-5 py-1.5 rounded-lg border border-ocean-teal text-sm font-semibold text-ocean-glow transition-all ease-spring hover:bg-ocean-cyan/15 hover:border-ocean-cyan hover:-translate-y-px" @click.stop="$refs.fileInput.click()">
           Browse files
         </button>
-        <div class="font-mono text-[11px] text-mist-slate/60 mt-3">PDF, DOCX, TXT, Markdown — up to 50,000 characters</div>
+        <div class="font-mono text-[11px] text-mist-slate/60 mt-3">PDF, DOCX, TXT, Markdown — up to 20,000 characters</div>
       </template>
     </div>
     <input ref="fileInput" type="file" class="hidden" accept=".pdf,.docx,.txt,.md" @change="handleFileSelect" />
@@ -56,17 +56,20 @@
       placeholder="Paste your document text here — news articles, reports, announcements, policy drafts..."
       class="w-full bg-ocean-abyss border border-mist-depth rounded-xl p-3.5 text-sm text-mist resize-vertical min-h-[90px] outline-none transition-all focus:border-ocean-cyan focus:shadow-[0_0_0_3px_rgba(14,116,144,0.15)]"
     />
-    <div class="font-mono text-[11px] text-mist-slate text-right mt-1">{{ seedText.length }} / 50,000</div>
+    <div class="font-mono text-[11px] text-mist-slate text-right mt-1">{{ seedText.length }} / 20,000</div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import SeedTips from './SeedTips.vue'
 
 const emit = defineEmits(['update:seedText'])
 
 const seedText = ref('')
+
+// Propagate all changes to parent
+watch(seedText, (val) => emit('update:seedText', val))
 const fileName = ref('')
 const charCount = ref(0)
 const isDragging = ref(false)

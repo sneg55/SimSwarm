@@ -20,6 +20,11 @@ export async function listJobs() {
   return response.data
 }
 
+export async function deleteJob(jobId) {
+  const response = await api.delete(`/jobs/${jobId}`)
+  return response.data
+}
+
 export async function getJobGraph(jobId) {
   const response = await api.get(`/jobs/${jobId}/graph`)
   return response.data
