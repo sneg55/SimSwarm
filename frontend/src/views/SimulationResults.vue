@@ -38,7 +38,34 @@
 
           <!-- Report -->
           <div id="story-report" class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
-            <ReportViewer :content="job.result_report || job.report || 'No report available.'" />
+            <template v-if="structured">
+              <div v-if="structured.brief" class="mb-8">
+                <h2 class="text-lg font-bold text-mist-foam mb-3">Executive Brief</h2>
+                <p class="text-sm text-mist-drift leading-relaxed">{{ structured.brief }}</p>
+              </div>
+              <ConfidenceGrid v-if="structured.confidence?.length" :items="structured.confidence" class="mb-8" />
+              <div v-if="structured.findings?.length" class="mb-8">
+                <h2 class="text-lg font-bold text-mist-foam mb-4">Key Findings</h2>
+                <div class="grid gap-4">
+                  <FindingCard v-for="(f, i) in structured.findings" :key="i"
+                    :label="f.label" :title="f.title" :description="f.description"
+                    :metric="f.metric" :accent-color="f.accentColor" />
+                </div>
+              </div>
+              <SentimentBars v-if="sentimentBars.length" :bars="sentimentBars" class="mb-8" />
+              <div v-if="structured.coalitions?.length" class="mb-8">
+                <h2 class="text-lg font-bold text-mist-foam mb-4">Agent Coalitions</h2>
+                <div class="grid gap-4 md:grid-cols-2">
+                  <CoalitionCard v-for="(c, i) in structured.coalitions" :key="i"
+                    :name="c.name" :description="c.description" :agents="c.agents"
+                    :strength="c.strength" :color="c.color" />
+                </div>
+              </div>
+              <ReportViewer :content="job.result_report || ''" />
+            </template>
+            <template v-else>
+              <ReportViewer :content="job.result_report || job.report || 'No report available.'" />
+            </template>
           </div>
 
           <!-- Chat replay -->
@@ -111,6 +138,10 @@ import ResultsToolbar from '../components/results/ResultsToolbar.vue'
 import ResultsBottomBar from '../components/results/ResultsBottomBar.vue'
 import StoryTimeline from '../components/results/StoryTimeline.vue'
 import ReportToc from '../components/results/ReportToc.vue'
+import FindingCard from '../components/results/FindingCard.vue'
+import SentimentBars from '../components/results/SentimentBars.vue'
+import CoalitionCard from '../components/results/CoalitionCard.vue'
+import ConfidenceGrid from '../components/results/ConfidenceGrid.vue'
 import { getJob, getJobGraph } from '../api/jobs.js'
 
 const route = useRoute()
@@ -167,6 +198,28 @@ const tocItems = computed(() => {
   ]
   if (chatMessages.value.length > 0) items.push({ id: 'report-chat', label: 'Conversation' })
   return items
+})
+
+const structured = computed(() => {
+  if (!job.value?.result_structured) return null
+  try {
+    return typeof job.value.result_structured === 'string'
+      ? JSON.parse(job.value.result_structured)
+      : job.value.result_structured
+  } catch { return null }
+})
+
+const sentimentBars = computed(() => {
+  if (!structured.value?.sentiment) return []
+  return structured.value.sentiment.map(s => ({
+    label: s.label,
+    width: s.value,
+    value: `${s.value}%`,
+    gradient: s.direction === 'positive'
+      ? 'linear-gradient(90deg, #22D3EE, #6EE7B7)'
+      : 'linear-gradient(90deg, #FF6B6B, #F97316)',
+    valueColor: s.direction === 'positive' ? '#6EE7B7' : '#FF6B6B',
+  }))
 })
 
 // ── Graph helpers ─────────────────────────────────────────────────────────────
