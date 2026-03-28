@@ -1,0 +1,30 @@
+BITCOIN BLOCK REWARD HALVING — 2026
+
+Bitcoin block 1,050,000 has been mined, reducing the block reward from 3.125 BTC to 1.5625 BTC. This is the fifth halving in Bitcoin's history, occurring approximately every 210,000 blocks (roughly 4 years).
+
+Price context at halving:
+- Bitcoin price at halving: $78,400
+- Price 1 month before: $72,100 (8.7% pre-halving rally)
+- Previous cycle: price was $64,000 at the April 2024 halving, reached $108,000 by December 2024
+- Current market cap: approximately $1.55 trillion
+- Daily mining revenue drops from ~$45M to ~$22.5M
+
+Halving history and subsequent price action:
+- 2012 halving (50→25 BTC): price went from $12 to $1,100 over 12 months
+- 2016 halving (25→12.5 BTC): price went from $650 to $19,700 over 18 months
+- 2020 halving (12.5→6.25 BTC): price went from $8,700 to $69,000 over 18 months
+- 2024 halving (6.25→3.125 BTC): price went from $64,000 to $108,000 over 8 months, then corrected to $78,000
+
+Mining industry impact:
+- Smaller mining operations face profitability pressure at current difficulty levels
+- Marathon Digital and Riot Platforms announced efficiency upgrades ahead of halving
+- Hash rate expected to temporarily decline 10-15% as unprofitable miners shut down
+- Energy cost per BTC mined approximately doubles overnight
+- Transaction fees become increasingly important revenue source for miners
+
+Market sentiment:
+- Crypto Twitter divided between "supercycle" bulls predicting $200K+ and bears citing diminishing returns each cycle
+- Institutional investors (BlackRock, Fidelity ETFs) hold ~5% of circulating supply
+- On-chain metrics show long-term holders accumulating, exchange reserves at 5-year lows
+- Telegram and Reddit communities debating whether "this time is different" or if halvings are "priced in"
+- Derivatives markets show elevated call option activity at $100K and $150K strikes for Q4 2026

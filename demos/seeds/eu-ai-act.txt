@@ -1,0 +1,31 @@
+EU AI ACT HIGH-RISK PROVISIONS TAKE EFFECT — March 2026
+
+The EU AI Act's high-risk provisions formally took effect in February 2026, requiring companies using AI in hiring, credit scoring, law enforcement, and critical infrastructure to demonstrate conformity assessments. This is the world's most comprehensive AI regulation.
+
+Key requirements now in force:
+- Mandatory risk assessments for AI systems classified as "high-risk" under Annex III
+- Human oversight requirements: high-risk AI systems must allow human intervention and override
+- Transparency obligations: users must be informed when interacting with AI systems
+- Data governance: training data must be documented, relevant, and representative
+- Technical documentation and logging requirements for all high-risk deployments
+- Conformity assessments required before placing high-risk AI on the EU market
+- Penalties: up to EUR 35 million or 7% of global annual turnover for violations
+
+Industry response (first 30 days):
+- Microsoft, Google, and Meta announced compliance teams but warned of "regulatory fragmentation" with other jurisdictions
+- OpenAI paused deployment of several enterprise features in the EU pending conformity assessment
+- European AI startups reported 30-40% increases in compliance costs
+- The European AI Office received over 200 formal inquiries from companies seeking guidance
+- Several US companies threatened to pull AI products from the EU market
+- SAP and Siemens positioned as "compliance-ready" first movers
+- Civil society groups (AlgorithmWatch, Access Now) praised the regulation but warned about enforcement gaps
+- China's Ministry of Science and Technology published a comparison paper with its own AI regulations
+
+Enforcement landscape:
+- Each EU member state must designate a national supervisory authority
+- The European AI Office coordinates cross-border enforcement
+- First enforcement actions expected within 6-12 months
+- Sandboxes available for startups to test compliance approaches
+- Financial services sector (credit scoring, insurance) expected to face earliest scrutiny
+
+The regulation affects an estimated 6,000+ companies operating AI systems in the EU market.
