@@ -1,7 +1,7 @@
 <template>
   <div>
     <!-- Waterline Strip -->
-    <div class="relative overflow-hidden border-b border-mist-depth bg-gradient-to-b from-ocean-deep to-ocean-abyss">
+    <div class="relative overflow-hidden border-b border-mist-depth bg-gradient-to-b from-ocean-deep to-ocean-abyss pt-14">
       <div class="absolute inset-0 pointer-events-none"
         style="background: radial-gradient(ellipse 60% 80% at 80% 50%, rgba(14,116,144,0.06), transparent)"
       />

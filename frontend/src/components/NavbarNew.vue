@@ -19,9 +19,9 @@
       <!-- Links -->
       <div class="flex items-center gap-7">
         <template v-if="authStore.isLoggedIn">
-          <NavLink to="/dashboard">Dashboard</NavLink>
-          <NavLink to="/sim/new">New Simulation</NavLink>
-          <NavLink to="/account">{{ authStore.user?.email }}</NavLink>
+          <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
+          <router-link to="/sim/new" class="nav-link">New Simulation</router-link>
+          <router-link to="/account" class="nav-link">{{ authStore.user?.email }}</router-link>
           <CreditBadge />
           <button
             @click="handleLogout"
@@ -31,9 +31,7 @@
           </button>
         </template>
         <template v-else>
-          <NavLink href="#experience">How it works</NavLink>
-          <NavLink href="#pricing">Pricing</NavLink>
-          <NavLink to="/login">Sign in</NavLink>
+          <router-link to="/login" class="nav-link">Sign in</router-link>
           <router-link
             to="/register"
             class="px-5 py-2 rounded-lg text-sm font-semibold text-white
@@ -56,27 +54,6 @@ import { useAuthStore } from '../stores/auth.js'
 import LogoWavePulse from './LogoWavePulse.vue'
 import CreditBadge from './CreditBadge.vue'
 
-const NavLink = {
-  props: {
-    to: String,
-    href: String,
-  },
-  template: `
-    <component
-      :is="to ? 'router-link' : 'a'"
-      v-bind="to ? { to } : { href }"
-      class="text-sm font-medium text-mist-drift relative pb-0.5
-             transition-colors hover:text-mist-foam
-             after:content-[''] after:absolute after:bottom-0 after:left-0
-             after:w-0 after:h-0.5 after:bg-ocean-glow after:rounded-sm
-             after:transition-[width] after:duration-300 after:ease-spring
-             hover:after:w-full"
-    >
-      <slot />
-    </component>
-  `,
-}
-
 const router = useRouter()
 const authStore = useAuthStore()
 const scrolled = ref(false)
@@ -93,3 +70,31 @@ function handleLogout() {
 onMounted(() => window.addEventListener('scroll', onScroll, { passive: true }))
 onUnmounted(() => window.removeEventListener('scroll', onScroll))
 </script>
+
+<style scoped>
+.nav-link {
+  font-size: 14px;
+  font-weight: 500;
+  color: #94A3B8;
+  position: relative;
+  padding-bottom: 2px;
+  transition: color 0.3s;
+}
+.nav-link:hover {
+  color: #F1F5F9;
+}
+.nav-link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: #22D3EE;
+  border-radius: 1px;
+  transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.nav-link:hover::after {
+  width: 100%;
+}
+</style>
