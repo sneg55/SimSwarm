@@ -249,16 +249,17 @@ class JobRunner:
     async def _poll_until_complete(
         self, worker_url: str, instance_id: str, config: JobConfig,
     ) -> dict:
-        """Poll /status until completed or failed (up to 1 hour).
+        """Poll /status until completed or failed (up to tier timeout).
 
         Shared by _execute_pipeline (normal flow) and resume (reconnect flow).
         """
         import time
         poll_start = time.monotonic()
-        max_polls = 360  # 360 * 10s = 1 hour
+        poll_interval = 10
+        max_polls = max(360, config.timeout_seconds // poll_interval)
         last_stage: int | None = None
         for poll in range(max_polls):
-            await asyncio.sleep(10)
+            await asyncio.sleep(poll_interval)
             try:
                 async with httpx.AsyncClient(timeout=15) as client:
                     status_resp = await client.get(f"{worker_url}/status")
@@ -313,7 +314,7 @@ class JobRunner:
                     logger.error(f"Pipeline stdout: {stdout[:2000]}")
                 raise RuntimeError(f"Worker pipeline failed: {error_msg}")
         else:
-            raise TimeoutError("Pipeline did not complete within 1 hour")
+            raise TimeoutError(f"Pipeline did not complete within {max_polls * poll_interval}s")
 
         return {
             "job_id": config.job_id,
@@ -366,7 +367,10 @@ class JobRunner:
             raise RuntimeError(f"Pod {pod_id} is idle — pipeline was never started or already reset")
 
         # Still running — create a minimal config for the polling loop
-        minimal_config = type("MinimalConfig", (), {"job_id": job_id})()
+        minimal_config = type("MinimalConfig", (), {
+            "job_id": job_id,
+            "timeout_seconds": TIER_TIMEOUTS.get("medium", 18000),
+        })()
 
         try:
             result = await self._poll_until_complete(worker_url, pod_id, minimal_config)
