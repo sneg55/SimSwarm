@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-2">
-    <h3 class="text-sm font-medium text-mist-drift">Pipeline Progress</h3>
+    <h3 class="text-sm font-medium text-mist-drift">Swarm Simulation Progress</h3>
     <div class="flex items-center">
       <div
         v-for="(step, index) in steps"
