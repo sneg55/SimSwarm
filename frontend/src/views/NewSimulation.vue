@@ -1,61 +1,52 @@
 <template>
-  <div class="max-w-3xl mx-auto px-4 py-8">
-    <div class="mb-6">
-      <router-link to="/dashboard" class="text-sm text-blue-600 hover:underline">&larr; Back to Dashboard</router-link>
-      <h1 class="text-2xl font-bold text-gray-900 mt-2">New Simulation</h1>
-    </div>
+  <div class="max-w-[640px] mx-auto px-6 pt-24 pb-16">
+    <WizardProgress :current="step" @go="goToStep" />
 
-    <CreditWarning />
-
-    <form @submit.prevent="handleSubmit" class="space-y-6 mt-6">
-      <div v-if="error" class="bg-red-50 text-red-700 p-3 rounded text-sm">{{ error }}</div>
-
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Seed Data</label>
-        <textarea
-          v-model="seedText"
-          placeholder="Paste your seed text here (news articles, reports, documents)..."
-          rows="6"
-          class="block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-        />
-        <p class="text-xs text-gray-400 mt-1">{{ seedText.length }} / 50,000 characters</p>
-      </div>
-
-      <div>
-        <label for="goal" class="block text-sm font-medium text-gray-700">Research Goal</label>
-        <textarea
-          id="goal"
-          v-model="goal"
-          required
-          rows="3"
-          placeholder="Describe what you want to learn or analyze..."
-          class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm text-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-        />
-      </div>
-
-      <TierSelector @select="selectedTier = $event" />
-
-      <div class="flex items-center justify-between pt-4">
-        <div class="text-sm text-gray-500">
-          Cost: <strong>{{ selectedTier ? creditsStore.getTierCost(selectedTier) : 0 }} credits</strong>
-        </div>
-        <button
-          type="submit"
-          :disabled="!canSubmit || loading"
-          class="px-6 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {{ loading ? 'Starting...' : 'Run Simulation' }}
+    <!-- Step 1 -->
+    <div v-if="step === 1" class="step-anim">
+      <WizardSeed v-model:seedText="seedText" />
+      <div class="wizard-nav">
+        <div />
+        <button @click="step = 2" :disabled="!seedText.trim()" class="btn-next">
+          Continue →
         </button>
       </div>
-    </form>
+    </div>
+
+    <!-- Step 2 -->
+    <div v-if="step === 2" class="step-anim">
+      <WizardGoal v-model:goal="goal" />
+      <div class="wizard-nav">
+        <button @click="step = 1" class="btn-back">← Back</button>
+        <button @click="step = 3" :disabled="!goal.trim()" class="btn-next">
+          Continue →
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 3 -->
+    <div v-if="step === 3" class="step-anim">
+      <WizardLaunch v-model:tier="selectedTier" />
+      <div class="wizard-nav">
+        <button @click="step = 2" class="btn-back">← Back</button>
+        <button @click="handleSubmit" :disabled="!canSubmit || loading" class="btn-launch">
+          {{ loading ? 'Starting...' : 'Run Simulation' }} 🚀
+        </button>
+      </div>
+      <div v-if="error" class="mt-4 p-3 bg-coral/10 border border-coral/20 text-coral rounded-xl text-sm">
+        {{ error }}
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import CreditWarning from '../components/CreditWarning.vue'
-import TierSelector from '../components/TierSelector.vue'
+import WizardProgress from '../components/wizard/WizardProgress.vue'
+import WizardSeed from '../components/wizard/WizardSeed.vue'
+import WizardGoal from '../components/wizard/WizardGoal.vue'
+import WizardLaunch from '../components/wizard/WizardLaunch.vue'
 import { useCreditsStore } from '../stores/credits.js'
 import { createJob } from '../api/jobs.js'
 import { getBalance } from '../api/billing.js'
@@ -72,6 +63,7 @@ onMounted(async () => {
   }
 })
 
+const step = ref(1)
 const seedText = ref('')
 const goal = ref('')
 const selectedTier = ref(null)
@@ -84,6 +76,16 @@ const canSubmit = computed(() =>
   selectedTier.value &&
   creditsStore.canAfford(selectedTier.value)
 )
+
+function goToStep(n) {
+  if (n < step.value) {
+    step.value = n
+  } else if (n === 2 && seedText.value.trim()) {
+    step.value = 2
+  } else if (n === 3 && seedText.value.trim() && goal.value.trim()) {
+    step.value = 3
+  }
+}
 
 async function handleSubmit() {
   loading.value = true
@@ -103,3 +105,33 @@ async function handleSubmit() {
   }
 }
 </script>
+
+<style scoped>
+.btn-next {
+  @apply px-8 py-3 rounded-xl text-[15px] font-bold text-white bg-gradient-to-br from-ocean-cyan to-cyan-500 transition-all ease-spring hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none;
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.3);
+}
+.btn-next:not(:disabled):hover {
+  box-shadow: 0 0 24px rgba(34, 211, 238, 0.5);
+}
+.btn-back {
+  @apply text-sm font-medium text-mist-drift hover:text-mist-foam transition-colors;
+}
+.btn-launch {
+  @apply px-8 py-3 rounded-xl text-[15px] font-bold text-white bg-gradient-to-br from-coral to-coral-amber transition-all ease-spring hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed;
+  box-shadow: 0 0 16px rgba(255, 107, 107, 0.3);
+}
+.btn-launch:not(:disabled):hover {
+  box-shadow: 0 0 24px rgba(255, 107, 107, 0.5);
+}
+.wizard-nav {
+  @apply flex items-center justify-between mt-8 pt-5 border-t border-mist-depth;
+}
+.step-anim {
+  animation: fadeSlideIn 0.4s ease-out;
+}
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
