@@ -38,59 +38,43 @@ MIROFISH_BACKEND = "/app/mirofish/backend"
 # English language overrides for MiroFish prompts (default is Chinese)
 # ---------------------------------------------------------------------------
 
+ENGLISH_INSTRUCTION = (
+    "CRITICAL REQUIREMENT: ALL output text MUST be written entirely in English. "
+    "Do NOT output any Chinese, Japanese, Korean, or other non-Latin text. "
+    "Translate any non-English context or references to English. "
+    "This applies to ALL fields: names, descriptions, analysis, summaries, reports, "
+    "dialogue, posts, comments, and any other generated text.\n\n"
+)
+
+
 def _patch_mirofish_prompts_to_english():
     """Monkey-patch MiroFish service prompts to output in English."""
     sys.path.insert(0, MIROFISH_BACKEND)
 
-    # Patch ontology generator
-    import app.services.ontology_generator as ontology_mod
-    original_prompt = ontology_mod.ONTOLOGY_SYSTEM_PROMPT
-    # Add English instruction at the start
-    ontology_mod.ONTOLOGY_SYSTEM_PROMPT = (
-        "IMPORTANT: All output text, descriptions, analysis_summary, and examples "
-        "MUST be written in English. Do NOT output any Chinese text.\n\n"
-        + original_prompt
-    )
+    modules_to_patch = [
+        "app.services.ontology_generator",
+        "app.services.report_agent",
+        "app.services.oasis_profile_generator",
+        "app.services.simulation_config_generator",
+    ]
 
-    # Patch report agent prompts
-    import app.services.report_agent as report_mod
-    for attr in dir(report_mod):
-        val = getattr(report_mod, attr)
-        if isinstance(val, str) and ("中文" in val or "你是" in val or "请" in val):
-            patched = (
-                "IMPORTANT: Write ALL output in English only. "
-                "Do NOT use Chinese. Translate any Chinese context to English.\n\n"
-                + val
+    for mod_name in modules_to_patch:
+        try:
+            mod = __import__(mod_name, fromlist=[""])
+            for attr in dir(mod):
+                val = getattr(mod, attr)
+                if isinstance(val, str) and len(val) > 80 and not attr.startswith("_"):
+                    setattr(mod, attr, ENGLISH_INSTRUCTION + val)
+        except ImportError:
+            pass
+
+    # Patch ontology system prompt specifically
+    try:
+        import app.services.ontology_generator as ontology_mod
+        if hasattr(ontology_mod, "ONTOLOGY_SYSTEM_PROMPT"):
+            ontology_mod.ONTOLOGY_SYSTEM_PROMPT = (
+                ENGLISH_INSTRUCTION + ontology_mod.ONTOLOGY_SYSTEM_PROMPT
             )
-            setattr(report_mod, attr, patched)
-
-    # Patch profile generator
-    try:
-        import app.services.oasis_profile_generator as profile_mod
-        for attr in dir(profile_mod):
-            val = getattr(profile_mod, attr)
-            if isinstance(val, str) and len(val) > 100 and ("你" in val or "请" in val or "中文" in val):
-                patched = (
-                    "IMPORTANT: Generate ALL profiles, descriptions, bios, and text in English only. "
-                    "Do NOT use Chinese.\n\n"
-                    + val
-                )
-                setattr(profile_mod, attr, patched)
-    except ImportError:
-        pass
-
-    # Patch simulation config generator
-    try:
-        import app.services.simulation_config_generator as config_mod
-        for attr in dir(config_mod):
-            val = getattr(config_mod, attr)
-            if isinstance(val, str) and len(val) > 100 and ("你" in val or "请" in val):
-                patched = (
-                    "IMPORTANT: Generate ALL configuration text, event descriptions, "
-                    "and topics in English only. Do NOT use Chinese.\n\n"
-                    + val
-                )
-                setattr(config_mod, attr, patched)
     except ImportError:
         pass
 
