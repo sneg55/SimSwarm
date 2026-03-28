@@ -29,3 +29,13 @@ export async function getJobGraph(jobId) {
   const response = await api.get(`/jobs/${jobId}/graph`)
   return response.data
 }
+
+export async function exportPDF(jobId) {
+  const resp = await api.get(`/jobs/${jobId}/export/pdf`, { responseType: 'blob' })
+  return resp.data
+}
+
+export async function exportJSON(jobId) {
+  const resp = await api.get(`/jobs/${jobId}/export/json`, { responseType: 'blob' })
+  return resp.data
+}

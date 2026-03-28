@@ -35,6 +35,38 @@ async def export_pdf(
     )
 
 
+@router.get("/{job_id}/export/json")
+async def export_json(
+    job_id: int,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    job = await session.get(SimulationJob, job_id)
+    if not job:
+        raise HTTPException(status_code=404)
+    if job.user_id != current_user["user_id"]:
+        raise HTTPException(status_code=403)
+    if not job.result_report:
+        raise HTTPException(status_code=400, detail="No results available")
+
+    import json
+    export_data = {
+        "job_id": job.id,
+        "goal": job.goal,
+        "tier": job.tier,
+        "report": job.result_report,
+        "chat_log": json.loads(job.result_chat_log) if job.result_chat_log else [],
+        "graph": json.loads(job.result_graph) if job.result_graph else None,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+        "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+    }
+    return Response(
+        content=json.dumps(export_data, indent=2, ensure_ascii=False),
+        media_type="application/json",
+        headers={"Content-Disposition": f"attachment; filename=simulation-{job_id}.json"},
+    )
+
+
 def markdown_to_pdf(markdown_text: str, title: str) -> bytes:
     """Convert markdown report to PDF using reportlab."""
     from reportlab.lib.pagesizes import letter

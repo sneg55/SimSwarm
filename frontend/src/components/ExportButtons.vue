@@ -2,17 +2,18 @@
   <div class="flex items-center gap-3">
     <span class="text-sm text-mist-drift font-medium">Export:</span>
     <button
-      @click="exportPDF"
+      @click="handleExportPDF"
       :disabled="pdfLoading"
       class="inline-flex items-center px-3 py-1.5 border border-mist-depth rounded-lg text-sm text-mist-drift hover:bg-ocean-teal/10 hover:text-mist-foam transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {{ pdfLoading ? 'Generating...' : 'PDF' }}
     </button>
     <button
-      @click="exportJSON"
-      class="inline-flex items-center px-3 py-1.5 border border-mist-depth rounded-lg text-sm text-mist-drift hover:bg-ocean-teal/10 hover:text-mist-foam transition-colors"
+      @click="handleExportJSON"
+      :disabled="jsonLoading"
+      class="inline-flex items-center px-3 py-1.5 border border-mist-depth rounded-lg text-sm text-mist-drift hover:bg-ocean-teal/10 hover:text-mist-foam transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
     >
-      JSON
+      {{ jsonLoading ? 'Downloading...' : 'JSON' }}
     </button>
     <button
       @click="exportCSV"
@@ -25,6 +26,7 @@
 
 <script setup>
 import { ref } from 'vue'
+import { exportPDF, exportJSON } from '@/api/jobs.js'
 
 const props = defineProps({
   jobId: String,
@@ -35,27 +37,23 @@ const props = defineProps({
 const emit = defineEmits(['export'])
 
 const pdfLoading = ref(false)
+const jsonLoading = ref(false)
 
-async function exportPDF() {
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+async function handleExportPDF() {
   pdfLoading.value = true
   emit('export', { format: 'pdf', jobId: props.jobId })
   try {
-    const token = localStorage.getItem('token')
-    const resp = await fetch(`/api/jobs/${props.jobId}/export/pdf`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}))
-      alert(`PDF export failed: ${err.detail || resp.statusText}`)
-      return
-    }
-    const blob = await resp.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `simulation-${props.jobId}.pdf`
-    a.click()
-    URL.revokeObjectURL(url)
+    const blob = await exportPDF(props.jobId)
+    triggerDownload(blob, `simulation-${props.jobId}.pdf`)
   } catch (err) {
     console.error('PDF export error:', err)
     alert('PDF export failed. Please try again.')
@@ -64,15 +62,18 @@ async function exportPDF() {
   }
 }
 
-function exportJSON() {
-  const data = {
-    jobId: props.jobId,
-    report: props.reportContent,
-    messages: props.messages,
-    exportedAt: new Date().toISOString(),
-  }
-  downloadFile(JSON.stringify(data, null, 2), `simswarm-${props.jobId}.json`, 'application/json')
+async function handleExportJSON() {
+  jsonLoading.value = true
   emit('export', { format: 'json', jobId: props.jobId })
+  try {
+    const blob = await exportJSON(props.jobId)
+    triggerDownload(blob, `simulation-${props.jobId}.json`)
+  } catch (err) {
+    console.error('JSON export error:', err)
+    alert('JSON export failed. Please try again.')
+  } finally {
+    jsonLoading.value = false
+  }
 }
 
 function exportCSV() {
@@ -82,17 +83,8 @@ function exportCSV() {
     rows.push([msg.role || '', msg.agent || '', (msg.content || '').replace(/,/g, ';'), msg.timestamp || ''])
   })
   const csv = rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
-  downloadFile(csv, `simswarm-${props.jobId}.csv`, 'text/csv')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  triggerDownload(blob, `simswarm-${props.jobId}.csv`)
   emit('export', { format: 'csv', jobId: props.jobId })
-}
-
-function downloadFile(content, filename, mimeType) {
-  const blob = new Blob([content], { type: mimeType })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
 }
 </script>
