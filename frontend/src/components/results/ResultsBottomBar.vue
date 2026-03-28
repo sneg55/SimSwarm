@@ -25,14 +25,6 @@
       Export as JSON
     </button>
     <button
-      v-if="showCsv"
-      @click="$emit('export', 'csv')"
-      class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-mist-drift bg-ocean-deep border border-mist-depth transition-all duration-250 ease-spring hover:border-ocean-teal hover:text-mist-foam hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-      Export as CSV
-    </button>
-    <button
       @click="$emit('share')"
       class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-ocean-cyan to-cyan-500 glow-cyan transition-all duration-250 ease-spring hover:glow-cyan-lg hover:-translate-y-0.5"
     >
@@ -46,7 +38,6 @@
 defineProps({
   showPng: { type: Boolean, default: false },
   showJson: { type: Boolean, default: true },
-  showCsv: { type: Boolean, default: true },
   pdfLoading: { type: Boolean, default: false },
 })
 
