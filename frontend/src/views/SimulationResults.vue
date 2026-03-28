@@ -20,7 +20,7 @@
 
     <template v-else>
       <!-- ── Story View ── -->
-      <div v-if="viewMode === 'story'" class="relative pt-[88px] pb-24">
+      <div v-if="viewMode === 'story'" class="relative pt-[104px] pb-24">
         <!-- Left timeline -->
         <StoryTimeline :sections="storySections" />
 
@@ -61,7 +61,7 @@
       </div>
 
       <!-- ── Report View ── -->
-      <div v-else class="relative pt-[88px] pb-24">
+      <div v-else class="relative pt-[104px] pb-24">
         <!-- Left TOC -->
         <ReportToc :items="tocItems" />
 
