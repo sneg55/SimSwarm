@@ -42,9 +42,7 @@
           </div>
 
           <!-- Chat replay -->
-          <div v-if="chatMessages.length > 0" id="story-chat">
-            <ChatReplay :messages="chatMessages" />
-          </div>
+          <!-- Chat replay only in Report view, not Story -->
         </div>
       </div>
 
@@ -159,7 +157,6 @@ const storySections = computed(() => {
     { id: 'story-header', label: 'Overview' },
     { id: 'story-report', label: 'Report' },
   ]
-  if (chatMessages.value.length > 0) sections.push({ id: 'story-chat', label: 'Conversation' })
   return sections
 })
 
@@ -211,7 +208,7 @@ async function handleExport(format) {
 async function exportPDF() {
   pdfLoading.value = true
   try {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('auth_token')
     const resp = await fetch(`/api/jobs/${jobId}/export/pdf`, {
       headers: { Authorization: `Bearer ${token}` },
     })
