@@ -36,6 +36,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).parent.parent.parent
 DEMOS_DIR = REPO_ROOT / "demos"
 
+MIN_REPORT_CHARS = {"small": 2000, "medium": 5000, "large": 8000}
+MAX_RETRIES = 2
+
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(Path(__file__).parent))
 
@@ -171,17 +174,33 @@ def save_snapshot(config: dict, result: dict) -> Path:
 
 def run_one(config: dict, dry_run: bool = False) -> bool:
     """Run a single demo end-to-end. Returns True on success."""
-    task_id = dispatch_demo(config, dry_run=dry_run)
-    if not task_id or dry_run:
-        return dry_run
+    for attempt in range(MAX_RETRIES + 1):
+        task_id = dispatch_demo(config, dry_run=dry_run)
+        if not task_id or dry_run:
+            return dry_run
 
-    result = wait_for_task(task_id, config["slug"])
-    if not result:
-        return False
+        result = wait_for_task(task_id, config["slug"])
+        if not result:
+            if attempt < MAX_RETRIES:
+                print(f"  Retry {attempt + 1}/{MAX_RETRIES} after failure...")
+                continue
+            return False
 
-    out = save_snapshot(config, result)
-    print(f"  Saved: {out}")
-    return True
+        report_len = len(result.get("report", ""))
+        tier = config["tier"]
+        min_chars = MIN_REPORT_CHARS.get(tier, 2000)
+
+        if report_len < min_chars and attempt < MAX_RETRIES:
+            print(f"  Report too short ({report_len} chars < {min_chars} min for {tier}). Retrying...")
+            continue
+
+        out = save_snapshot(config, result)
+        print(f"  Saved: {out}")
+        if report_len < min_chars:
+            print(f"  WARNING: Report still short after {MAX_RETRIES} retries ({report_len} chars)")
+        return True
+
+    return False
 
 
 def main():

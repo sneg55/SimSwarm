@@ -215,7 +215,12 @@ def list_demos():
             report_len = len(data.get("report_markdown", ""))
             chat_entries = len(data.get("chat_log", []))
             generated = data.get("generated_at", "unknown")
-            status = f"✓ {report_len} chars, {chat_entries} chat entries ({generated})"
+            tier = config.get("tier", "small")
+            min_chars = {"small": 2000, "medium": 5000, "large": 8000}.get(tier, 2000)
+            if report_len < min_chars:
+                status = f"⚠ {report_len} chars (< {min_chars} min for {tier}), {chat_entries} entries ({generated})"
+            else:
+                status = f"✓ {report_len} chars, {chat_entries} chat entries ({generated})"
         else:
             status = "✗ not generated"
         print(f"  {slug}: {status}")
