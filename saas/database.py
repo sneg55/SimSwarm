@@ -10,7 +10,11 @@ def init_db(database_url: str):
     _engine = create_async_engine(
         database_url,
         pool_pre_ping=True,
-        connect_args={"prepared_statement_cache_size": 0},
+        pool_reset_on_return="rollback",
+        connect_args={
+            "prepared_statement_cache_size": 0,
+            "statement_cache_size": 0,
+        },
     )
     _session_factory = async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
 
