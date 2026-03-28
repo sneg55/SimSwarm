@@ -1,15 +1,45 @@
 const ENTITY_COLORS = {
-  University: '#f97316',
-  Entity: '#22D3EE',
-  Alumni: '#FF6B6B',
-  Organization: '#22D3EE',
-  Student: '#FF6B6B',
-  Professor: '#F97316',
+  // People
   Person: '#A78BFA',
-  MediaOutlet: '#6EE7B7',
-  LegalAuthority: '#10B981',
+  PoliticalFigure: '#A78BFA',
+  PrimeMinister: '#A78BFA',
+  GovernmentOfficial: '#A78BFA',
+  JudicialFigure: '#818CF8',
   OpinionLeader: '#FBBF24',
+
+  // Organizations
+  Organization: '#22D3EE',
   GovernmentAgency: '#FF6B6B',
+  InternationalOrganization: '#14B8A6',
+  RegulatoryAgency: '#10B981',
+  LegalAuthority: '#10B981',
+
+  // Media
+  MediaOutlet: '#6EE7B7',
+  MediaOutlets: '#6EE7B7',
+
+  // Military
+  MilitaryUnit: '#EF4444',
+  CoalitionMember: '#F97316',
+
+  // Business
+  EnergyCompany: '#FBBF24',
+  ShippingCompany: '#38BDF8',
+  Airline: '#38BDF8',
+
+  // Places
+  Country: '#8B5CF6',
+  City: '#C084FC',
+  Location: '#C084FC',
+
+  // Academic
+  University: '#F97316',
+  Professor: '#F97316',
+  Student: '#FF6B6B',
+  Alumni: '#FF6B6B',
+
+  // Generic fallback
+  Entity: '#6B7280',
 }
 
 const FALLBACK_PALETTE = [
