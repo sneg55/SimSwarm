@@ -83,7 +83,7 @@
           <template v-else-if="job.status === 'COMPLETED'">
             <div class="flex items-center justify-between">
               <span class="text-sm text-mist-drift">Duration</span>
-              <span class="font-mono text-sm text-organic-seafoam">{{ completedDuration }}</span>
+              <span class="font-mono text-sm text-mist-foam">{{ completedDuration }}</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-sm text-mist-drift">Completed</span>
