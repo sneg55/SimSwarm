@@ -48,13 +48,13 @@ def cleanup_orphaned_pods() -> dict:
     """
     runpod_key = os.getenv("RUNPOD_API_KEY", "")
     if not runpod_key:
-        return {"skipped": "no RUNPOD_API_KEY"}
+        raise RuntimeError("cleanup: RUNPOD_API_KEY not set — cannot check for orphaned pods")
 
     try:
         import runpod
         runpod.api_key = runpod_key
     except ImportError:
-        return {"skipped": "runpod package not installed"}
+        raise RuntimeError("cleanup: runpod package not installed")
 
     pods = runpod.get_pods()
     if not pods:

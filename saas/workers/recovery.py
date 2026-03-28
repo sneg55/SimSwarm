@@ -22,7 +22,7 @@ def recover_stale_jobs() -> dict:
 
     database_url = os.getenv("DATABASE_URL", "")
     if not database_url:
-        return {"skipped": "no DATABASE_URL"}
+        raise RuntimeError("recovery: DATABASE_URL not set — cannot recover stale jobs")
 
     sync_url = database_url.replace("+asyncpg", "").replace("postgresql://", "postgresql+psycopg2://")
 
@@ -159,4 +159,4 @@ def recover_stale_jobs() -> dict:
 
     except Exception as e:
         logger.error("recover.error error=%s", e, exc_info=True)
-        return {"error": str(e)}
+        raise RuntimeError(f"recovery: failed to recover stale jobs: {e}") from e
