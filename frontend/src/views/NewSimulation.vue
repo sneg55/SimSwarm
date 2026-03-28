@@ -5,9 +5,13 @@
     <!-- Step 1 -->
     <div v-if="step === 1" class="step-anim">
       <WizardSeed v-model:seedText="seedText" />
+      <div class="flex justify-between text-xs mt-1">
+        <span :class="seedQualityClass">{{ seedQualityMessage }}</span>
+        <span class="text-mist-slate">{{ seedText.length.toLocaleString() }} / 50,000 chars</span>
+      </div>
       <div class="wizard-nav">
         <div />
-        <button @click="step = 2" :disabled="!seedText.trim()" class="btn-next">
+        <button @click="step = 2" :disabled="seedText.length < MIN_SEED_CHARS || seedText.length > MAX_SEED_CHARS" class="btn-next">
           Continue →
         </button>
       </div>
@@ -70,8 +74,32 @@ const selectedTier = ref(null)
 const loading = ref(false)
 const error = ref('')
 
+const MIN_SEED_CHARS = 500
+const GOOD_SEED_CHARS = 1500
+const MAX_SEED_CHARS = 50000
+
+const seedQualityMessage = computed(() => {
+  const len = seedText.value.length
+  if (len === 0) return ''
+  if (len < MIN_SEED_CHARS) return '\u26A0 Seed is too short \u2014 simulations need more context for good results'
+  if (len < GOOD_SEED_CHARS) return '\u26A1 Seed could use more detail \u2014 consider adding background context'
+  if (len > MAX_SEED_CHARS) return '\u26A0 Seed exceeds maximum \u2014 please trim to 50,000 characters'
+  return '\u2713 Seed looks good!'
+})
+
+const seedQualityClass = computed(() => {
+  const len = seedText.value.length
+  if (len === 0) return 'text-mist-slate'
+  if (len < MIN_SEED_CHARS) return 'text-amber-400'
+  if (len < GOOD_SEED_CHARS) return 'text-amber-300'
+  if (len > MAX_SEED_CHARS) return 'text-red-400'
+  return 'text-emerald-400'
+})
+
 const canSubmit = computed(() =>
   seedText.value.trim() &&
+  seedText.value.length >= MIN_SEED_CHARS &&
+  seedText.value.length <= MAX_SEED_CHARS &&
   goal.value.trim() &&
   selectedTier.value &&
   creditsStore.canAfford(selectedTier.value)
