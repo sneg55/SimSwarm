@@ -256,40 +256,112 @@ Two sections separated by subtle label dividers:
 - Progress saver: resumes where user left off if tab is closed
 - "Save as draft" link visible throughout
 
-## 6. Simulation Results: Guided Story (Default)
+## 6. Simulation Results (Three Views)
 
-The flagship experience — a scrollable narrative that weaves the graph into the report.
+Three views of the same simulation data, accessible via a segmented toggle (Story | Graph | Report) in the top toolbar. All views share a consistent bottom action bar.
 
-### Layout
-- Single continuous scroll, no mode switching by default
-- Tiny toggle in top-right corner for power users: "Story" | "Graph" | "Report"
-- Soft flowing timeline on the side (current lines) showing scroll progress
+### Shared UI Elements
 
-### Scroll Sections
-1. **Executive brief** — Clean narrative summary at the top. Key findings in plain language.
-2. **Key findings** — Each finding is a card with colored accent border. As user scrolls to a finding, the knowledge graph (embedded inline) animates to highlight the relevant agent cluster.
-3. **Sentiment analysis** — Opinion gradients visualized as flowing color bands. Agent clusters glow and drift as user scrolls.
-4. **Coalition map** — Graph visualization showing which agent groups converged. Organic node layout, bioluminescent glow on active clusters.
-5. **Confidence scores** — JetBrains Mono data readout. Clean metrics presentation.
-6. **Full report** — Complete markdown-rendered report with prose styling.
-7. **Agent chat replay** — Collapsible chat log showing agent interactions chronologically.
+**Top toolbar** (frosted glass, below navbar):
+- Left: breadcrumb (← Dashboard / Simulation title)
+- Right: view toggle (Story | Graph | Report)
 
-### Scroll-Driven Animation
-- Fluid, water-like scroll behavior (gentle momentum)
-- As user scrolls through each finding, the knowledge graph responds:
-  - Relevant agent clusters gently glow and drift together
-  - Connection lines brighten between interacting agents
-  - Subtle particle flows pulse when narrative calls attention
-- Smooth morphing charts that feel alive (not snapping)
-- Graph fades in organically as user scrolls past the executive brief
+**Bottom action bar** (frosted glass, fixed bottom, centered):
+- Story/Report tabs: `Export as PDF` | `Export as JSON` | `Export as CSV` | `Share simulation` (primary teal)
+- Graph tab: `Export as PNG` | `Export as PDF` | `Share simulation` (primary teal)
 
-### Export
-- Sticky "Export" button: PDF (server-side), JSON, CSV
-- PDF captures the guided story with static graph snapshots
+**Simulation header** (shown in Story and Report views):
+- Title, goal text, meta bar (tier, agent count, cluster count, rounds, duration, completion date)
+
+### 6a. Story View (Default)
+
+The guided story — a scrollable narrative that weaves the graph into the report.
+
+**Side timeline** (left edge, fixed):
+- Vertical dots tracking scroll position through sections
+- Labels appear on hover, clickable to jump
+- Active dot = cyan glow, passed dots = teal
+
+**Scroll sections** (fade in via IntersectionObserver):
+1. **Executive Brief** — Two-paragraph narrative in a card with cyan-highlighted key phrases
+2. **Key Findings** — Cards with colored accent bars (coral = negative, seafoam = positive, violet = bifurcation, sand = emerging). Each has a metric badge (JetBrains Mono). After the first finding, an inline knowledge graph panel appears showing the relevant cluster highlighted.
+3. **Sentiment Analysis** — Animated gradient bars that grow when scrolled into view. Per-cluster breakdown (institutional, retail, media, etc.)
+4. **Coalition Map** — 4 cards showing emergent agent groups with colored dots, agent counts, and coalition strength percentages
+5. **Confidence Scores** — Three big numbers in JetBrains Mono (Overall, Sentiment, Coalition stability)
+6. **Full Report** — Prose section with markdown formatting
+7. **Agent Chat Replay** — Collapsible, click to expand. Timestamped messages with color-coded agent names by role. System messages for round transitions.
+
+**Inline graph panel** (between findings):
+- Browser chrome header (title + icon controls: zoom, reset, fullscreen)
+- Shows clustered nodes with the relevant cluster highlighted (brighter glow + stronger edges)
+
+### 6b. Graph View
+
+Full-viewport interactive knowledge graph.
+
+**Top toolbar additions** (same row as view toggle):
+- Zoom to fit, Reset layout (icon buttons)
+- Type / Sentiment toggle (segmented control — rearranges nodes by entity type clusters or positive/neutral/negative sentiment clusters)
+- Edge labels toggle (icon)
+- Layout dropdown (Force-directed, Circle, Hierarchical, Grid)
+- Export PNG, Fullscreen (icon buttons)
+
+**Search bar** (left side of toolbar):
+- Type to filter entities, dropdown shows results with colored type badges (ORG, GOV, PERSON)
+
+**Legend** (bottom-left, floating):
+- Entity type filter: colored dots + counts, click to toggle visibility (nodes fade to 8% opacity, edges disappear)
+- All / None quick actions
+- Sentiment filter: Positive (seafoam ring) / Negative (coral ring) / Neutral — same click-to-toggle behavior
+- "Showing X of Y nodes" with "Show all" link
+
+**Node rendering** (Canvas 2D):
+- Nodes colored by entity type, sized by sentiment intensity (stronger conviction = up to 40% larger)
+- Sentiment ring around each node: thickness and glow scale with intensity. Positive = seafoam, Negative = coral, Neutral = none
+- Background sentiment zones: soft radial gradient blobs behind positive cluster (seafoam wash) and negative cluster (coral wash)
+- Gentle organic drift (sine-based wandering), repulsion between nearby nodes
+- Connection lines between related entities (0.5px, blended colors, 10% opacity)
+
+**Click interactions:**
+- Click node → detail panel slides in from right (320px), canvas area shrinks to accommodate
+- Connected nodes light up with names visible, unconnected nodes dim to 15%
+- Edges to/from selected node brighten and thicken
+- Detail panel shows: type badge, entity name, summary, relationship list
+- Click relationship in panel → target node gets ping animation (expanding rings for 3s) with name and edges highlighted
+- Click empty canvas → close panel, everything returns to normal
+
+**Grouping:**
+- "Type" mode: nodes cluster by entity type (Organization, Person, Media, etc.)
+- "Sentiment" mode: nodes rearrange into 3 groups (Positive left, Neutral center, Negative right), sub-grouped by entity type. Nodes flow to new positions over ~3s with stronger gravity during transition.
+
+### 6c. Report View
+
+Traditional full-text report with prose styling.
+
+**Table of Contents** (left side, fixed):
+- Tracks scroll position with active highlighting (cyan left border)
+- Section headings + sub-headings, clickable to jump
+- Hidden below 1200px viewport width
+
+**Report body** (centered, max-width 760px, shifted right to accommodate left TOC):
+- Dark card with 40px padding
+- Typography: h1 (26px, border-bottom), h2 (20px), h3 (16px)
+- Body text: 15px, line-height 1.8
+- Inline metric badges: colored pills (positive = seafoam, negative = coral, neutral = cyan) with JetBrains Mono
+- Blockquotes: teal left border, subtle teal background tint
+- Tables: header with uppercase labels, hover row highlight
+- Code: JetBrains Mono in cyan on teal tint
+- Lists: teal markers
+- HR: gradient line divider
+
+**Agent Chat Replay** (below report, collapsible):
+- Click header to expand/collapse
+- Message count badge
+- Color-coded agent names, timestamps, system messages for round transitions
 
 ### Mobile
 - Graph becomes a mini-map on smaller screens
-- Dual column mode disabled below 768px
+- Report TOC hidden below 1200px
 - Scroll story works naturally on mobile (single column)
 
 ## 7. Design Tokens Summary (Tailwind Config)
