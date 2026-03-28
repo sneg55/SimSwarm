@@ -72,8 +72,23 @@ def _refund_credits(job_id: int, user_id: str, credits: int) -> None:
     _run_async(_do_refund())
 
 
-def _save_job_results(job_id: int, report: str, chat_log: str, graph_data: str = "{}") -> None:
-    """Persist pipeline results (report + chat_log + graph_data) to the SimulationJob row."""
+def _extract_key_insight(report: str) -> str | None:
+    """Extract the first substantive non-heading line from a markdown report (max 200 chars)."""
+    if not report:
+        return None
+    lines = [l.strip() for l in report.split('\n') if l.strip()]
+    # Skip markdown headings, find first content line
+    insight_line = next(
+        (l for l in lines if not l.startswith('#') and len(l) > 30),
+        None
+    )
+    if insight_line:
+        return insight_line[:200]
+    return None
+
+
+def _save_job_results(job_id: int, report: str, chat_log: str, graph_data: str = "{}", key_insight: str | None = None) -> None:
+    """Persist pipeline results (report + chat_log + graph_data + key_insight) to the SimulationJob row."""
     from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
     from sqlalchemy import text
 
@@ -94,6 +109,7 @@ def _save_job_results(job_id: int, report: str, chat_log: str, graph_data: str =
                         "    result_report = :report, "
                         "    result_chat_log = :chat_log, "
                         "    result_graph = :graph_data, "
+                        "    key_insight = :key_insight, "
                         "    completed_at = :completed_at "
                         "WHERE id = :job_id"
                     ),
@@ -101,6 +117,7 @@ def _save_job_results(job_id: int, report: str, chat_log: str, graph_data: str =
                         "report": report,
                         "chat_log": chat_log,
                         "graph_data": graph_data,
+                        "key_insight": key_insight,
                         "completed_at": datetime.now(timezone.utc),
                         "job_id": job_id,
                     },
@@ -351,7 +368,11 @@ def run_simulation_task(
         report = result.get("report", "")
         chat_log = result.get("chat_log", "")
         graph_data = result.get("graph_data", "{}")
-        _save_job_results(job_id=job_id, report=report, chat_log=chat_log, graph_data=graph_data)
+
+        # Extract key insight (first substantive sentence from report, max 200 chars)
+        key_insight = _extract_key_insight(report)
+
+        _save_job_results(job_id=job_id, report=report, chat_log=chat_log, graph_data=graph_data, key_insight=key_insight)
 
         logger.info(
             "job.completed job_id=%d pod_id=%s provision_s=%s pipeline_s=%s",
