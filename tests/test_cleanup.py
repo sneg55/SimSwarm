@@ -1,6 +1,4 @@
 """Tests for saas/workers/cleanup.py."""
-import sys
-
 import pytest
 from unittest.mock import patch, MagicMock
 
@@ -36,7 +34,7 @@ def test_cleanup_skips_young_pods(mock_get_ids):
 
     with patch.dict("os.environ", {"RUNPOD_API_KEY": "test-key"}):
         with patch.dict("sys.modules", {"runpod": mock_runpod}):
-            result = cleanup_orphaned_pods()
+            cleanup_orphaned_pods()
 
     mock_runpod.terminate_pod.assert_not_called()
 
