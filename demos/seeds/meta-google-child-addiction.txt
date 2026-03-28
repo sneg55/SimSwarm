@@ -1,0 +1,26 @@
+JURY RULES AGAINST GOOGLE AND META IN CHILD ADDICTION CASE — March 25, 2026
+
+Case: K.G.M. v. Meta et al.
+
+A jury in California ruled in favor of a woman who sued Google and Meta Platforms for her addictions to Instagram and YouTube as a child. The landmark verdict establishes that social media platforms can be held liable for addictive design features targeting minors.
+
+Case details:
+- The plaintiff (identified as K.G.M.) alleged she became addicted to Instagram and YouTube during childhood, causing psychological harm.
+- The suit targeted specific platform design features: infinite scroll, autoplay, notification systems, and algorithmic content recommendations optimized for engagement.
+- The jury found both Google (YouTube) and Meta (Instagram) liable.
+- Damages and remedies have not yet been announced.
+
+Legal context:
+- This is the first successful jury verdict holding social media companies liable for addictive design targeting children.
+- Hundreds of similar cases are pending in US federal and state courts, consolidated under MDL (multidistrict litigation).
+- The US Surgeon General has called social media a "public health crisis" for youth mental health.
+- COPPA (Children's Online Privacy Protection Act) currently regulates data collection from children under 13 but does not address addictive design.
+- Several US states have passed or proposed age verification laws for social media.
+- The EU's Digital Services Act includes provisions on protecting minors online.
+
+Industry implications:
+- Meta and Google are expected to appeal. The case could reach the Supreme Court on First Amendment grounds.
+- Platform stocks may face pressure as the ruling opens the door to massive class action liability.
+- Other platforms (TikTok, Snapchat, X) face similar design liability exposure.
+- The ruling could accelerate legislative action on children's online safety at federal and state levels.
+- Platform companies may preemptively redesign features for minors to reduce litigation risk.

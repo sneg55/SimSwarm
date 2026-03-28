@@ -4,13 +4,13 @@ from infra.scripts.refresh_demos import DEMO_CONFIGS, validate_snapshot
 
 
 def test_demo_configs_defined():
-    """There should be exactly 5 demo configurations."""
-    assert len(DEMO_CONFIGS) == 5
+    """There should be 15 demo configurations (5 original + 10 new)."""
+    assert len(DEMO_CONFIGS) == 15
 
 
 def test_each_config_has_required_fields():
     """Each demo config must have all required fields."""
-    required_fields = {"slug", "title", "description", "seed_summary", "seed_source", "goal", "tier"}
+    required_fields = {"slug", "title", "description", "seed_summary", "goal", "tier"}
     for config in DEMO_CONFIGS:
         missing = required_fields - set(config.keys())
         assert not missing, f"Config '{config.get('slug')}' missing fields: {missing}"

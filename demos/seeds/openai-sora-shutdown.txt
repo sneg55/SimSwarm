@@ -1,0 +1,23 @@
+OPENAI SHUTS DOWN SORA — March 24, 2026
+
+American technology company OpenAI announced it will shut down its Sora video generation app. The Walt Disney Company's $1 billion investment deal to allow Disney's intellectual properties to be used with Sora was also cancelled.
+
+Timeline of Sora:
+- February 2024: OpenAI previewed Sora, a text-to-video AI model capable of generating realistic 60-second videos from text prompts.
+- December 2024: Sora launched publicly with a subscription model.
+- 2025: Disney signed a $1 billion deal to integrate Disney IP (Marvel, Star Wars, Pixar characters) with Sora for consumer video creation.
+- March 24, 2026: OpenAI announces shutdown. Disney deal cancelled.
+
+Industry context:
+- Competitors Runway, Pika, and Google's Veo continue to operate in the AI video space.
+- The AI video generation market was projected to reach $1.3 billion by 2027.
+- Sora faced ongoing copyright lawsuits from content creators and studios whose work was used for training.
+- The shutdown comes amid broader AI industry turbulence — Epic Games also announced 1,000+ layoffs the same day.
+- OpenAI had been restructuring around its core ChatGPT and API businesses.
+
+Creator ecosystem impact:
+- Thousands of creators built workflows and businesses around Sora's capabilities.
+- Agencies and studios that adopted Sora for pre-visualization and concept work must migrate to alternatives.
+- The Disney cancellation signals corporate risk aversion toward AI-generated content deals.
+
+Key questions: How will the creator ecosystem migrate? Will competitors capture Sora's market share or will the category contract? Does the Disney cancellation signal a broader pullback from AI content licensing deals?
