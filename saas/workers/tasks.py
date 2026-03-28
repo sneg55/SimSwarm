@@ -76,10 +76,10 @@ def _extract_key_insight(report: str) -> str | None:
     """Extract the first substantive non-heading line from a markdown report (max 200 chars)."""
     if not report:
         return None
-    lines = [l.strip() for l in report.split('\n') if l.strip()]
+    lines = [line.strip() for line in report.split('\n') if line.strip()]
     # Skip markdown headings, find first content line
     insight_line = next(
-        (l for l in lines if not l.startswith('#') and len(l) > 30),
+        (line for line in lines if not line.startswith('#') and len(line) > 30),
         None
     )
     if insight_line:

@@ -1,6 +1,5 @@
 """Test that refund path is correct."""
 import inspect
-import pytest
 from unittest.mock import patch, MagicMock
 
 

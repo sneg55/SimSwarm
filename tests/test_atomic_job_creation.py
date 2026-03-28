@@ -1,5 +1,4 @@
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
 
 async def test_missing_routing_does_not_charge_credits(client, auth_headers, funded_user):

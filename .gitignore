@@ -16,3 +16,4 @@ docs/benchmarks/results.json
 .claude/
 .worktrees/
 .superpowers/
+celerybeat-schedule*
