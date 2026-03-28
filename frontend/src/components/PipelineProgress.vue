@@ -1,6 +1,6 @@
 <template>
   <div class="space-y-2">
-    <h3 class="text-sm font-medium text-gray-700">Pipeline Progress</h3>
+    <h3 class="text-sm font-medium text-mist-drift">Pipeline Progress</h3>
     <div class="flex items-center">
       <div
         v-for="(step, index) in steps"
@@ -16,15 +16,15 @@
             <svg v-if="isCompleted(step.id)" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
             </svg>
-            <span v-else-if="isActive(step.id)" class="w-2 h-2 bg-blue-600 rounded-full animate-pulse"/>
+            <span v-else-if="isActive(step.id)" class="w-2 h-2 bg-ocean-glow rounded-full animate-pulse"/>
             <span v-else>{{ index + 1 }}</span>
           </div>
-          <span class="text-xs text-gray-500 mt-1 text-center w-16">{{ step.label }}</span>
+          <span class="text-xs text-mist-slate mt-1 text-center w-16">{{ step.label }}</span>
         </div>
         <div
           v-if="index < steps.length - 1"
           class="flex-1 h-0.5 mx-1 mb-5 transition-all"
-          :class="isCompleted(step.id) ? 'bg-green-400' : 'bg-gray-200'"
+          :class="isCompleted(step.id) ? 'bg-organic-sage' : 'bg-mist-depth'"
         />
       </div>
     </div>
@@ -60,8 +60,8 @@ function isActive(stepId) {
 }
 
 function stepClass(stepId) {
-  if (isCompleted(stepId)) return 'border-green-400 bg-green-50 text-green-600'
-  if (isActive(stepId)) return 'border-blue-500 bg-blue-50 text-blue-600'
-  return 'border-gray-200 bg-white text-gray-400'
+  if (isCompleted(stepId)) return 'border-organic-sage bg-organic-sage/10 text-organic-seafoam'
+  if (isActive(stepId)) return 'border-ocean-cyan bg-ocean-cyan/10 text-ocean-glow'
+  return 'border-mist-depth bg-ocean-deep text-mist-slate'
 }
 </script>
