@@ -35,6 +35,19 @@
           <p class="text-xs text-mist-drift leading-relaxed">{{ node.summary }}</p>
         </div>
 
+        <!-- Properties -->
+        <div class="mb-4">
+          <h4 class="text-[10px] font-bold tracking-wider text-mist-slate uppercase mb-2">Properties</h4>
+          <div class="flex justify-between text-xs py-0.5">
+            <span class="text-mist-slate">type</span>
+            <span class="text-mist-drift">{{ node.entityType }}</span>
+          </div>
+          <div class="flex justify-between text-xs py-0.5">
+            <span class="text-mist-slate">connections</span>
+            <span class="text-mist-drift">{{ node.connectionCount }}</span>
+          </div>
+        </div>
+
         <!-- Relationships -->
         <div v-if="relationships.length > 0">
           <h4 class="text-[10px] font-bold tracking-wider text-mist-slate uppercase mb-2">Relationships</h4>

@@ -169,13 +169,42 @@ const tocItems = computed(() => {
   return items
 })
 
+// ── Graph helpers ─────────────────────────────────────────────────────────────
+
+function buildNodeRelationships(nodes, edges) {
+  const relMap = {}
+  for (const edge of edges) {
+    if (!relMap[edge.source_node_uuid]) relMap[edge.source_node_uuid] = []
+    relMap[edge.source_node_uuid].push({
+      direction: 'outgoing',
+      type: edge.name || edge.fact || '',
+      target_uuid: edge.target_node_uuid,
+      targetName: edge.target_node_name || '',
+      fact: edge.fact || '',
+    })
+    if (!relMap[edge.target_node_uuid]) relMap[edge.target_node_uuid] = []
+    relMap[edge.target_node_uuid].push({
+      direction: 'incoming',
+      type: edge.name || edge.fact || '',
+      source_uuid: edge.source_node_uuid,
+      sourceName: edge.source_node_name || '',
+      fact: edge.fact || '',
+    })
+  }
+  return nodes.map(n => ({ ...n, relationships: relMap[n.uuid] || [] }))
+}
+
 // ── Data fetching ─────────────────────────────────────────────────────────────
 
 async function fetchGraphData() {
   graphLoading.value = true
   graphError.value = null
   try {
-    graphData.value = await getJobGraph(jobId)
+    const raw = await getJobGraph(jobId)
+    if (raw?.nodes?.length && raw?.edges?.length) {
+      raw.nodes = buildNodeRelationships(raw.nodes, raw.edges)
+    }
+    graphData.value = raw
     hasGraph.value = graphData.value?.nodes?.length > 0
   } catch (err) {
     graphError.value = err.response?.status === 404
