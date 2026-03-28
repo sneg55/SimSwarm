@@ -83,7 +83,7 @@
           <template v-else-if="job.status === 'COMPLETED'">
             <div class="flex items-center justify-between">
               <span class="text-sm text-mist-drift">Duration</span>
-              <span class="font-mono text-sm text-organic-seafoam">{{ formatDuration(job.pipeline_seconds) }}</span>
+              <span class="font-mono text-sm text-organic-seafoam">{{ completedDuration }}</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-sm text-mist-drift">Completed</span>
@@ -144,7 +144,7 @@ import ChatReplay from '../components/ChatReplay.vue'
 import { getJob } from '../api/jobs.js'
 
 const STAGE_NAMES = ['Seeding', 'Researching', 'Simulating', 'Analyzing', 'Generating report']
-const STAGE_STEP_IDS = ['seed', 'research', 'prepare', 'simulate', 'report']
+const STAGE_STEP_IDS = ['seed', 'research', 'simulate', 'analyze', 'report']
 
 // Estimated seconds per stage by tier
 const TIER_ESTIMATES = {
@@ -236,6 +236,18 @@ const eta = computed(() => {
   const estimatedRemaining = Math.max(0, Math.round((el / pct) * (1 - pct)))
   if (estimatedRemaining < 30) return '< 1 min'
   return '~' + formatSeconds(estimatedRemaining)
+})
+
+const completedDuration = computed(() => {
+  if (!job.value) return '--'
+  if (job.value.pipeline_seconds) return formatSeconds(job.value.pipeline_seconds)
+  // Fallback: calculate from timestamps
+  if (job.value.created_at && job.value.completed_at) {
+    const start = new Date(job.value.created_at).getTime()
+    const end = new Date(job.value.completed_at).getTime()
+    return formatSeconds(Math.floor((end - start) / 1000))
+  }
+  return '--'
 })
 
 const chatMessages = computed(() => {
