@@ -66,7 +66,7 @@ async def test_register_login_balance_flow(client):
 # ---------------------------------------------------------------------------
 
 
-async def test_job_requires_credits(client):
+async def test_job_requires_credits(client, seeded_routing):
     """User with zero credits cannot create a job — gets 402."""
     reg = await client.post(
         "/api/auth/register",

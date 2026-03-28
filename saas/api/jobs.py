@@ -35,7 +35,18 @@ async def create_job(
     user_id = current_user["user_id"]
     credits = TIER_CREDITS[body.tier]
 
-    # Check and deduct credits atomically
+    # 1. Validate routing exists BEFORE touching credits
+    route = await session.execute(
+        select(ModelRouting).where(ModelRouting.sim_tier == body.tier.value)
+    )
+    routing = route.scalar_one_or_none()
+    if not routing:
+        raise HTTPException(
+            status_code=500,
+            detail=f"No model routing configured for tier: {body.tier.value}",
+        )
+
+    # 2. Debit credits (raises 402 if insufficient — no commit yet)
     ledger = CreditLedger(session)
     try:
         await ledger.debit(
@@ -49,6 +60,7 @@ async def create_job(
             detail=f"Insufficient credits. Required: {credits}",
         )
 
+    # 3. Create job row (not committed yet)
     job = SimulationJob(
         user_id=user_id,
         seed_text=body.seed_text,
@@ -58,36 +70,32 @@ async def create_job(
         status=JobStatus.PENDING,
     )
     session.add(job)
-    await session.commit()
-    await session.refresh(job)
+    await session.flush()  # get job.id without committing
 
-    # Look up model routing for this tier
-    route = await session.execute(
-        select(ModelRouting).where(ModelRouting.sim_tier == body.tier.value)
-    )
-    routing = route.scalar_one_or_none()
-    if not routing:
-        raise HTTPException(status_code=500, detail=f"No model routing configured for tier: {body.tier.value}")
+    # 4. Dispatch to Celery — if this fails, the whole transaction rolls back
+    try:
+        task_result = run_simulation_task.delay(
+            job_id=job.id,
+            user_id=user_id,
+            seed_text=body.seed_text,
+            goal=body.goal,
+            tier=body.tier.value,
+            model_id=routing.model_id,
+            gpu_type=routing.gpu_type,
+            max_rounds=routing.max_rounds,
+            vllm_args=routing.vllm_args or "",
+            llm_api_key=os.getenv("LLM_API_KEY", "not-needed"),
+            zep_api_key=os.getenv("ZEP_API_KEY", ""),
+            credits_charged=credits,
+        )
+    except Exception:
+        await session.rollback()
+        raise HTTPException(status_code=500, detail="Failed to queue simulation job")
 
-    # Dispatch to Celery worker
-    task_result = run_simulation_task.delay(
-        job_id=job.id,
-        user_id=user_id,
-        seed_text=body.seed_text,
-        goal=body.goal,
-        tier=body.tier.value,
-        model_id=routing.model_id,
-        gpu_type=routing.gpu_type,
-        max_rounds=routing.max_rounds,
-        vllm_args=routing.vllm_args or "",
-        llm_api_key=os.getenv("LLM_API_KEY", "not-needed"),
-        zep_api_key=os.getenv("ZEP_API_KEY", ""),
-        credits_charged=credits,
-    )
-
-    # Store Celery task ID for recovery on worker restart
+    # 5. Store task ID and commit everything atomically
     job.celery_task_id = task_result.id
     await session.commit()
+    await session.refresh(job)
 
     return job
 

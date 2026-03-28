@@ -7,7 +7,7 @@ def _mock_delay():
     return patch("saas.api.jobs.run_simulation_task.delay", return_value=mock_task)
 
 
-async def test_no_credits_returns_402(client, auth_headers):
+async def test_no_credits_returns_402(client, auth_headers, seeded_routing):
     """User with zero credits cannot create a job."""
     response = await client.post(
         "/api/jobs",
@@ -21,7 +21,7 @@ async def test_no_credits_returns_402(client, auth_headers):
     assert response.status_code == 402
 
 
-async def test_insufficient_credits_returns_402(client, auth_headers, db_session):
+async def test_insufficient_credits_returns_402(client, auth_headers, db_session, seeded_routing):
     """User with some but not enough credits gets 402."""
     from saas.billing.ledger import CreditLedger
     user_id = auth_headers["_user_id"]
