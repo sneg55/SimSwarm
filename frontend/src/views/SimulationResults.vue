@@ -137,7 +137,20 @@ const chatMessages = computed(() => {
   if (!job.value) return []
   try {
     const raw = job.value.result_chat_log || job.value.chat_log || '[]'
-    return typeof raw === 'string' ? JSON.parse(raw) : raw
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!Array.isArray(parsed)) return []
+    // Transform MiroFish chat log format to ChatReplay format
+    return parsed.map(entry => {
+      // If already in ChatReplay format (has content + role), pass through
+      if (entry.content && entry.role) return entry
+      // MiroFish format: { agent_name, action_type, action_args: { content }, timestamp }
+      return {
+        role: 'assistant',
+        agent: entry.agent_name || entry.agent || 'Agent',
+        content: entry.action_args?.content || entry.content || JSON.stringify(entry.action_args || {}),
+        timestamp: entry.timestamp || null,
+      }
+    }).filter(m => m.content)
   } catch { return [] }
 })
 

@@ -1,5 +1,5 @@
 <template>
-  <div class="fixed top-[52px] left-0 right-0 z-40 px-6 py-2 flex items-center justify-between glass border-b border-mist-depth/50">
+  <div class="fixed top-[56px] left-0 right-0 z-40 px-6 py-2.5 flex items-center justify-between glass-solid border-b border-mist-depth/50">
     <div class="flex items-center gap-2 text-sm text-mist-slate">
       <router-link to="/dashboard" class="hover:text-mist-drift transition-colors">&larr; Dashboard</router-link>
       <span>/</span>
