@@ -64,7 +64,7 @@
         <ReportToc :items="tocItems" />
 
         <!-- Content shifted right on xl screens -->
-        <div class="max-w-[800px] mx-auto pr-4 xl:ml-[260px] space-y-8">
+        <div class="max-w-[800px] mx-auto pl-12 pr-4 xl:pl-16 space-y-8">
           <!-- Simulation header -->
           <div id="report-header" class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
             <h1 class="text-2xl font-bold text-mist-foam mb-2">{{ job.goal }}</h1>
