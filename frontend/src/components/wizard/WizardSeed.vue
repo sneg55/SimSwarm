@@ -62,7 +62,14 @@
 
 <script setup>
 import { ref, watch } from 'vue'
+import * as pdfjsLib from 'pdfjs-dist'
+import mammoth from 'mammoth'
 import SeedTips from './SeedTips.vue'
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url,
+).toString()
 
 const emit = defineEmits(['update:seedText'])
 
@@ -89,15 +96,57 @@ function handleFileSelect(e) {
   if (file) processFile(file)
 }
 
-function processFile(file) {
-  const reader = new FileReader()
-  reader.onload = (e) => {
-    seedText.value = e.target.result
-    fileName.value = file.name
-    charCount.value = e.target.result.length
-    emit('update:seedText', seedText.value)
+const parseError = ref('')
+
+async function processFile(file) {
+  parseError.value = ''
+  fileName.value = file.name
+  const ext = file.name.split('.').pop().toLowerCase()
+
+  try {
+    let text = ''
+    if (ext === 'pdf') {
+      text = await extractPdf(file)
+    } else if (ext === 'docx') {
+      text = await extractDocx(file)
+    } else {
+      text = await readAsText(file)
+    }
+    seedText.value = text
+    charCount.value = text.length
+    emit('update:seedText', text)
+  } catch (err) {
+    parseError.value = `Could not extract text from ${file.name}: ${err.message}`
+    fileName.value = ''
+    charCount.value = 0
   }
-  reader.readAsText(file)
+}
+
+function readAsText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => resolve(e.target.result)
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.readAsText(file)
+  })
+}
+
+async function extractPdf(file) {
+  const buf = await file.arrayBuffer()
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise
+  const pages = []
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i)
+    const content = await page.getTextContent()
+    pages.push(content.items.map((item) => item.str).join(' '))
+  }
+  return pages.join('\n\n')
+}
+
+async function extractDocx(file) {
+  const buf = await file.arrayBuffer()
+  const result = await mammoth.extractRawText({ arrayBuffer: buf })
+  return result.value
 }
 
 function clearFile() {
