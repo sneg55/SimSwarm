@@ -107,3 +107,29 @@ class TestSetupLogging:
         setup_logging(json_output=True)
         root = logging.getLogger()
         assert len(root.handlers) == 1
+
+
+def test_json_formatter_redacts_sensitive_fields():
+    formatter = JSONFormatter()
+    record = logging.LogRecord(
+        name="test", level=logging.INFO, pathname="", lineno=0,
+        msg="test", args=(), exc_info=None,
+    )
+    record.api_key = "sk-secret123"
+    record.seed_text = "user private content"
+    output = formatter.format(record)
+    data = json.loads(output)
+    assert data.get("api_key") == "[REDACTED]"
+    assert data.get("seed_text") == "[REDACTED]"
+
+
+def test_json_formatter_redacts_key_patterns_in_messages():
+    formatter = JSONFormatter()
+    record = logging.LogRecord(
+        name="test", level=logging.INFO, pathname="", lineno=0,
+        msg="Using key sk-abc123xyz456 for API", args=(), exc_info=None,
+    )
+    output = formatter.format(record)
+    data = json.loads(output)
+    assert "abc123xyz456" not in data["msg"]
+    assert "[REDACTED]" in data["msg"]

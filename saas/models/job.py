@@ -43,3 +43,4 @@ class SimulationJob(Base):
     provision_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     pipeline_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     key_insight: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    share_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
