@@ -54,11 +54,12 @@ class CreditLedger:
                 text(
                     "INSERT INTO credit_entries (user_id, amount, description, job_id, created_at) "
                     "SELECT :user_id, :amount, :description, :job_id, :created_at "
-                    "WHERE (SELECT COALESCE(SUM(amount), 0) FROM credit_entries WHERE user_id = :user_id) >= :required "
+                    "WHERE (SELECT COALESCE(SUM(amount), 0) FROM credit_entries WHERE user_id = CAST(:check_uid AS VARCHAR)) >= :required "
                     "RETURNING id"
                 ),
                 {
                     "user_id": user_id,
+                    "check_uid": user_id,
                     "amount": -amount,
                     "description": description,
                     "job_id": job_id,
