@@ -66,7 +66,7 @@
               <span class="text-sm text-mist-drift">Status</span>
               <span class="text-sm text-mist-foam flex items-center gap-2">
                 <span class="inline-block w-1.5 h-1.5 rounded-full bg-organic-violet animate-[breathe_2s_ease-in-out_infinite]" />
-                {{ job.status === 'PROVISIONING' ? 'Allocating GPU...' : 'Queued — waiting for resources' }}
+                {{ job.status === 'PROVISIONING' ? 'Allocating GPU...' : 'Waiting for GPU resources' }}
               </span>
             </div>
             <div class="flex items-center justify-between">
@@ -168,21 +168,20 @@ const isActive = computed(() =>
 
 const currentStep = computed(() => {
   if (!job.value) return null
-  // PENDING/PROVISIONING = nothing active yet
-  if (['PENDING', 'PROVISIONING'].includes(job.value.status)) return null
-  // COMPLETED = all done
   if (job.value.status === 'COMPLETED') return null
-  if (!job.value.pipeline_stage) return null
+  if (job.value.status === 'FAILED') return null
+  // PENDING/PROVISIONING = seed is done, research is waiting
+  if (['PENDING', 'PROVISIONING'].includes(job.value.status)) return 'research'
+  if (!job.value.pipeline_stage) return 'research'
   return STAGE_STEP_IDS[job.value.pipeline_stage - 1] ?? null
 })
 
 const completedSteps = computed(() => {
   if (!job.value) return []
-  // COMPLETED = all done
   if (job.value.status === 'COMPLETED') return [...STAGE_STEP_IDS]
-  // PENDING/PROVISIONING = nothing done
-  if (['PENDING', 'PROVISIONING'].includes(job.value.status)) return []
-  if (!job.value.pipeline_stage) return []
+  // PENDING/PROVISIONING = seed is done (user already uploaded the document)
+  if (['PENDING', 'PROVISIONING'].includes(job.value.status)) return ['seed']
+  if (!job.value.pipeline_stage) return ['seed']
   return STAGE_STEP_IDS.slice(0, job.value.pipeline_stage - 1)
 })
 
@@ -252,8 +251,8 @@ const statusLabel = computed(() => {
   const map = {
     COMPLETED: 'Complete',
     RUNNING: 'Running',
-    PROVISIONING: 'Provisioning GPU',
-    PENDING: 'Pending',
+    PROVISIONING: 'Allocating GPU',
+    PENDING: 'Queued',
     FAILED: 'Failed',
     REFUNDED: 'Refunded',
   }
