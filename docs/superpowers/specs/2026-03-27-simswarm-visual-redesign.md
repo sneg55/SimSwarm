@@ -224,37 +224,76 @@ Two sections separated by subtle label dividers:
 
 ## 5. New Simulation: Stepped Wizard
 
-3-step guided flow with organic transitions between steps.
+3-step guided flow, centered layout (max-w 640px), fade-slide transitions between steps.
 
-### Step 1 — "Let's seed the ecosystem..."
-- Drag-and-drop document upload zone (Abyss bg, dashed Teal border)
-- File type tags below (Press release, Policy draft, Earnings report, Campaign brief)
-- Textarea fallback for direct text input
-- Supported formats: PDF, TXT, CSV, Markdown, up to 50,000 characters
-- Upload shows gentle schooling particles gathering animation
+### Progress Indicator
+- 3 dots (Seed / Goal / Launch) connected by lines at the top
+- Active dot: cyan glow, completed dots: green, pending: mist-depth border
+- Active line: shimmer animation (gradient sweep), completed: solid green
+- Dots are clickable to jump between completed steps
+
+### Step 1 — "Let's seed the ecosystem"
+Three input methods with uppercase section labels:
+
+**DIRECT UPLOAD:**
+- Drag-and-drop zone (dashed Teal border, 14px radius, compact padding)
+- Floating wave icon, "Drop your document here" text
+- "Browse files" button (teal outline, opens native file picker)
+- Format line: `PDF, DOCX, TXT, Markdown — up to 50,000 characters` (JetBrains Mono, subdued)
+- Drag-over state: cyan border + inset glow + slight scale
+- After upload: shows file card with name, size, extracted character count, remove button
+
+**IMPORT FROM SOURCE:**
+- URL input with link icon + "Fetch" button (cyan gradient)
+- Loading state → success message with extracted char count + hostname
+- Fetched content populates the raw input textarea
+
+**RAW INPUT:**
+- Textarea (Abyss bg, mist-depth border, 90px min-height)
+- Character counter: `0 / 50,000` (JetBrains Mono, right-aligned)
+
+**"What makes a good seed?"** — collapsible tips panel between header and inputs:
+- ✓ Specific events (earnings reports, policy announcements, product launches)
+- ✓ Multiple stakeholders (companies, regulators, media, public figures)
+- ✓ Recent context (last few days)
+- ○ 2,000–20,000 characters sweet spot
+- ✗ Avoid generic content (boilerplate, Wikipedia)
 
 ### Step 2 — "What do you want to know?"
-- Single textarea for research goal
-- Smart prompt suggestions below as clickable tags:
+- Large textarea (16px font, 140px min-height) for research question
+- Smart prompt suggestions as clickable tags below:
   - "How will the market react to..."
   - "What will public sentiment be if..."
   - "How will stakeholders respond to..."
-- Faint water-surface reflection effect on textarea (subtle)
+  - "What narrative will form around..."
+  - "What coalitions will emerge after..."
+- Clicking a suggestion fills the textarea and focuses it
 
 ### Step 3 — "Choose your ecosystem size"
-- Tier selector (3 cards with unique accent colors)
-- Cost calculator showing credit cost for selected tier
-- Credit warning if insufficient balance
-- "Run Simulation" primary CTA button
-- Pre-filled tier recommendation based on document length
+**Tier selector** — 3 cards with unique accents (cyan/violet/sand):
+- Each shows: tier name, agent range, credit cost, estimated duration
+- Selected state: accent border + radial glow + darker bg
+- Disabled state (insufficient credits): 40% opacity, cursor not-allowed
 
-### Wizard UX
-- Progress indicator: 3 connected dots with flowing current line between them
-- Smooth slide transition between steps (page "ripples" forward)
-- Background gradient shifts gently between steps
-- "Quick Start" option for repeat users (after first 2-3 runs): compact single-page view
-- Progress saver: resumes where user left off if tab is closed
-- "Save as draft" link visible throughout
+**Visual explainer** — "How size affects your simulation" panel:
+- Three mini graph visualizations side by side with arrows:
+  - Small: 5 dots, 2 edges → "Fewer perspectives · Faster results · Key trends only"
+  - Medium: 10 dots, 5 edges → "Balanced depth · Coalition detection · Most popular choice"
+  - Large: 17 dots, 10 edges → "Maximum diversity · Emergent coalitions · Deepest insights"
+- Dots use entity type colors, edges are subtle connection lines
+
+**Cost summary** card:
+- Left: "Simulation cost" label + credit amount (JetBrains Mono, cyan) + "Balance after" (green)
+- Right: Current balance display
+- Credit warning (amber) if balance is low
+
+**Launch button**: "Run Simulation" coral gradient CTA with rocket icon
+
+### Navigation
+- Back/Continue buttons at bottom of each step, separated by border-top
+- Continue: cyan gradient button with arrow icon
+- Back: ghost text button with back arrow
+- Fade-slide animation between steps (0.5s ease-out)
 
 ## 6. Simulation Results (Three Views)
 
