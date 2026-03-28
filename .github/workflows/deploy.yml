@@ -75,7 +75,7 @@ jobs:
                 echo "WORKER_IMAGE_TAG=${SHORT_SHA}" >> .env
             fi
 
-            docker compose build
+            docker compose build --no-cache app celery frontend-init migrate
 
             # Graceful Celery shutdown: stop accepting new tasks, wait for in-flight to finish
             # Send SIGTERM (warm shutdown) — Celery will finish current tasks then exit
@@ -83,5 +83,8 @@ jobs:
             docker compose stop -t 120 celery || true
 
             docker compose run --rm migrate
-            docker compose up -d app celery redis db caddy frontend-init
+            # Re-run frontend-init to copy fresh frontend build into Caddy volume
+            docker compose rm -f frontend-init
+            docker compose run --rm frontend-init
+            docker compose up -d app celery redis db caddy
             docker image prune -f
