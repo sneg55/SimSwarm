@@ -128,9 +128,9 @@
         <router-link to="/sim/new" class="inline-block mt-3 text-sm text-ocean-glow hover:underline">Try again &rarr;</router-link>
       </div>
 
-      <!-- Live chat replay -->
-      <div v-if="chatMessages.length > 0">
-        <ChatReplay :messages="chatMessages" :start-expanded="isActive" />
+      <!-- Live chat replay (only while running, not after completion) -->
+      <div v-if="isActive && chatMessages.length > 0">
+        <ChatReplay :messages="chatMessages" :start-expanded="true" />
       </div>
     </div>
   </div>
