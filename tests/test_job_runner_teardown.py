@@ -73,3 +73,26 @@ async def test_terminate_called_on_pipeline_error(mock_gpu_provider):
         await runner.run(_make_config())
 
     mock_gpu_provider.terminate.assert_awaited_once_with("pod-abc123")
+
+
+async def test_terminate_called_on_asyncio_cancellation(mock_gpu_provider):
+    """GPU must be terminated even when the task is cancelled externally."""
+    cancel_event = asyncio.Event()
+
+    async def hanging_pipeline(*args, **kwargs):
+        cancel_event.set()
+        await asyncio.sleep(3600)
+
+    runner = JobRunner(gpu_provider=mock_gpu_provider)
+    runner._execute_pipeline = hanging_pipeline
+
+    config = _make_config()
+    task = asyncio.create_task(runner.run(config))
+
+    await cancel_event.wait()
+    task.cancel()
+
+    with pytest.raises((asyncio.CancelledError, TimeoutError)):
+        await task
+
+    mock_gpu_provider.terminate.assert_awaited_once_with("pod-abc123")
