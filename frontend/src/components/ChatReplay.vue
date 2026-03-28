@@ -1,32 +1,34 @@
 <template>
-  <div class="space-y-2">
-    <h3 class="text-sm font-medium text-gray-700">Agent Chat Log</h3>
-    <div
-      ref="chatContainer"
-      class="h-64 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-3 bg-gray-50"
-    >
-      <div v-if="messages.length === 0" class="text-center text-gray-400 text-sm py-8">
-        No messages yet.
-      </div>
+  <div>
+    <div class="border border-mist-depth rounded-2xl overflow-hidden bg-ocean-deep">
       <div
-        v-for="(msg, idx) in messages"
-        :key="idx"
-        class="flex gap-2"
-        :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
+        class="px-6 py-4 border-b border-mist-depth flex items-center justify-between cursor-pointer transition-colors hover:bg-ocean-abyss/50"
+        @click="expanded = !expanded"
       >
+        <div class="flex items-center gap-2 text-[15px] font-semibold text-mist-foam">
+          <span class="text-xs transition-transform" :class="expanded ? 'rotate-90' : ''">&#x25B6;</span>
+          Agent Chat Replay
+        </div>
+        <span class="font-mono text-xs text-mist-slate bg-ocean-abyss px-2 py-0.5 rounded-lg">
+          {{ messages.length }} messages
+        </span>
+      </div>
+      <div v-if="expanded" ref="chatContainer" class="max-h-[500px] overflow-y-auto p-4 space-y-2" style="scrollbar-width: thin; scrollbar-color: #164E63 #0B1426;">
+        <div v-if="messages.length === 0" class="text-center text-mist-slate text-sm py-8">No messages.</div>
         <div
-          class="max-w-xs lg:max-w-md px-3 py-2 rounded-lg text-sm"
+          v-for="(msg, idx) in messages" :key="idx"
+          class="max-w-[85%] px-3.5 py-2.5 rounded-xl text-sm"
           :class="msg.role === 'user'
-            ? 'bg-blue-600 text-white'
+            ? 'ml-auto bg-ocean-cyan/20 text-mist-foam'
             : msg.role === 'system'
-            ? 'bg-yellow-100 text-yellow-800 border border-yellow-200 w-full max-w-none'
-            : 'bg-white text-gray-800 border border-gray-200 shadow-sm'"
+            ? 'max-w-none text-center bg-coral-sand/5 border border-coral-sand/12 text-coral-sand text-xs font-medium'
+            : 'bg-ocean-abyss border border-mist-depth text-mist'"
         >
-          <div v-if="msg.role !== 'user'" class="text-xs font-medium opacity-60 mb-1 capitalize">
-            {{ msg.role === 'assistant' ? msg.agent || 'Agent' : msg.role }}
+          <div v-if="msg.role === 'assistant'" class="text-[11px] font-semibold mb-1" :style="{ color: agentColor(msg.agent) }">
+            {{ msg.agent || 'Agent' }}
           </div>
           <div class="whitespace-pre-wrap">{{ msg.content }}</div>
-          <div v-if="msg.timestamp" class="text-xs opacity-50 mt-1 text-right">
+          <div v-if="msg.timestamp" class="text-[10px] text-mist-slate/50 mt-1 text-right">
             {{ formatTime(msg.timestamp) }}
           </div>
         </div>
@@ -39,21 +41,26 @@
 import { ref, watch, nextTick } from 'vue'
 
 const props = defineProps({
-  messages: {
-    type: Array,
-    default: () => [],
-  },
+  messages: { type: Array, default: () => [] },
+  startExpanded: { type: Boolean, default: false },
 })
 
+const expanded = ref(props.startExpanded)
 const chatContainer = ref(null)
+
+function agentColor(agent) {
+  if (!agent) return '#94A3B8'
+  const palette = ['#22D3EE', '#A78BFA', '#6EE7B7', '#FF6B6B', '#FBBF24', '#F97316']
+  let hash = 0
+  for (let i = 0; i < agent.length; i++) hash = ((hash << 5) - hash + agent.charCodeAt(i)) | 0
+  return palette[Math.abs(hash) % palette.length]
+}
 
 watch(
   () => props.messages.length,
   async () => {
     await nextTick()
-    if (chatContainer.value) {
-      chatContainer.value.scrollTop = chatContainer.value.scrollHeight
-    }
+    if (chatContainer.value) chatContainer.value.scrollTop = chatContainer.value.scrollHeight
   }
 )
 
