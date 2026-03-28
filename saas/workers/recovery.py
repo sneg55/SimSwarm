@@ -5,6 +5,8 @@ import logging
 import os
 from datetime import datetime, timezone
 
+from saas.workers.alerts import send_orphan_alert
+
 logger = logging.getLogger(__name__)
 
 HEARTBEAT_STALE_POD_DEAD_S = 300    # 5 minutes
@@ -157,7 +159,6 @@ def recover_stale_jobs() -> dict:
                 )
                 recovered.append({"job_id": job_id, "reason": reason})
 
-                from saas.workers.alerts import send_orphan_alert
                 age_s = int(age_seconds)
                 send_orphan_alert(
                     pod_id=pod_id or "unknown",

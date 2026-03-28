@@ -18,6 +18,8 @@ TIER_TIMEOUTS: dict[str, int] = {
     "large": 43200,
 }
 
+HEARTBEAT_INTERVAL_S = 60  # how often to update last_heartbeat during polling
+
 WORKER_IMAGE_REPO = "ghcr.io/sneg55/simswarm-worker"
 WORKER_IMAGE_DEFAULT_TAG = "v20260327155910"
 
@@ -310,9 +312,9 @@ class JobRunner:
                     logger.warning(f"Status poll {poll + 1} failed: {e}")
                     continue
 
-                # Update heartbeat every ~60s
+                # Update heartbeat periodically
                 now_mono = time.monotonic()
-                if (now_mono - last_heartbeat_time >= 60
+                if (now_mono - last_heartbeat_time >= HEARTBEAT_INTERVAL_S
                         and self._heartbeat_callback is not None):
                     last_heartbeat_time = now_mono
                     try:

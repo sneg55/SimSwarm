@@ -4,6 +4,8 @@ from __future__ import annotations
 import logging
 import os
 
+from saas.workers.alerts import send_orphan_alert
+
 logger = logging.getLogger(__name__)
 
 GRACE_PERIOD_SECONDS = 180  # 3 minutes
@@ -59,7 +61,6 @@ def cleanup_orphaned_pods() -> dict:
 
     if active_pod_ids is None:
         logger.warning("cleanup.skipped_db_unreachable")
-        from saas.workers.alerts import send_orphan_alert
         send_orphan_alert(
             pod_id="N/A", gpu_type="N/A", uptime_seconds=0,
             reason="cleanup_skipped_db_unreachable",
@@ -90,7 +91,6 @@ def cleanup_orphaned_pods() -> dict:
             )
             terminated.append(pod_id)
 
-            from saas.workers.alerts import send_orphan_alert
             send_orphan_alert(
                 pod_id=pod_id, gpu_type=gpu,
                 uptime_seconds=uptime, reason="orphan_no_matching_job",

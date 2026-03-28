@@ -169,7 +169,14 @@ def resume_simulation_task(
     async def _stage_cb(j_id: int, stage: int) -> None:
         _update_pipeline_stage(j_id, stage)
 
-    runner = JobRunner(gpu_provider=gpu_provider, stage_callback=_stage_cb)
+    async def _heartbeat_cb(j_id: int) -> None:
+        _update_heartbeat(j_id)
+
+    runner = JobRunner(
+        gpu_provider=gpu_provider,
+        stage_callback=_stage_cb,
+        heartbeat_callback=_heartbeat_cb,
+    )
 
     try:
         result = _run_async(runner.resume(pod_id=pod_id, job_id=job_id))
