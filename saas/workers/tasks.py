@@ -50,14 +50,14 @@ def _refund_credits(job_id: int, user_id: str, credits: int) -> None:
             try:
                 await session.execute(
                     text(
-                        "INSERT INTO credit_ledger "
-                        "(user_id, delta, reason, job_id, created_at) "
-                        "VALUES (:user_id, :delta, :reason, :job_id, :created_at)"
+                        "INSERT INTO credit_entries "
+                        "(user_id, amount, description, job_id, created_at) "
+                        "VALUES (:user_id, :amount, :description, :job_id, :created_at)"
                     ),
                     {
                         "user_id": user_id,
-                        "delta": credits,
-                        "reason": "refund",
+                        "amount": credits,
+                        "description": f"Refund for failed job {job_id}",
                         "job_id": job_id,
                         "created_at": datetime.now(timezone.utc),
                     },
