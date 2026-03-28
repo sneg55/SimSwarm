@@ -109,11 +109,12 @@ def run_simulation_task(
         report = result.get("report", "")
         chat_log = result.get("chat_log", "")
         graph_data = result.get("graph_data", "{}")
+        structured = result.get("structured", "{}")
 
         # Extract key insight (first substantive sentence from report, max 200 chars)
         key_insight = _extract_key_insight(report)
 
-        _save_job_results(job_id=job_id, report=report, chat_log=chat_log, graph_data=graph_data, key_insight=key_insight)
+        _save_job_results(job_id=job_id, report=report, chat_log=chat_log, graph_data=graph_data, key_insight=key_insight, structured=structured)
 
         logger.info(
             "job.completed job_id=%d pod_id=%s provision_s=%s pipeline_s=%s",
@@ -184,8 +185,9 @@ def resume_simulation_task(
         report = result.get("report", "")
         chat_log = result.get("chat_log", "")
         graph_data = result.get("graph_data", "{}")
+        structured = result.get("structured", "{}")
 
-        _save_job_results(job_id=job_id, report=report, chat_log=chat_log, graph_data=graph_data)
+        _save_job_results(job_id=job_id, report=report, chat_log=chat_log, graph_data=graph_data, structured=structured)
 
         logger.info(
             "job.resumed_completed job_id=%d pod_id=%s report_chars=%d",

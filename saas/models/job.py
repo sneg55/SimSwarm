@@ -44,6 +44,7 @@ class SimulationJob(Base):
     pipeline_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     key_insight: Mapped[str | None] = mapped_column(String(200), nullable=True)
     share_token: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True, index=True)
+    result_structured: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_heartbeat: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

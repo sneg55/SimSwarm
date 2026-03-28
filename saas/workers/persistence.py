@@ -45,8 +45,8 @@ def _extract_key_insight(report: str) -> str | None:
     return None
 
 
-def _save_job_results(job_id: int, report: str, chat_log: str, graph_data: str = "{}", key_insight: str | None = None) -> None:
-    """Persist pipeline results (report + chat_log + graph_data + key_insight) to the SimulationJob row."""
+def _save_job_results(job_id: int, report: str, chat_log: str, graph_data: str = "{}", key_insight: str | None = None, structured: str | None = None) -> None:
+    """Persist pipeline results (report + chat_log + graph_data + key_insight + structured) to the SimulationJob row."""
     from sqlalchemy import text
 
     factory = _get_worker_session_factory()
@@ -65,6 +65,7 @@ def _save_job_results(job_id: int, report: str, chat_log: str, graph_data: str =
                         "    result_chat_log = :chat_log, "
                         "    result_graph = :graph_data, "
                         "    key_insight = :key_insight, "
+                        "    result_structured = :structured, "
                         "    completed_at = :completed_at "
                         "WHERE id = :job_id"
                     ),
@@ -73,6 +74,7 @@ def _save_job_results(job_id: int, report: str, chat_log: str, graph_data: str =
                         "chat_log": chat_log,
                         "graph_data": graph_data,
                         "key_insight": key_insight,
+                        "structured": structured,
                         "completed_at": datetime.now(timezone.utc),
                         "job_id": job_id,
                     },

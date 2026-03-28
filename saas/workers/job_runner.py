@@ -375,6 +375,7 @@ class JobRunner:
             "report": result.get("report", ""),
             "chat_log": result.get("chat_log", "[]"),
             "graph_data": result.get("graph_data", "{}"),
+            "structured": result.get("structured", "{}"),
             "status": "completed",
         }
 
@@ -409,6 +410,7 @@ class JobRunner:
                 "report": status_data.get("report", ""),
                 "chat_log": status_data.get("chat_log", "[]"),
                 "graph_data": status_data.get("graph_data", "{}"),
+                "structured": status_data.get("structured", "{}"),
                 "status": "completed",
             }
 

@@ -70,9 +70,13 @@ def _run_pipeline(seed_text, goal, max_rounds):
         if (results_dir / "graph_data.json").exists():
             graph_data = (results_dir / "graph_data.json").read_text()
 
+        structured = "{}"
+        if (results_dir / "structured_results.json").exists():
+            structured = (results_dir / "structured_results.json").read_text()
+
         with _lock:
             _job["status"] = "completed"
-            _job["result"] = {"report": report, "chat_log": chat_log, "graph_data": graph_data}
+            _job["result"] = {"report": report, "chat_log": chat_log, "graph_data": graph_data, "structured": structured}
 
     except subprocess.TimeoutExpired:
         proc.kill()
@@ -137,6 +141,7 @@ def job_status():
             resp["report"] = _job["result"]["report"]
             resp["chat_log"] = _job["result"]["chat_log"]
             resp["graph_data"] = _job["result"].get("graph_data", "{}")
+            resp["structured"] = _job["result"].get("structured", "{}")
         if _job["status"] == "failed":
             resp["error"] = _job["error"]
     return jsonify(resp)
