@@ -1,76 +1,73 @@
 <template>
-  <div class="max-w-6xl mx-auto px-4 py-8">
-    <div class="flex items-center justify-between mb-8">
-      <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
-      <div class="flex items-center gap-4">
-        <CreditBadge />
+  <div>
+    <!-- Waterline Strip -->
+    <div class="relative overflow-hidden border-b border-mist-depth bg-gradient-to-b from-ocean-deep to-ocean-abyss">
+      <div class="absolute inset-0 pointer-events-none"
+        style="background: radial-gradient(ellipse 60% 80% at 80% 50%, rgba(14,116,144,0.06), transparent)"
+      />
+      <div class="relative max-w-[1000px] mx-auto px-4 md:px-8 py-8 flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-mist-foam tracking-tight">Welcome back</h1>
+          <p class="text-sm text-mist-drift mt-1">
+            <strong class="text-organic-seafoam font-semibold">{{ creditsStore.balance }} credits</strong>
+            remaining
+          </p>
+        </div>
         <router-link
           to="/sim/new"
-          class="inline-flex items-center px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-md hover:bg-blue-700"
+          class="inline-flex items-center gap-2.5 px-7 py-3.5 rounded-xl text-base font-bold text-white
+                 bg-gradient-to-br from-coral to-coral-amber
+                 glow-coral transition-all duration-250 ease-spring
+                 hover:glow-coral-lg hover:-translate-y-0.5"
         >
+          <span class="w-5 h-5 rounded-full border-2 border-white/50 flex items-center justify-center text-sm leading-none">+</span>
           New Simulation
         </router-link>
       </div>
     </div>
 
-    <CreditWarning />
+    <!-- Main Content -->
+    <div class="max-w-[1000px] mx-auto px-4 md:px-8 py-8">
 
-    <div class="mt-6">
-      <h2 class="text-lg font-semibold text-gray-800 mb-4">Recent Simulations</h2>
+      <CreditWarning class="mb-6" />
 
-      <div v-if="loading" class="text-center py-12 text-gray-500">Loading jobs...</div>
+      <!-- Loading -->
+      <div v-if="loading" class="text-center py-20 text-mist-slate">Loading...</div>
 
-      <div v-else-if="jobs.length === 0" class="text-center py-12 bg-gray-50 rounded-lg">
-        <p class="text-gray-500">No simulations yet.</p>
-        <router-link to="/sim/new" class="mt-2 text-blue-600 hover:underline text-sm">
-          Run your first simulation
-        </router-link>
-      </div>
+      <!-- Empty State -->
+      <DashboardEmpty v-else-if="jobs.length === 0" />
 
-      <div v-else class="space-y-3">
-        <div
-          v-for="job in jobs"
-          :key="job.id"
-          class="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg hover:border-blue-300 transition-colors"
-        >
-          <div>
-            <div class="font-medium text-gray-900">{{ job.goal || 'Simulation' }}</div>
-            <div class="text-sm text-gray-500 mt-1">
-              {{ job.tier }} tier &bull; {{ formatDate(job.created_at) }}
-            </div>
+      <!-- Simulation List -->
+      <template v-else>
+        <!-- Active -->
+        <template v-if="activeJobs.length > 0">
+          <div class="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-mist-slate mb-4">
+            Active
+            <div class="flex-1 h-px bg-gradient-to-r from-mist-depth to-transparent" />
           </div>
-          <div class="flex items-center gap-3">
-            <span
-              class="text-xs px-2 py-1 rounded-full font-medium"
-              :class="statusClass(job.status)"
-            >
-              {{ job.status }}
-            </span>
-            <router-link
-              v-if="job.status === 'completed'"
-              :to="`/sim/${job.id}/results`"
-              class="text-sm text-blue-600 hover:underline"
-            >
-              View Results
-            </router-link>
-            <router-link
-              v-else-if="job.status === 'running' || job.status === 'pending'"
-              :to="`/sim/${job.id}`"
-              class="text-sm text-blue-600 hover:underline"
-            >
-              View Progress
-            </router-link>
+          <div class="space-y-3 mb-10">
+            <SimCard v-for="job in activeJobs" :key="job.id" :job="job" />
           </div>
+        </template>
+
+        <!-- Recent -->
+        <div class="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-mist-slate mb-4">
+          Recent
+          <div class="flex-1 h-px bg-gradient-to-r from-mist-depth to-transparent" />
         </div>
-      </div>
+        <div class="space-y-3">
+          <SimCard v-for="job in recentJobs" :key="job.id" :job="job" />
+        </div>
+      </template>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import CreditBadge from '../components/CreditBadge.vue'
+import { ref, computed, onMounted } from 'vue'
 import CreditWarning from '../components/CreditWarning.vue'
+import DashboardEmpty from '../components/DashboardEmpty.vue'
+import SimCard from '../components/SimCard.vue'
 import { listJobs } from '../api/jobs.js'
 import { getBalance } from '../api/billing.js'
 import { useCreditsStore } from '../stores/credits.js'
@@ -78,6 +75,14 @@ import { useCreditsStore } from '../stores/credits.js'
 const creditsStore = useCreditsStore()
 const jobs = ref([])
 const loading = ref(true)
+
+const activeJobs = computed(() =>
+  jobs.value.filter(j => ['RUNNING', 'PROVISIONING', 'PENDING'].includes(j.status))
+)
+
+const recentJobs = computed(() =>
+  jobs.value.filter(j => !['RUNNING', 'PROVISIONING', 'PENDING'].includes(j.status))
+)
 
 onMounted(async () => {
   try {
@@ -90,21 +95,4 @@ onMounted(async () => {
     loading.value = false
   }
 })
-
-function formatDate(dateStr) {
-  if (!dateStr) return ''
-  return new Date(dateStr).toLocaleDateString('en-US', {
-    month: 'short', day: 'numeric', year: 'numeric',
-  })
-}
-
-function statusClass(status) {
-  const map = {
-    completed: 'bg-green-100 text-green-800',
-    running: 'bg-blue-100 text-blue-800',
-    pending: 'bg-yellow-100 text-yellow-800',
-    failed: 'bg-red-100 text-red-800',
-  }
-  return map[status] ?? 'bg-gray-100 text-gray-800'
-}
 </script>
