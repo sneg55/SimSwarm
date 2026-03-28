@@ -1,44 +1,55 @@
 <template>
-  <div :class="viewMode === 'report' ? 'max-w-4xl mx-auto px-4 py-8' : ''">
-    <!-- Header -->
-    <div class="mb-6 flex items-center justify-between" :class="viewMode !== 'report' ? 'px-4 pt-8' : ''">
-      <div>
-        <router-link to="/dashboard" class="text-sm text-blue-600 hover:underline">&larr; Back to Dashboard</router-link>
-        <h1 class="text-2xl font-bold text-gray-900 mt-2">Simulation Results</h1>
-      </div>
-      <div class="flex items-center gap-4">
-        <ViewModeToggle
-          v-if="job && hasGraph"
-          v-model="viewMode"
-          :compact="isSmallScreen"
-        />
-        <ExportButtons
-          v-if="job"
-          :job-id="jobId"
-          :report-content="job.report"
-          :messages="job.messages"
-        />
-      </div>
-    </div>
+  <div class="min-h-screen bg-ocean-midnight text-mist-foam">
+    <!-- Toolbar -->
+    <ResultsToolbar
+      :title="job?.goal || 'Results'"
+      :viewMode="viewMode"
+      :showToggle="true"
+      @update:viewMode="viewMode = $event"
+    />
 
     <!-- Loading -->
-    <div v-if="loading" class="text-center py-12 text-gray-500">
-      Loading results...
+    <div v-if="loading" class="flex items-center justify-center" style="height: calc(100vh - 140px)">
+      <div class="text-mist-slate text-sm">Loading results…</div>
     </div>
 
-    <div v-else-if="job">
-      <!-- Job meta (shown in report and dual modes) -->
-      <div v-if="viewMode === 'report' || viewMode === 'dual'" class="mb-6" :class="viewMode === 'dual' ? 'px-4' : ''">
-        <div class="bg-white border border-gray-200 rounded-lg p-6">
-          <h2 class="text-lg font-semibold text-gray-800 mb-1">{{ job.goal }}</h2>
-          <p class="text-sm text-gray-500 capitalize">
-            {{ job.tier }} tier &bull; Completed {{ formatDate(job.completed_at) }}
-          </p>
+    <!-- Not found -->
+    <div v-else-if="!job" class="flex items-center justify-center" style="height: calc(100vh - 140px)">
+      <div class="text-mist-slate text-sm">Results not found.</div>
+    </div>
+
+    <template v-else>
+      <!-- ── Story View ── -->
+      <div v-if="viewMode === 'story'" class="relative pt-[88px] pb-24">
+        <!-- Left timeline -->
+        <StoryTimeline :sections="storySections" />
+
+        <!-- Content -->
+        <div class="max-w-[800px] mx-auto pl-12 pr-4 xl:pl-16 space-y-8">
+          <!-- Simulation header -->
+          <div id="story-header" class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
+            <h1 class="text-2xl font-bold text-mist-foam mb-2">{{ job.goal }}</h1>
+            <p class="text-sm text-mist-slate capitalize">
+              {{ job.tier }} tier
+              <span v-if="job.created_at"> &bull; Started {{ formatDate(job.created_at) }}</span>
+              <span v-if="job.completed_at"> &bull; Completed {{ formatDate(job.completed_at) }}</span>
+            </p>
+          </div>
+
+          <!-- Report -->
+          <div id="story-report" class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
+            <ReportViewer :content="job.result_report || job.report || 'No report available.'" />
+          </div>
+
+          <!-- Chat replay -->
+          <div v-if="chatMessages.length > 0" id="story-chat">
+            <ChatReplay :messages="chatMessages" />
+          </div>
         </div>
       </div>
 
-      <!-- Graph Mode -->
-      <div v-if="viewMode === 'graph'" class="px-4" style="height: calc(100vh - 180px)">
+      <!-- ── Graph View ── -->
+      <div v-else-if="viewMode === 'graph'" class="pt-[52px]" style="height: calc(100vh - 140px)">
         <GraphVisualization
           :nodes="graphData?.nodes || []"
           :edges="graphData?.edges || []"
@@ -49,49 +60,46 @@
         />
       </div>
 
-      <!-- Dual Column Mode -->
-      <div v-else-if="viewMode === 'dual'" class="flex px-4 gap-0" style="height: calc(100vh - 240px)">
-        <div class="flex-1 min-w-[300px]" style="flex-basis: 50%">
-          <GraphVisualization
-            :nodes="graphData?.nodes || []"
-            :edges="graphData?.edges || []"
-            :metadata="graphData?.metadata || {}"
-            :loading="graphLoading"
-            :error="graphError"
-            @node-selected="onNodeSelected"
-          />
-        </div>
-        <div
-          class="w-1 bg-gray-200 hover:bg-indigo-300 cursor-col-resize flex-shrink-0 transition-colors"
-          @mousedown="startResize"
-        />
-        <div
-          ref="reportPaneRef"
-          class="flex-1 min-w-[300px] overflow-y-auto bg-white border border-gray-200 rounded-lg p-6"
-          style="flex-basis: 50%"
-        >
-          <h3 class="text-lg font-semibold text-gray-800 mb-4">Report</h3>
-          <ReportViewer :content="job.result_report || job.report || 'No report available.'" />
+      <!-- ── Report View ── -->
+      <div v-else class="relative pt-[88px] pb-24">
+        <!-- Left TOC -->
+        <ReportToc :items="tocItems" />
+
+        <!-- Content shifted right on xl screens -->
+        <div class="max-w-[800px] mx-auto pr-4 xl:ml-[260px] space-y-8">
+          <!-- Simulation header -->
+          <div id="report-header" class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
+            <h1 class="text-2xl font-bold text-mist-foam mb-2">{{ job.goal }}</h1>
+            <p class="text-sm text-mist-slate capitalize">
+              {{ job.tier }} tier
+              <span v-if="job.created_at"> &bull; Started {{ formatDate(job.created_at) }}</span>
+              <span v-if="job.completed_at"> &bull; Completed {{ formatDate(job.completed_at) }}</span>
+            </p>
+          </div>
+
+          <!-- Report -->
+          <div id="report-content" class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
+            <ReportViewer :content="job.result_report || job.report || 'No report available.'" />
+          </div>
+
+          <!-- Chat replay -->
+          <div v-if="chatMessages.length > 0" id="report-chat">
+            <ChatReplay :messages="chatMessages" />
+          </div>
         </div>
       </div>
+    </template>
 
-      <!-- Report Mode (original layout) -->
-      <div v-else class="space-y-6">
-        <div class="bg-white border border-gray-200 rounded-lg p-6">
-          <h3 class="text-lg font-semibold text-gray-800 mb-4">Report</h3>
-          <ReportViewer :content="job.result_report || job.report || 'No report available.'" />
-        </div>
-
-        <div v-if="chatMessages.length > 0" class="bg-white border border-gray-200 rounded-lg p-6">
-          <h3 class="text-lg font-semibold text-gray-800 mb-4">Agent Conversation</h3>
-          <ChatReplay :messages="chatMessages" />
-        </div>
-      </div>
-    </div>
-
-    <div v-else class="text-center py-12 text-gray-500">
-      Results not found.
-    </div>
+    <!-- Bottom bar -->
+    <ResultsBottomBar
+      v-if="job"
+      :showPng="viewMode === 'graph'"
+      :showJson="viewMode !== 'graph'"
+      :showCsv="viewMode !== 'graph'"
+      :pdfLoading="pdfLoading"
+      @export="handleExport"
+      @share="handleShare"
+    />
   </div>
 </template>
 
@@ -100,9 +108,11 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute } from 'vue-router'
 import ReportViewer from '../components/ReportViewer.vue'
 import ChatReplay from '../components/ChatReplay.vue'
-import ExportButtons from '../components/ExportButtons.vue'
-import ViewModeToggle from '../components/ViewModeToggle.vue'
 import GraphVisualization from '../components/graph/GraphVisualization.vue'
+import ResultsToolbar from '../components/results/ResultsToolbar.vue'
+import ResultsBottomBar from '../components/results/ResultsBottomBar.vue'
+import StoryTimeline from '../components/results/StoryTimeline.vue'
+import ReportToc from '../components/results/ReportToc.vue'
 import { getJob, getJobGraph } from '../api/jobs.js'
 
 const route = useRoute()
@@ -110,15 +120,18 @@ const jobId = route.params.id
 
 const job = ref(null)
 const loading = ref(true)
-const viewMode = ref('report')
+const viewMode = ref('story')
 
 const graphData = ref(null)
 const graphLoading = ref(false)
 const graphError = ref(null)
 const hasGraph = ref(false)
 
+const pdfLoading = ref(false)
+
 const isSmallScreen = ref(window.innerWidth < 768)
-const reportPaneRef = ref(null)
+
+// ── Computed ──────────────────────────────────────────────────────────────────
 
 const chatMessages = computed(() => {
   if (!job.value) return []
@@ -127,6 +140,26 @@ const chatMessages = computed(() => {
     return typeof raw === 'string' ? JSON.parse(raw) : raw
   } catch { return [] }
 })
+
+const storySections = computed(() => {
+  const sections = [
+    { id: 'story-header', label: 'Overview' },
+    { id: 'story-report', label: 'Report' },
+  ]
+  if (chatMessages.value.length > 0) sections.push({ id: 'story-chat', label: 'Conversation' })
+  return sections
+})
+
+const tocItems = computed(() => {
+  const items = [
+    { id: 'report-header', label: 'Overview' },
+    { id: 'report-content', label: 'Report' },
+  ]
+  if (chatMessages.value.length > 0) items.push({ id: 'report-chat', label: 'Conversation' })
+  return items
+})
+
+// ── Data fetching ─────────────────────────────────────────────────────────────
 
 async function fetchGraphData() {
   graphLoading.value = true
@@ -144,50 +177,96 @@ async function fetchGraphData() {
   }
 }
 
-function onNodeSelected(entityName) {
-  if (viewMode.value !== 'dual' || !reportPaneRef.value) return
-  const walker = document.createTreeWalker(reportPaneRef.value, NodeFilter.SHOW_TEXT)
-  const lowerName = entityName.toLowerCase()
-  while (walker.nextNode()) {
-    if (walker.currentNode.textContent.toLowerCase().includes(lowerName)) {
-      const el = walker.currentNode.parentElement
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
-      el.style.backgroundColor = 'rgba(99, 102, 241, 0.15)'
-      setTimeout(() => { el.style.backgroundColor = '' }, 2000)
-      break
+function onNodeSelected(_entityName) {
+  // In three-view mode there's no split pane; graph view is fullscreen.
+}
+
+// ── Export handlers ───────────────────────────────────────────────────────────
+
+async function handleExport(format) {
+  if (format === 'pdf') {
+    await exportPDF()
+  } else if (format === 'json') {
+    exportJSON()
+  } else if (format === 'csv') {
+    exportCSV()
+  } else if (format === 'png') {
+    exportPNG()
+  }
+}
+
+async function exportPDF() {
+  pdfLoading.value = true
+  try {
+    const token = localStorage.getItem('token')
+    const resp = await fetch(`/api/jobs/${jobId}/export/pdf`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}))
+      alert(`PDF export failed: ${err.detail || resp.statusText}`)
+      return
     }
+    const blob = await resp.blob()
+    triggerDownload(blob, `simulation-${jobId}.pdf`)
+  } catch (err) {
+    console.error('PDF export error:', err)
+    alert('PDF export failed. Please try again.')
+  } finally {
+    pdfLoading.value = false
   }
 }
 
-function startResize(e) {
-  const startX = e.clientX
-  const container = e.target.parentElement
-  const leftPane = container.children[0]
-  const rightPane = container.children[2]
-  const startLeftWidth = leftPane.getBoundingClientRect().width
-  const totalWidth = container.getBoundingClientRect().width
-
-  function onMove(ev) {
-    const dx = ev.clientX - startX
-    const newLeft = Math.max(300, Math.min(totalWidth - 304, startLeftWidth + dx))
-    leftPane.style.flexBasis = newLeft + 'px'
-    rightPane.style.flexBasis = (totalWidth - newLeft - 4) + 'px'
+function exportJSON() {
+  const data = {
+    jobId,
+    report: job.value?.result_report || job.value?.report,
+    messages: chatMessages.value,
+    exportedAt: new Date().toISOString(),
   }
-
-  function onUp() {
-    document.removeEventListener('mousemove', onMove)
-    document.removeEventListener('mouseup', onUp)
-  }
-
-  document.addEventListener('mousemove', onMove)
-  document.addEventListener('mouseup', onUp)
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+  triggerDownload(blob, `fishcloud-${jobId}.json`)
 }
+
+function exportCSV() {
+  const messages = chatMessages.value
+  const rows = [['role', 'agent', 'content', 'timestamp']]
+  messages.forEach((msg) => {
+    rows.push([msg.role || '', msg.agent || '', (msg.content || '').replace(/,/g, ';'), msg.timestamp || ''])
+  })
+  const csv = rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
+  const blob = new Blob([csv], { type: 'text/csv' })
+  triggerDownload(blob, `fishcloud-${jobId}.csv`)
+}
+
+function exportPNG() {
+  // Graph PNG export is delegated to the GraphVisualization component via the
+  // canvas it manages. We emit a custom event that GraphVisualization can listen
+  // to if wired; for now, print a message to the console.
+  console.warn('PNG export: trigger from GraphVisualization component ref if needed.')
+}
+
+function triggerDownload(blob, filename) {
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
+function handleShare() {
+  if (navigator.share) {
+    navigator.share({ title: job.value?.goal, url: window.location.href }).catch(() => {})
+  } else {
+    navigator.clipboard.writeText(window.location.href).then(() => alert('Link copied!')).catch(() => {})
+  }
+}
+
+// ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 function onResize() {
   isSmallScreen.value = window.innerWidth < 768
-  if (isSmallScreen.value && viewMode.value === 'dual') {
-    viewMode.value = 'graph'
-  }
 }
 
 onMounted(async () => {
@@ -205,6 +284,8 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
 })
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(dateStr) {
   if (!dateStr) return ''
