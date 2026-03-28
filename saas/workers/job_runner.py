@@ -23,7 +23,11 @@ WORKER_IMAGE_DEFAULT_TAG = "v20260327155910"
 
 
 def get_worker_image() -> str:
-    """Return worker Docker image, preferring WORKER_IMAGE_TAG env var."""
+    """Return worker Docker image, preferring WORKER_IMAGE_TAG env var.
+
+    Falls back to WORKER_IMAGE_DEFAULT_TAG (pinned for deploy stability).
+    The canonical default for new/clean envs lives in saas.config.Settings.
+    """
     tag = os.getenv("WORKER_IMAGE_TAG", WORKER_IMAGE_DEFAULT_TAG)
     return f"{WORKER_IMAGE_REPO}:{tag}"
 
@@ -157,15 +161,21 @@ class JobRunner:
         finally:
             await self.gpu_provider.terminate(instance.instance_id)
 
-    async def _log_worker_output(self, worker_url: str, source: str = "all", tail: int = 20) -> None:
+    async def _log_worker_output(
+        self, worker_url: str, source: str = "all", tail: int = 20,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
         """Pull recent logs from the worker pod and emit them."""
         try:
-            async with httpx.AsyncClient(timeout=10) as client:
+            if client is not None:
                 resp = await client.get(f"{worker_url}/logs?tail={tail}&source={source}")
-                if resp.status_code == 200:
-                    data = resp.json()
-                    for line in data.get("lines", []):
-                        logger.info(f"  [{source}] {line}")
+            else:
+                async with httpx.AsyncClient(timeout=10) as _client:
+                    resp = await _client.get(f"{worker_url}/logs?tail={tail}&source={source}")
+            if resp.status_code == 200:
+                data = resp.json()
+                for line in data.get("lines", []):
+                    logger.info(f"  [{source}] {line}")
         except Exception:
             pass
 
@@ -176,19 +186,22 @@ class JobRunner:
           1. Poll /health until the worker API (and vLLM) is ready
           2. POST /job with seed_text, goal, max_rounds — blocks until complete
           3. Return report + chat_log to be saved in the DB
+
+        A single httpx.AsyncClient is reused for all HTTP requests to avoid
+        connection churn (TLS handshake per request).
         """
         worker_url = f"https://{instance_id}-5000.proxy.runpod.net"
 
-        # ------------------------------------------------------------------
-        # 1. Wait for worker API to be ready (vLLM model load takes ~2-5 min)
-        # ------------------------------------------------------------------
-        import time
-        health_start = time.monotonic()
-        logger.info(f"Waiting for worker API at {worker_url}/health ...")
-        for attempt in range(180):  # 15 min max (180 * 5s)
-            try:
-                async with httpx.AsyncClient(timeout=10) as client:
-                    resp = await client.get(f"{worker_url}/health")
+        async with httpx.AsyncClient(timeout=15) as client:
+            # ------------------------------------------------------------------
+            # 1. Wait for worker API to be ready (vLLM model load takes ~2-5 min)
+            # ------------------------------------------------------------------
+            import time
+            health_start = time.monotonic()
+            logger.info(f"Waiting for worker API at {worker_url}/health ...")
+            for attempt in range(180):  # 15 min max (180 * 5s)
+                try:
+                    resp = await client.get(f"{worker_url}/health", timeout=10)
                     if resp.status_code == 200:
                         elapsed = int(time.monotonic() - health_start)
                         health_data = resp.json() if resp.headers.get("content-type", "").startswith("application/json") else {}
@@ -206,34 +219,33 @@ class JobRunner:
                         except Exception:
                             logger.info(f"Worker health: HTTP {resp.status_code} ({elapsed}s elapsed)")
                         # Pull vLLM logs while waiting — this is the key debugging info
-                        await self._log_worker_output(worker_url, source="vllm", tail=20)
-            except httpx.ConnectError:
-                if attempt % 12 == 0:  # every 60s
-                    elapsed = int(time.monotonic() - health_start)
-                    logger.info(f"Worker not reachable yet ({elapsed}s elapsed, attempt {attempt + 1}/180)")
-            except Exception as e:
-                if attempt % 12 == 0:
-                    elapsed = int(time.monotonic() - health_start)
-                    logger.info(f"Worker health check: {type(e).__name__} ({elapsed}s elapsed)")
-            await asyncio.sleep(5)
-        else:
-            elapsed = int(time.monotonic() - health_start)
-            # Dump full logs before raising — critical for debugging vLLM failures
-            logger.error(f"Worker health timeout after {elapsed}s — dumping vLLM and pipeline logs:")
-            await self._log_worker_output(worker_url, source="vllm", tail=50)
-            await self._log_worker_output(worker_url, source="pipeline", tail=20)
-            raise TimeoutError(f"Worker API at {worker_url} did not become ready after {elapsed}s")
+                        await self._log_worker_output(worker_url, source="vllm", tail=20, client=client)
+                except httpx.ConnectError:
+                    if attempt % 12 == 0:  # every 60s
+                        elapsed = int(time.monotonic() - health_start)
+                        logger.info(f"Worker not reachable yet ({elapsed}s elapsed, attempt {attempt + 1}/180)")
+                except Exception as e:
+                    if attempt % 12 == 0:
+                        elapsed = int(time.monotonic() - health_start)
+                        logger.info(f"Worker health check: {type(e).__name__} ({elapsed}s elapsed)")
+                await asyncio.sleep(5)
+            else:
+                elapsed = int(time.monotonic() - health_start)
+                # Dump full logs before raising — critical for debugging vLLM failures
+                logger.error(f"Worker health timeout after {elapsed}s — dumping vLLM and pipeline logs:")
+                await self._log_worker_output(worker_url, source="vllm", tail=50, client=client)
+                await self._log_worker_output(worker_url, source="pipeline", tail=20, client=client)
+                raise TimeoutError(f"Worker API at {worker_url} did not become ready after {elapsed}s")
 
-        # ------------------------------------------------------------------
-        # 2. Submit job — returns immediately, pipeline runs in background
-        # ------------------------------------------------------------------
-        logger.info(f"Submitting job to {worker_url}/job (max_rounds={config.max_rounds})")
-        async with httpx.AsyncClient(timeout=30) as client:
+            # ------------------------------------------------------------------
+            # 2. Submit job — returns immediately, pipeline runs in background
+            # ------------------------------------------------------------------
+            logger.info(f"Submitting job to {worker_url}/job (max_rounds={config.max_rounds})")
             resp = await client.post(f"{worker_url}/job", json={
                 "seed_text": config.seed_text,
                 "goal": config.goal,
                 "max_rounds": config.max_rounds,
-            })
+            }, timeout=30)
             if resp.status_code != 200:
                 try:
                     error_body = resp.json()
@@ -242,79 +254,91 @@ class JobRunner:
                     error_msg = resp.text[:2000]
                 raise RuntimeError(f"Worker rejected job: {error_msg}")
 
-        logger.info("Job accepted by worker, polling /status...")
+            logger.info("Job accepted by worker, polling /status...")
 
-        return await self._poll_until_complete(worker_url, instance_id, config)
+            return await self._poll_until_complete(worker_url, instance_id, config, client=client)
 
     async def _poll_until_complete(
         self, worker_url: str, instance_id: str, config: JobConfig,
+        client: httpx.AsyncClient | None = None,
     ) -> dict:
         """Poll /status until completed or failed (up to tier timeout).
 
         Shared by _execute_pipeline (normal flow) and resume (reconnect flow).
+        When *client* is provided the caller owns the lifecycle; otherwise a
+        temporary client is created for backward-compat (resume path).
         """
+        import contextlib
         import time
-        poll_start = time.monotonic()
-        poll_interval = 10
-        max_polls = max(360, config.timeout_seconds // poll_interval)
-        last_stage: int | None = None
-        for poll in range(max_polls):
-            await asyncio.sleep(poll_interval)
-            try:
-                async with httpx.AsyncClient(timeout=15) as client:
-                    status_resp = await client.get(f"{worker_url}/status")
-                    status_data = status_resp.json()
-            except Exception as e:
-                logger.warning(f"Status poll {poll + 1} failed: {e}")
-                continue
 
-            job_status = status_data.get("status", "unknown")
-            log_lines: list[str] = []
+        @contextlib.asynccontextmanager
+        async def _ensure_client():
+            if client is not None:
+                yield client
+            else:
+                async with httpx.AsyncClient(timeout=15) as _c:
+                    yield _c
 
-            if poll % 6 == 0:  # Log every 60s
-                elapsed = int(time.monotonic() - poll_start)
-                logger.info(f"Pipeline status: {job_status} ({elapsed}s elapsed, poll {poll + 1}/{max_polls})")
-                # Pull recent logs from the worker
+        async with _ensure_client() as http:
+            poll_start = time.monotonic()
+            poll_interval = 10
+            max_polls = max(360, config.timeout_seconds // poll_interval)
+            last_stage: int | None = None
+            for poll in range(max_polls):
+                await asyncio.sleep(poll_interval)
                 try:
-                    async with httpx.AsyncClient(timeout=10) as log_client:
-                        log_resp = await log_client.get(f"{worker_url}/logs?tail=10")
+                    status_resp = await http.get(f"{worker_url}/status")
+                    status_data = status_resp.json()
+                except Exception as e:
+                    logger.warning(f"Status poll {poll + 1} failed: {e}")
+                    continue
+
+                job_status = status_data.get("status", "unknown")
+                log_lines: list[str] = []
+
+                if poll % 6 == 0:  # Log every 60s
+                    elapsed = int(time.monotonic() - poll_start)
+                    logger.info(f"Pipeline status: {job_status} ({elapsed}s elapsed, poll {poll + 1}/{max_polls})")
+                    # Pull recent logs from the worker
+                    try:
+                        log_resp = await http.get(f"{worker_url}/logs?tail=10", timeout=10)
                         if log_resp.status_code == 200:
                             log_data = log_resp.json()
                             log_lines = log_data.get("lines", [])
                             for line in log_lines:
                                 logger.info(f"  [worker] {line}")
-                except Exception:
-                    pass
+                    except Exception:
+                        pass
 
-            # Infer pipeline stage from logs and notify callback if changed
-            stage = _infer_pipeline_stage(log_lines)
-            if stage is not None and stage != last_stage:
-                last_stage = stage
-                logger.info(f"Pipeline stage updated to {stage}")
-                if self._stage_callback is not None:
-                    try:
-                        await self._stage_callback(config.job_id, stage)
-                    except Exception as cb_exc:
-                        logger.warning(f"Stage callback failed: {cb_exc}")
+                # Infer pipeline stage from logs and notify callback if changed
+                stage = _infer_pipeline_stage(log_lines)
+                if stage is not None and stage != last_stage:
+                    last_stage = stage
+                    logger.info(f"Pipeline stage updated to {stage}")
+                    if self._stage_callback is not None:
+                        try:
+                            await self._stage_callback(config.job_id, stage)
+                        except Exception as cb_exc:
+                            logger.warning(f"Stage callback failed: {cb_exc}")
 
-            if job_status == "completed":
-                result = status_data
-                elapsed = int(time.monotonic() - poll_start)
-                logger.info(
-                    f"Pipeline completed in {elapsed}s!",
-                    extra={"event": "pipeline_completed", "job_id": config.job_id,
-                           "elapsed_s": elapsed},
-                )
-                break
-            elif job_status == "failed":
-                error_msg = status_data.get("error", "Unknown error")
-                stdout = status_data.get("stdout", "")
-                logger.error(f"Pipeline failed: {error_msg}")
-                if stdout:
-                    logger.error(f"Pipeline stdout: {stdout[:2000]}")
-                raise RuntimeError(f"Worker pipeline failed: {error_msg}")
-        else:
-            raise TimeoutError(f"Pipeline did not complete within {max_polls * poll_interval}s")
+                if job_status == "completed":
+                    result = status_data
+                    elapsed = int(time.monotonic() - poll_start)
+                    logger.info(
+                        f"Pipeline completed in {elapsed}s!",
+                        extra={"event": "pipeline_completed", "job_id": config.job_id,
+                               "elapsed_s": elapsed},
+                    )
+                    break
+                elif job_status == "failed":
+                    error_msg = status_data.get("error", "Unknown error")
+                    stdout = status_data.get("stdout", "")
+                    logger.error(f"Pipeline failed: {error_msg}")
+                    if stdout:
+                        logger.error(f"Pipeline stdout: {stdout[:2000]}")
+                    raise RuntimeError(f"Worker pipeline failed: {error_msg}")
+            else:
+                raise TimeoutError(f"Pipeline did not complete within {max_polls * poll_interval}s")
 
         return {
             "job_id": config.job_id,

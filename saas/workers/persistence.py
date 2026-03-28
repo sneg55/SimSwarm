@@ -9,6 +9,26 @@ from saas.workers.utils import _run_async
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Module-level lazy DB engine — avoids creating a new engine per helper call
+# ---------------------------------------------------------------------------
+_engine = None
+_session_factory = None
+
+
+def _get_worker_session_factory():
+    """Return a shared async_sessionmaker, creating the engine on first call."""
+    global _engine, _session_factory
+    if _session_factory is None:
+        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+
+        database_url = os.getenv("DATABASE_URL", "")
+        if not database_url:
+            return None
+        _engine = create_async_engine(database_url, pool_size=2, max_overflow=3)
+        _session_factory = async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
+    return _session_factory
+
 
 def _extract_key_insight(report: str) -> str | None:
     """Extract the first substantive non-heading line from a markdown report (max 200 chars)."""
@@ -27,18 +47,15 @@ def _extract_key_insight(report: str) -> str | None:
 
 def _save_job_results(job_id: int, report: str, chat_log: str, graph_data: str = "{}", key_insight: str | None = None) -> None:
     """Persist pipeline results (report + chat_log + graph_data + key_insight) to the SimulationJob row."""
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
     from sqlalchemy import text
 
-    database_url = os.getenv("DATABASE_URL", "")
-    if not database_url:
+    factory = _get_worker_session_factory()
+    if factory is None:
         logger.warning("DATABASE_URL not set; skipping result save for job %d", job_id)
         return
 
     async def _do_save():
-        engine = create_async_engine(database_url)
-        session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-        async with session_factory() as session:
+        async with factory() as session:
             try:
                 await session.execute(
                     text(
@@ -64,25 +81,20 @@ def _save_job_results(job_id: int, report: str, chat_log: str, graph_data: str =
                 logger.info("Saved results for job %d", job_id)
             except Exception as exc:
                 logger.warning("Could not save results for job %d: %s", job_id, exc)
-            finally:
-                await engine.dispose()
 
     _run_async(_do_save())
 
 
 def _mark_job_failed(job_id: int, error_message: str) -> None:
     """Mark a SimulationJob row as failed with the given error message."""
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
     from sqlalchemy import text
 
-    database_url = os.getenv("DATABASE_URL", "")
-    if not database_url:
+    factory = _get_worker_session_factory()
+    if factory is None:
         return
 
     async def _do_fail():
-        engine = create_async_engine(database_url)
-        session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-        async with session_factory() as session:
+        async with factory() as session:
             try:
                 await session.execute(
                     text(
@@ -101,25 +113,20 @@ def _mark_job_failed(job_id: int, error_message: str) -> None:
                 await session.commit()
             except Exception as exc:
                 logger.warning("Could not mark job %d failed: %s", job_id, exc)
-            finally:
-                await engine.dispose()
 
     _run_async(_do_fail())
 
 
 def _update_pipeline_stage(job_id: int, stage: int) -> None:
     """Update pipeline_stage on a SimulationJob row."""
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
     from sqlalchemy import text
 
-    database_url = os.getenv("DATABASE_URL", "")
-    if not database_url:
+    factory = _get_worker_session_factory()
+    if factory is None:
         return
 
     async def _do_update():
-        engine = create_async_engine(database_url)
-        session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-        async with session_factory() as session:
+        async with factory() as session:
             try:
                 await session.execute(
                     text("UPDATE simulation_jobs SET pipeline_stage = :stage WHERE id = :job_id"),
@@ -129,26 +136,21 @@ def _update_pipeline_stage(job_id: int, stage: int) -> None:
                 logger.debug("Set pipeline_stage=%d for job %d", stage, job_id)
             except Exception as exc:
                 logger.warning("Could not update pipeline_stage for job %d: %s", job_id, exc)
-            finally:
-                await engine.dispose()
 
     _run_async(_do_update())
 
 
 def _update_job_metadata(job_id: int, pod_id: str, provision_seconds: int | None = None, pipeline_seconds: int | None = None) -> None:
     """Persist pod_id and timing metadata to the SimulationJob row."""
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
     from sqlalchemy import text
 
-    database_url = os.getenv("DATABASE_URL", "")
-    if not database_url:
+    factory = _get_worker_session_factory()
+    if factory is None:
         logger.warning("DATABASE_URL not set; skipping metadata update for job %d", job_id)
         return
 
     async def _do_update():
-        engine = create_async_engine(database_url)
-        session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-        async with session_factory() as session:
+        async with factory() as session:
             try:
                 await session.execute(
                     text(
@@ -169,25 +171,20 @@ def _update_job_metadata(job_id: int, pod_id: str, provision_seconds: int | None
                 logger.info("Updated metadata for job %d (pod_id=%s)", job_id, pod_id)
             except Exception as exc:
                 logger.warning("Could not update metadata for job %d: %s", job_id, exc)
-            finally:
-                await engine.dispose()
 
     _run_async(_do_update())
 
 
 def _update_job_retry(job_id: int, retry_count: int) -> None:
     """Update retry_count and reset status to PROVISIONING for a job being retried."""
-    from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
     from sqlalchemy import text
 
-    database_url = os.getenv("DATABASE_URL", "")
-    if not database_url:
+    factory = _get_worker_session_factory()
+    if factory is None:
         return
 
     async def _do_update():
-        engine = create_async_engine(database_url)
-        session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
-        async with session_factory() as session:
+        async with factory() as session:
             try:
                 await session.execute(
                     text(
@@ -202,7 +199,5 @@ def _update_job_retry(job_id: int, retry_count: int) -> None:
                 logger.info("Set retry_count=%d for job %d", retry_count, job_id)
             except Exception as exc:
                 logger.warning("Could not update retry_count for job %d: %s", job_id, exc)
-            finally:
-                await engine.dispose()
 
     _run_async(_do_update())
