@@ -73,7 +73,7 @@ function buildElements() {
     if (props.hiddenTypes.has(entityType)) continue
     visibleNodeIds.add(node.uuid)
     const connCount = node.connection_count || 0
-    const size = Math.min(60, Math.max(20, 20 + connCount * 2))
+    const size = Math.min(40, Math.max(12, 12 + Math.sqrt(connCount) * 4))
     elements.push({
       group: 'nodes',
       data: {
@@ -120,11 +120,11 @@ function getStylesheet() {
         'text-margin-y': 6,
         'font-size': 10,
         'font-family': 'Inter, system-ui, sans-serif',
-        color: '#374151',
+        color: '#94A3B8',
         'text-max-width': 80,
         'text-wrap': 'ellipsis',
         'border-width': 0,
-        'border-color': '#7c3aed',
+        'border-color': '#22D3EE',
         'overlay-padding': 4,
         'transition-property': 'opacity, border-width, border-color',
         'transition-duration': '200ms',
@@ -134,14 +134,14 @@ function getStylesheet() {
       selector: 'edge',
       style: {
         width: 1,
-        'line-color': '#9ca3af',
-        'target-arrow-color': '#9ca3af',
+        'line-color': '#1E293B',
+        'target-arrow-color': '#1E293B',
         'target-arrow-shape': 'triangle',
         'arrow-scale': 0.6,
         'curve-style': 'bezier',
         label: props.showEdgeLabels ? 'data(label)' : '',
         'font-size': 8,
-        color: '#6b7280',
+        color: '#64748B',
         'text-rotation': 'autorotate',
         'text-margin-y': -8,
         opacity: 0.6,
@@ -153,7 +153,7 @@ function getStylesheet() {
       selector: '.highlighted',
       style: {
         'border-width': 3,
-        'border-color': '#7c3aed',
+        'border-color': '#22D3EE',
       },
     },
     {
