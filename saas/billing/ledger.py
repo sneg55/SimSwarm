@@ -80,6 +80,7 @@ class CreditLedger:
         except Exception:
             # Fallback for SQLite or other engines that don't support
             # INSERT...SELECT...RETURNING reliably
+            await self.session.rollback()
             balance = await self.get_balance(user_id)
             if balance < amount:
                 raise InsufficientCreditsError(
