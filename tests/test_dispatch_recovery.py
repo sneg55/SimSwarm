@@ -4,7 +4,6 @@ These tests exercise the full job lifecycle (create -> status transitions -> ref
 against a real test SQLite database, verifying that credits are correctly debited,
 refunded on failure, and that status transitions are properly persisted.
 """
-import pytest
 from unittest.mock import patch, MagicMock
 
 from saas.models.job import SimulationJob, JobStatus
