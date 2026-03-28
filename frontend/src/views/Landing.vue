@@ -1,85 +1,293 @@
 <template>
   <div>
-    <!-- Hero Section -->
-    <section class="bg-gradient-to-br from-blue-600 to-blue-800 text-white py-20">
-      <div class="max-w-4xl mx-auto px-4 text-center">
-        <h1 class="text-5xl font-bold mb-6">AI-Powered Market Simulations</h1>
-        <p class="text-xl text-blue-100 mb-8">
-          Run deep research simulations powered by multi-agent AI. Analyze markets, strategies, and opportunities at scale.
+    <ScrollProgress />
+
+    <!-- Hero -->
+    <section class="relative min-h-screen flex flex-col justify-center items-center text-center pt-20">
+      <div class="absolute inset-0 pointer-events-none"
+        style="background: radial-gradient(ellipse 80% 60% at 50% 40%, rgba(14,116,144,0.12), transparent), radial-gradient(ellipse 60% 50% at 20% 80%, rgba(167,139,250,0.06), transparent), radial-gradient(ellipse 50% 40% at 80% 70%, rgba(255,107,107,0.04), transparent)"
+      />
+
+      <HeroSwarm />
+
+      <h1 class="relative z-10 text-[clamp(36px,5vw,64px)] font-extrabold text-mist-foam tracking-[-0.03em] leading-[1.08] max-w-[720px]">
+        What if you could watch<br>
+        <HeroRotatingText /><br>
+        form in real time?
+      </h1>
+
+      <p class="relative z-10 text-[clamp(16px,2vw,20px)] text-mist-drift max-w-[540px] mt-5 leading-relaxed">
+        Upload a document. Launch a swarm of AI agents. Watch emergent intelligence reveal how markets, media, and people will react — before it happens.
+      </p>
+
+      <p class="relative z-10 text-sm text-mist-slate mt-3">Move your mouse to attract the swarm</p>
+
+      <div class="relative z-10 flex gap-4 mt-10">
+        <router-link
+          to="/register"
+          class="px-8 py-3.5 rounded-xl text-base font-bold text-white
+                 bg-gradient-to-br from-coral to-coral-amber
+                 glow-coral transition-all duration-250 ease-spring
+                 hover:glow-coral-lg hover:-translate-y-0.5"
+        >
+          Get started
+        </router-link>
+        <a
+          href="#experience"
+          class="px-8 py-3.5 rounded-xl text-base font-semibold text-mist
+                 border border-mist-depth/60
+                 transition-all duration-300
+                 hover:border-mist-slate hover:bg-mist-depth/40 hover:text-mist-foam"
+        >
+          See it in action &#x2193;
+        </a>
+      </div>
+
+      <div class="relative z-10 flex gap-8 mt-12 text-sm text-mist-slate">
+        <span class="flex items-center gap-1.5">&#x1F4B3; Pay-as-you-go credits</span>
+        <span class="flex items-center gap-1.5">&#x26A1; Results in under 5 minutes</span>
+        <span class="flex items-center gap-1.5">&#x1F30A; Up to 10,000 agent swarms</span>
+      </div>
+    </section>
+
+    <div class="max-w-[1100px] mx-auto h-px bg-gradient-to-r from-transparent via-mist-depth to-transparent" />
+
+    <!-- Experience -->
+    <section id="experience" class="px-4 md:px-8">
+      <div class="text-center pt-24 pb-16 max-w-[1100px] mx-auto">
+        <div class="text-[11px] font-bold uppercase tracking-[0.12em] text-ocean-cyan mb-3">How it works</div>
+        <h2 class="text-[clamp(28px,3.5vw,40px)] font-extrabold text-mist-foam tracking-tight">
+          Three steps. One living ecosystem.
+        </h2>
+        <p class="text-[17px] text-mist-drift mt-3 max-w-[540px] mx-auto">
+          Drop your document, set your question, and let the swarm reveal what happens next.
         </p>
-        <div class="flex items-center justify-center gap-4">
-          <router-link
-            to="/register"
-            class="px-8 py-3 bg-white text-blue-600 font-semibold rounded-lg hover:bg-blue-50 transition-colors"
-          >
-            Start for free
-          </router-link>
-          <router-link
-            to="/demo/iran-war-us-china"
-            class="px-8 py-3 border border-white text-white font-semibold rounded-lg hover:bg-white/10 transition-colors"
-          >
-            View Demo
-          </router-link>
-        </div>
       </div>
-    </section>
 
-    <!-- Demo Links Section -->
-    <section class="py-16 bg-gray-50">
-      <div class="max-w-4xl mx-auto px-4">
-        <h2 class="text-3xl font-bold text-center text-gray-900 mb-8">See It In Action</h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <DemoCard
-            v-for="demo in demos"
-            :key="demo.slug"
-            :slug="demo.slug"
-            :title="demo.title"
-            :description="demo.description"
-          />
-        </div>
-      </div>
-    </section>
-
-    <!-- Pricing Section -->
-    <section class="py-16">
-      <div class="max-w-4xl mx-auto px-4">
-        <h2 class="text-3xl font-bold text-center text-gray-900 mb-4">Simple Credit Pricing</h2>
-        <p class="text-center text-gray-500 mb-10">Pay only for what you use. No subscriptions.</p>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div v-for="tier in pricingTiers" :key="tier.name" class="border rounded-lg p-6 text-center">
-            <h3 class="text-xl font-bold text-gray-900 mb-1">{{ tier.name }}</h3>
-            <div class="text-3xl font-bold text-blue-600 my-4">{{ tier.credits }}<span class="text-sm text-gray-500 font-normal"> credits</span></div>
-            <p class="text-sm text-gray-500 mb-4">{{ tier.description }}</p>
-            <p class="font-semibold text-gray-800">{{ tier.price }}</p>
+      <ExperienceStep stepNumber="01 — Seed the ecosystem">
+        <template #title>Drop your document</template>
+        <template #description>
+          Upload a press release, policy draft, earnings report, or campaign brief.
+          The swarm reads it, extracts entities, and builds a living knowledge graph
+          of every stakeholder, market force, and narrative thread.
+        </template>
+        <template #detail>Supports PDF, TXT, CSV, Markdown — up to 50,000 characters.</template>
+        <template #mockup>
+          <div class="border-2 border-dashed border-ocean-teal rounded-xl p-8 text-center transition-colors hover:border-ocean-cyan">
+            <div class="text-4xl mb-2 animate-[float_4s_ease-in-out_infinite]">&#x1F30A;</div>
+            <div class="text-[15px] text-mist-drift font-medium">Drop your document here</div>
+            <div class="text-sm text-mist-slate mt-1.5">or click to browse</div>
+            <div class="flex gap-2 justify-center mt-4">
+              <span v-for="t in ['Press release', 'Policy draft', 'Report']" :key="t"
+                class="text-[11px] text-mist-slate bg-ocean-abyss px-2.5 py-1 rounded-md border border-mist-depth">
+                {{ t }}
+              </span>
+            </div>
           </div>
-        </div>
-        <div class="text-center mt-8">
-          <router-link
-            to="/register"
-            class="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors"
+        </template>
+      </ExperienceStep>
+
+      <ExperienceStep stepNumber="02 — Watch the swarm evolve" :reverse="true">
+        <template #title>Agents school and interact</template>
+        <template #description>
+          Hundreds of AI agents — each representing a market participant, journalist,
+          regulator, or public voice — begin to interact. Watch opinion clusters form,
+          alliances shift, and consensus emerge like a living ecosystem.
+        </template>
+        <template #detail>Real-time progress with agent chat replay.</template>
+        <template #mockup>
+          <div class="relative h-[220px] overflow-hidden">
+            <div
+              v-for="i in 24" :key="i"
+              class="absolute rounded-full"
+              :style="agentStyle(i)"
+            />
+          </div>
+        </template>
+      </ExperienceStep>
+
+      <ExperienceStep stepNumber="03 — Insights surface naturally">
+        <template #title>The ecosystem reveals patterns</template>
+        <template #description>
+          The swarm's emergent intelligence distills into a clear, scrollable narrative —
+          key findings, sentiment shifts, coalition maps, and confidence scores.
+          No PhD required. Just scroll and understand.
+        </template>
+        <template #detail>Export as PDF, JSON, or CSV for your team.</template>
+        <template #mockup>
+          <div
+            v-for="insight in insights" :key="insight.label"
+            class="bg-ocean-abyss border border-mist-depth rounded-lg p-4 mb-2.5 transition-transform duration-300 hover:translate-x-1"
+            :style="{ borderLeftWidth: '3px', borderLeftColor: insight.color }"
           >
-            Get started free
-          </router-link>
-        </div>
+            <div class="text-[11px] font-semibold uppercase tracking-wider mb-1.5" :style="{ color: insight.color }">
+              {{ insight.label }}
+            </div>
+            <div class="text-sm text-mist" :class="insight.mono ? 'font-mono text-mist-drift text-[13px]' : ''">
+              {{ insight.text }}
+            </div>
+          </div>
+        </template>
+      </ExperienceStep>
+    </section>
+
+    <div class="max-w-[1100px] mx-auto h-px bg-gradient-to-r from-transparent via-mist-depth to-transparent" />
+
+    <!-- Social Proof -->
+    <section id="proof" class="py-20 px-4 md:px-8 max-w-[1100px] mx-auto text-center">
+      <div class="text-[11px] font-bold uppercase tracking-[0.12em] text-ocean-cyan mb-3">Trusted by strategists</div>
+      <h2 class="text-[clamp(24px,3vw,36px)] font-extrabold text-mist-foam tracking-tight">
+        See what teams are building
+      </h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
+        <ProofCard
+          v-for="proof in proofs" :key="proof.author"
+          :quote="proof.quote" :author="proof.author" :role="proof.role"
+        />
       </div>
     </section>
+
+    <div class="max-w-[1100px] mx-auto h-px bg-gradient-to-r from-transparent via-mist-depth to-transparent" />
+
+    <!-- Pricing -->
+    <section id="pricing" class="py-24 px-4 md:px-8 max-w-[1100px] mx-auto text-center">
+      <div class="text-[11px] font-bold uppercase tracking-[0.12em] text-ocean-cyan mb-3">Simple pricing</div>
+      <h2 class="text-[clamp(24px,3vw,36px)] font-extrabold text-mist-foam tracking-tight">
+        Pay only for what you simulate
+      </h2>
+      <p class="text-[17px] text-mist-drift mt-2">No subscriptions. No hidden fees. Buy credits, run simulations.</p>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-12">
+        <PricingCard
+          v-for="tier in pricingTiers" :key="tier.name"
+          :name="tier.name" :credits="tier.credits" :price="tier.price"
+          :features="tier.features" :accentColor="tier.accent" :featured="tier.featured"
+        />
+      </div>
+    </section>
+
+    <div class="max-w-[1100px] mx-auto h-px bg-gradient-to-r from-transparent via-mist-depth to-transparent" />
+
+    <!-- Final CTA -->
+    <section class="py-24 px-4 text-center relative overflow-hidden">
+      <div class="absolute inset-0 pointer-events-none"
+        style="background: radial-gradient(ellipse 70% 50% at 50% 50%, rgba(14,116,144,0.15), transparent), radial-gradient(ellipse 40% 40% at 30% 60%, rgba(255,107,107,0.05), transparent)"
+      />
+      <h2 class="relative text-[clamp(28px,4vw,44px)] font-extrabold text-mist-foam tracking-[-0.03em] mb-4">
+        Ready to see what happens next?
+      </h2>
+      <p class="relative text-lg text-mist-drift mb-8">
+        Upload your first document and watch the ecosystem come alive.
+      </p>
+      <router-link
+        to="/register"
+        class="relative inline-block px-10 py-4 rounded-xl text-lg font-bold text-white
+               bg-gradient-to-br from-coral to-coral-amber
+               glow-coral transition-all duration-250 ease-spring
+               hover:glow-coral-lg hover:-translate-y-0.5"
+      >
+        Get started
+      </router-link>
+    </section>
+
+    <!-- Footer -->
+    <footer class="border-t border-mist-depth max-w-[1100px] mx-auto px-4 md:px-8 py-12 flex justify-between items-center text-sm text-mist-slate">
+      <div class="flex items-center gap-2">
+        <LogoWavePulse :size="24" :animated="false" />
+        <span class="font-bold text-mist-drift">SimSwarm</span>
+        <span>&copy; 2026</span>
+      </div>
+      <div class="flex gap-6">
+        <a href="#" class="hover:text-mist-drift transition-colors">Privacy</a>
+        <a href="#" class="hover:text-mist-drift transition-colors">Terms</a>
+        <a href="#" class="hover:text-mist-drift transition-colors">Docs</a>
+        <a href="#" class="hover:text-mist-drift transition-colors">GitHub</a>
+      </div>
+    </footer>
   </div>
 </template>
 
 <script setup>
-import DemoCard from '../components/DemoCard.vue'
+import ScrollProgress from '../components/ScrollProgress.vue'
+import HeroSwarm from '../components/HeroSwarm.vue'
+import HeroRotatingText from '../components/HeroRotatingText.vue'
+import ExperienceStep from '../components/ExperienceStep.vue'
+import PricingCard from '../components/PricingCard.vue'
+import ProofCard from '../components/ProofCard.vue'
+import LogoWavePulse from '../components/LogoWavePulse.vue'
 
-const demos = [
-  { slug: 'iran-war-us-china', title: 'US vs China: Iran Escalation', description: 'Simulating 1,000 agents across US and Chinese social media on Iran nuclear escalation.' },
-  { slug: 'tesla-earnings', title: 'Tesla Q1 Earnings Sentiment', description: 'How retail and institutional investors react to a major earnings miss.' },
-  { slug: 'dream-red-chamber', title: 'Lost Ending: Red Chamber', description: 'Literary agents reconstruct the lost ending of an 18th-century Chinese masterpiece.' },
-  { slug: 'eu-ai-act', title: 'EU AI Act Enforcement', description: 'Industry compliance behavior in the first 90 days of EU AI Act enforcement.' },
-  { slug: 'bitcoin-halving', title: 'Bitcoin Halving Sentiment', description: 'Crypto community narrative evolution in the 60 days post-halving.' },
+const insights = [
+  { label: 'Key Finding', color: '#FF6B6B', text: 'Public sentiment shifts negative within 48 hours of announcement, driven by regulatory agent cluster.' },
+  { label: 'Emerging Coalition', color: '#6EE7B7', text: 'Financial analysts and media agents converge on a "cautiously optimistic" narrative by round 3.' },
+  { label: 'Confidence', color: '#A78BFA', text: 'Overall: 94.2% · Sentiment: 87.6% · Coalition stability: 91.0%', mono: true },
+]
+
+const proofs = [
+  { quote: 'We simulated public reaction to our pricing change before announcing. The swarm predicted the exact backlash points our focus groups missed.', author: 'Head of Strategy', role: 'Fortune 500 CPG Company' },
+  { quote: 'Replaced three weeks of consultant work with a 5-minute simulation. The coalition mapping alone saved our policy team dozens of hours.', author: 'Policy Director', role: 'Government Affairs Think Tank' },
+  { quote: 'The guided story format means I can share simulation results directly with the C-suite. No translation needed — they just scroll.', author: 'VP of Communications', role: 'Global PR Agency' },
 ]
 
 const pricingTiers = [
-  { name: 'Starter', credits: 100, price: '$19', description: '3-4 small simulations' },
-  { name: 'Pro', credits: 500, price: '$79', description: '15-20 medium simulations' },
-  { name: 'Heavy', credits: 2000, price: '$249', description: 'Large-scale or frequent use' },
+  { name: 'Starter', credits: 100, price: '$19', accent: '#22D3EE', featured: false,
+    features: ['3-4 small simulations', 'Up to 500 agents per run', 'Full guided story results', 'PDF & JSON export'] },
+  { name: 'Pro', credits: 500, price: '$79', accent: '#A78BFA', featured: true,
+    features: ['15-20 medium simulations', 'Up to 2,000 agents per run', 'Priority GPU allocation', 'Full export suite'] },
+  { name: 'Heavy', credits: 2000, price: '$249', accent: '#FBBF24', featured: false,
+    features: ['Large-scale simulations', 'Up to 10,000 agents per run', 'Dedicated GPU instances', 'Priority support'] },
 ]
+
+const swarmColors = [
+  { bg: '#22D3EE', glow: 'rgba(34,211,238,0.3)' },
+  { bg: '#6EE7B7', glow: 'rgba(110,231,183,0.3)' },
+  { bg: '#FF6B6B', glow: 'rgba(255,107,107,0.3)' },
+  { bg: '#A78BFA', glow: 'rgba(167,139,250,0.3)' },
+  { bg: '#FBBF24', glow: 'rgba(251,191,36,0.3)' },
+]
+
+const agentSeeds = Array.from({ length: 24 }, (_, i) => ({
+  size: 6 + ((i * 7 + 3) % 10),
+  colorIdx: i % swarmColors.length,
+  left: 10 + ((i * 13 + 5) % 80),
+  top: 10 + ((i * 17 + 7) % 80),
+  dur: 5 + ((i * 3) % 6),
+  delay: -((i * 2) % 5),
+  x1: ((i * 11 + 3) % 60) - 30, y1: ((i * 7 + 5) % 60) - 30,
+  x2: ((i * 13 + 7) % 60) - 30, y2: ((i * 9 + 11) % 60) - 30,
+  x3: ((i * 5 + 13) % 60) - 30, y3: ((i * 11 + 3) % 60) - 30,
+  x4: ((i * 7 + 17) % 60) - 30, y4: ((i * 13 + 5) % 60) - 30,
+  opacity: 0.5 + ((i * 3) % 5) / 10,
+}))
+
+function agentStyle(i) {
+  const s = agentSeeds[i - 1]
+  const c = swarmColors[s.colorIdx]
+  return {
+    width: s.size + 'px', height: s.size + 'px',
+    background: c.bg,
+    boxShadow: `0 0 ${s.size}px ${c.glow}`,
+    left: s.left + '%', top: s.top + '%',
+    opacity: s.opacity,
+    animation: `swim ${s.dur}s ease-in-out infinite alternate`,
+    animationDelay: s.delay + 's',
+    '--x1': s.x1 + 'px', '--y1': s.y1 + 'px',
+    '--x2': s.x2 + 'px', '--y2': s.y2 + 'px',
+    '--x3': s.x3 + 'px', '--y3': s.y3 + 'px',
+    '--x4': s.x4 + 'px', '--y4': s.y4 + 'px',
+  }
+}
 </script>
+
+<style scoped>
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+@keyframes swim {
+  0% { transform: translate(0, 0); }
+  25% { transform: translate(var(--x1), var(--y1)); }
+  50% { transform: translate(var(--x2), var(--y2)); }
+  75% { transform: translate(var(--x3), var(--y3)); }
+  100% { transform: translate(var(--x4), var(--y4)); }
+}
+</style>
