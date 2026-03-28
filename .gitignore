@@ -13,3 +13,6 @@ uploads/
 node_modules/
 frontend/dist/
 docs/benchmarks/results.json
+.claude/
+.worktrees/
+.superpowers/
