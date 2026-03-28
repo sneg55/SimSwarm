@@ -177,18 +177,49 @@ Agent visualization uses colored glowing nodes with semantic meaning:
 - Fixed side dots (right edge): 5 dots tracking current section, labels on hover
 - Frosted glass navbar with smooth scroll links
 
-## 4. Dashboard (Minimal Launchpad)
+## 4. Dashboard (Stacked Minimal Launchpad)
 
-Keep it simple — the value is in the results, not the dashboard.
+Two-zone layout: calm waterline strip on top, living simulation list below.
 
-- **Header**: "Dashboard" heading + Credit Badge (navbar already has it too)
-- **Primary action**: Large "New Simulation" button, coral gradient CTA style, prominent center placement
-- **Credit warning**: Yellow/amber callout banner when balance < 30, links to Account
-- **Recent simulations**: List of simulation cards (dark card style from component system)
-  - Each shows: goal text, tier badge, timestamp, status badge (completed/running/pending/failed)
-  - Status colors: Completed=cyan, Running=violet+breathing, Pending=slate, Failed=coral
-  - Hover: top-edge glow, title shifts to cyan, "View Results" or "View Progress" link
-- **Empty state**: "No simulations yet" with illustration suggestion and link to create first
+### Waterline Strip (Top Zone)
+- 80-100px height, soft gradient background (Deep → Abyss), subtle radial teal wash
+- **Left**: "Welcome back" greeting + credit balance ("342 credits remaining · 3 simulations this week")
+- **Right**: Prominent "New Simulation" button — coral gradient CTA with + icon, flows into stepped wizard
+- Credit warning integrates into the balance text (turns coral when < 30)
+
+### Simulation List (Main Zone)
+Two sections separated by subtle label dividers:
+
+**Active simulations:**
+- Cards show: title, goal (truncated), status with breathing purple dot, pipeline step ("Step 3/5 — Simulating"), tier + agent count, elapsed time
+- Breathing status dot animates at 2.5s cycle
+
+**Completed simulations (with key insight):**
+- Cards show: title, **one-line key finding** (the star of the card), tier + agent count + duration + timestamp
+- Key finding displayed in a subtle inset panel with colored accent bar:
+  - Coral bar: negative sentiment shifts
+  - Seafoam bar: positive findings
+  - Sand bar: emerging trends/narratives
+- `key_insight` field: pre-baked string (max ~100 chars) stored when simulation completes, pulled from the first key finding in the guided story results
+- Backend: add `key_insight` column to job model, populate from results processor
+
+**Failed simulations:**
+- Show error reason in subdued text instead of insight ("GPU timeout — try a smaller tier")
+- Coral status dot (static, no breathing)
+
+### Card Interactions
+- Hover: top-edge glow line (color matches status), title shifts to cyan, "View results →" link fades in
+- Click anywhere: opens guided story results (completed) or progress page (running)
+- Cards lift 2px on hover with subtle shadow
+
+### Empty State
+- Centered illustration: concentric pulse rings (from logo) with breathing agent dots
+- Copy: "Your ecosystem is ready. What would you like to simulate today?"
+- CTA: "Start your first simulation" button (ocean cyan gradient)
+
+### Implementation Note
+- Max 6-8 cards visible before "View all" link
+- No charts, no analytics, no clutter — the value is in the results pages
 - Dark background throughout (Abyss base)
 
 ## 5. New Simulation: Stepped Wizard
