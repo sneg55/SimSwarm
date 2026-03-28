@@ -23,43 +23,65 @@
           :completed-steps="completedSteps"
         />
 
+        <!-- Overall progress bar (running/provisioning) -->
+        <div v-if="isActive" class="mt-5">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs font-semibold text-mist-drift">{{ currentStageName }}...</span>
+            <span class="font-mono text-xs text-ocean-glow">{{ progressPercent }}%</span>
+          </div>
+          <div class="h-1.5 bg-ocean-abyss rounded-full overflow-hidden">
+            <div
+              class="h-full rounded-full transition-[width] duration-1000 ease-smooth relative"
+              :style="{ width: progressPercent + '%', background: 'linear-gradient(90deg, #0E7490, #22D3EE)' }"
+            >
+              <div class="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer" />
+            </div>
+          </div>
+        </div>
+
         <!-- Status details -->
-        <div class="mt-5 pt-5 border-t border-mist-depth">
+        <div class="mt-5 pt-5 border-t border-mist-depth space-y-3">
           <!-- Running state -->
           <template v-if="isActive">
-            <div class="flex items-center justify-between mb-3">
-              <span class="text-sm text-mist-drift">Current stage</span>
-              <span class="text-sm font-semibold text-mist-foam">{{ currentStageName }}</span>
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-mist-drift">Stage</span>
+              <span class="text-sm font-semibold text-mist-foam">
+                {{ job.pipeline_stage || 0 }} of 5
+                <span class="text-mist-slate font-normal ml-1">— {{ currentStageName }}</span>
+              </span>
             </div>
-            <div class="flex items-center justify-between mb-3">
-              <span class="text-sm text-mist-drift">Progress</span>
-              <span class="font-mono text-sm text-ocean-glow">{{ job.pipeline_stage || 0 }} / 5 stages</span>
-            </div>
-            <div class="flex items-center justify-between mb-3">
-              <span class="text-sm text-mist-drift">Elapsed time</span>
-              <span class="font-mono text-sm text-mist-foam">{{ elapsed }}</span>
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-mist-drift">Elapsed</span>
+              <span class="font-mono text-sm text-mist-foam tabular-nums">{{ elapsed }}</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-sm text-mist-drift">Estimated remaining</span>
-              <span class="font-mono text-sm text-mist-foam">{{ eta }}</span>
+              <span class="font-mono text-sm text-ocean-glow tabular-nums">{{ eta }}</span>
             </div>
           </template>
 
           <!-- Pending state -->
-          <template v-else-if="job.status === 'PENDING'">
-            <div class="flex items-center justify-between mb-3">
+          <template v-else-if="job.status === 'PENDING' || job.status === 'PROVISIONING'">
+            <div class="flex items-center justify-between">
               <span class="text-sm text-mist-drift">Status</span>
-              <span class="text-sm text-mist-foam">Waiting for GPU allocation</span>
+              <span class="text-sm text-mist-foam flex items-center gap-2">
+                <span class="inline-block w-1.5 h-1.5 rounded-full bg-organic-violet animate-[breathe_2s_ease-in-out_infinite]" />
+                {{ job.status === 'PROVISIONING' ? 'Allocating GPU...' : 'Queued — waiting for resources' }}
+              </span>
             </div>
             <div class="flex items-center justify-between">
-              <span class="text-sm text-mist-drift">Estimated wait</span>
-              <span class="font-mono text-sm text-mist-foam">1–3 minutes</span>
+              <span class="text-sm text-mist-drift">Elapsed</span>
+              <span class="font-mono text-sm text-mist-foam tabular-nums">{{ elapsed }}</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-mist-drift">Estimated total</span>
+              <span class="font-mono text-sm text-mist-slate">{{ estimatedTotal }}</span>
             </div>
           </template>
 
           <!-- Completed -->
           <template v-else-if="job.status === 'COMPLETED'">
-            <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center justify-between">
               <span class="text-sm text-mist-drift">Duration</span>
               <span class="font-mono text-sm text-organic-seafoam">{{ formatDuration(job.pipeline_seconds) }}</span>
             </div>
@@ -145,12 +167,22 @@ const isActive = computed(() =>
 )
 
 const currentStep = computed(() => {
-  if (!job.value || !job.value.pipeline_stage) return null
+  if (!job.value) return null
+  // PENDING/PROVISIONING = nothing active yet
+  if (['PENDING', 'PROVISIONING'].includes(job.value.status)) return null
+  // COMPLETED = all done
+  if (job.value.status === 'COMPLETED') return null
+  if (!job.value.pipeline_stage) return null
   return STAGE_STEP_IDS[job.value.pipeline_stage - 1] ?? null
 })
 
 const completedSteps = computed(() => {
-  if (!job.value || !job.value.pipeline_stage) return []
+  if (!job.value) return []
+  // COMPLETED = all done
+  if (job.value.status === 'COMPLETED') return [...STAGE_STEP_IDS]
+  // PENDING/PROVISIONING = nothing done
+  if (['PENDING', 'PROVISIONING'].includes(job.value.status)) return []
+  if (!job.value.pipeline_stage) return []
   return STAGE_STEP_IDS.slice(0, job.value.pipeline_stage - 1)
 })
 
@@ -166,13 +198,45 @@ const elapsed = computed(() => {
   return formatSeconds(diff)
 })
 
+const estimatedTotalSeconds = computed(() => {
+  if (!job.value || !job.value.tier) return 0
+  const estimates = TIER_ESTIMATES[job.value.tier] || TIER_ESTIMATES.medium
+  return estimates.reduce((a, b) => a + b, 0)
+})
+
+const estimatedTotal = computed(() => {
+  const total = estimatedTotalSeconds.value
+  if (!total) return '--'
+  return '~' + formatSeconds(total)
+})
+
+const elapsedSeconds = computed(() => {
+  if (!job.value || !job.value.created_at) return 0
+  return Math.floor((now.value - new Date(job.value.created_at).getTime()) / 1000)
+})
+
+const progressPercent = computed(() => {
+  if (!job.value || !job.value.pipeline_stage) return 0
+  // Each stage is 20% of total, current stage partially complete based on time
+  const stageBase = (job.value.pipeline_stage - 1) * 20
+  const estimates = TIER_ESTIMATES[job.value.tier] || TIER_ESTIMATES.medium
+  const currentEstimate = estimates[job.value.pipeline_stage - 1] || 300
+  const elapsedInStage = elapsedSeconds.value - estimates.slice(0, job.value.pipeline_stage - 1).reduce((a, b) => a + b, 0)
+  const stageProgress = Math.min(0.95, Math.max(0, elapsedInStage / currentEstimate))
+  return Math.min(99, Math.round(stageBase + stageProgress * 20))
+})
+
 const eta = computed(() => {
   if (!job.value || !job.value.pipeline_stage || !job.value.tier) return '--'
-  const estimates = TIER_ESTIMATES[job.value.tier] || TIER_ESTIMATES.medium
-  // Sum remaining stages
-  const remaining = estimates.slice(job.value.pipeline_stage - 1).reduce((a, b) => a + b, 0)
-  if (remaining < 60) return '< 1 min'
-  return formatSeconds(remaining)
+  const total = estimatedTotalSeconds.value
+  const el = elapsedSeconds.value
+  if (el <= 0 || total <= 0) return '--'
+  // Estimate remaining based on progress ratio
+  const pct = progressPercent.value / 100
+  if (pct <= 0.01) return '~' + formatSeconds(total)
+  const estimatedRemaining = Math.max(0, Math.round((el / pct) * (1 - pct)))
+  if (estimatedRemaining < 30) return '< 1 min'
+  return '~' + formatSeconds(estimatedRemaining)
 })
 
 const chatMessages = computed(() => {
@@ -265,4 +329,9 @@ onUnmounted(() => {
   0%, 100% { opacity: 0.4; transform: scale(0.8); }
   50% { opacity: 1; transform: scale(1.2); }
 }
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+.animate-shimmer { animation: shimmer 2s infinite; }
 </style>
