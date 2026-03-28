@@ -46,20 +46,54 @@ class CreditLedger:
         description: str,
         job_id: int | None = None,
     ) -> CreditEntry:
-        balance = await self.get_balance(user_id)
-        if balance < amount:
-            raise InsufficientCreditsError(
-                f"Insufficient credits: balance={balance}, required={amount}"
+        from sqlalchemy import text
+        from datetime import datetime, timezone
+
+        try:
+            result = await self.session.execute(
+                text(
+                    "INSERT INTO credit_entries (user_id, amount, description, job_id, created_at) "
+                    "SELECT :user_id, :amount, :description, :job_id, :created_at "
+                    "WHERE (SELECT COALESCE(SUM(amount), 0) FROM credit_entries WHERE user_id = :user_id) >= :required "
+                    "RETURNING id"
+                ),
+                {
+                    "user_id": user_id,
+                    "amount": -amount,
+                    "description": description,
+                    "job_id": job_id,
+                    "created_at": datetime.now(timezone.utc),
+                    "required": amount,
+                },
             )
-        entry = CreditEntry(
-            user_id=user_id,
-            amount=-amount,
-            description=description,
-            job_id=job_id,
-        )
-        self.session.add(entry)
-        await self.session.flush()
-        return entry
+            row = result.first()
+            if row is None:
+                balance = await self.get_balance(user_id)
+                raise InsufficientCreditsError(
+                    f"Insufficient credits: balance={balance}, required={amount}"
+                )
+            await self.session.flush()
+            entry = await self.session.get(CreditEntry, row[0])
+            return entry
+        except InsufficientCreditsError:
+            raise
+        except Exception:
+            # Fallback for SQLite or other engines that don't support
+            # INSERT...SELECT...RETURNING reliably
+            balance = await self.get_balance(user_id)
+            if balance < amount:
+                raise InsufficientCreditsError(
+                    f"Insufficient credits: balance={balance}, required={amount}"
+                )
+            entry = CreditEntry(
+                user_id=user_id,
+                amount=-amount,
+                description=description,
+                job_id=job_id,
+            )
+            self.session.add(entry)
+            await self.session.flush()
+            return entry
 
     async def session_credited(self, stripe_session_id: str | None) -> bool:
         """Return True if credits have already been added for a given Stripe session."""
