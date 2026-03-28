@@ -1,70 +1,70 @@
 <template>
   <div class="max-w-3xl mx-auto px-4 py-8">
-    <h1 class="text-2xl font-bold text-gray-900 mb-8">Account</h1>
+    <h1 class="text-2xl font-bold text-mist-foam mb-8">Account</h1>
 
-    <div v-if="paymentSuccess" class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-md mb-6">
+    <div v-if="paymentSuccess" class="bg-organic-sage/10 border border-organic-sage/20 text-organic-seafoam px-4 py-3 rounded-md mb-6">
       Payment successful! Your credits will be added shortly once the payment is confirmed.
     </div>
-    <div v-if="paymentCancelled" class="bg-yellow-50 border border-yellow-200 text-yellow-800 px-4 py-3 rounded-md mb-6">
+    <div v-if="paymentCancelled" class="bg-coral-amber/10 border border-coral-amber/20 text-coral-amber px-4 py-3 rounded-md mb-6">
       Payment was cancelled. You were not charged.
     </div>
 
     <!-- Balance Section -->
-    <div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-      <h2 class="text-lg font-semibold text-gray-800 mb-4">Credit Balance</h2>
+    <div class="bg-ocean-deep border border-mist-depth rounded-2xl p-6 mb-6">
+      <h2 class="text-lg font-semibold text-mist-foam mb-4">Credit Balance</h2>
       <div class="flex items-center justify-between">
         <div>
-          <div class="text-4xl font-bold text-blue-600">{{ creditsStore.balance }}</div>
-          <div class="text-sm text-gray-500 mt-1">credits remaining</div>
+          <div class="text-4xl font-bold text-ocean-glow">{{ creditsStore.balance }}</div>
+          <div class="text-sm text-mist-slate mt-1">credits remaining</div>
         </div>
         <CreditBadge />
       </div>
     </div>
 
     <!-- Purchase Credits Section -->
-    <div class="bg-white border border-gray-200 rounded-lg p-6 mb-6">
-      <h2 class="text-lg font-semibold text-gray-800 mb-4">Buy Credits</h2>
+    <div class="bg-ocean-deep border border-mist-depth rounded-2xl p-6 mb-6">
+      <h2 class="text-lg font-semibold text-mist-foam mb-4">Buy Credits</h2>
       <div class="grid grid-cols-3 gap-4">
         <button
           v-for="pack in creditPacks"
           :key="pack.id"
           @click="handlePurchase(pack)"
           :disabled="purchasing === pack.id"
-          class="border border-gray-200 rounded-lg p-4 text-center hover:border-blue-300 hover:bg-blue-50 transition-all disabled:opacity-50"
+          class="border border-mist-depth rounded-2xl p-4 text-center hover:border-ocean-teal hover:bg-ocean-cyan/10 transition-all disabled:opacity-50"
         >
-          <div class="text-2xl font-bold text-blue-600">{{ pack.credits }}</div>
-          <div class="text-sm text-gray-500">credits</div>
-          <div class="font-semibold text-gray-800 mt-2">{{ pack.price }}</div>
+          <div class="text-2xl font-bold text-ocean-glow">{{ pack.credits }}</div>
+          <div class="text-sm text-mist-slate">credits</div>
+          <div class="font-semibold text-mist-foam mt-2">{{ pack.price }}</div>
         </button>
       </div>
-      <div v-if="purchaseSuccess" class="mt-4 p-3 bg-green-50 text-green-700 rounded text-sm">
+      <div v-if="purchaseSuccess" class="mt-4 p-3 bg-organic-sage/10 border border-organic-sage/20 text-organic-seafoam rounded text-sm">
         Credits purchased successfully!
       </div>
-      <div v-if="purchaseError" class="mt-4 p-3 bg-red-50 text-red-700 rounded text-sm">
+      <div v-if="purchaseError" class="mt-4 p-3 bg-coral/10 border border-coral/20 text-coral rounded text-sm">
         {{ purchaseError }}
       </div>
     </div>
 
     <!-- Transaction History -->
-    <div class="bg-white border border-gray-200 rounded-lg p-6">
-      <h2 class="text-lg font-semibold text-gray-800 mb-4">Transaction History</h2>
-      <div v-if="historyLoading" class="text-center text-gray-500 py-4">Loading...</div>
-      <div v-else-if="history.length === 0" class="text-center text-gray-400 py-4 text-sm">
+    <div class="bg-ocean-deep border border-mist-depth rounded-2xl p-6">
+      <h2 class="text-lg font-semibold text-mist-foam mb-4">Transaction History</h2>
+      <div v-if="historyLoading" class="text-center text-mist-slate py-4">Loading...</div>
+      <div v-else-if="history.length === 0" class="text-center text-mist-slate py-4 text-sm">
         No transactions yet.
       </div>
-      <div v-else class="divide-y divide-gray-100">
+      <div v-else class="divide-y divide-mist-depth">
         <div
           v-for="tx in history"
           :key="tx.id"
           class="flex items-center justify-between py-3"
         >
           <div>
-            <div class="text-sm font-medium text-gray-800">{{ tx.description }}</div>
-            <div class="text-xs text-gray-500">{{ formatDate(tx.created_at) }}</div>
+            <div class="text-sm font-medium text-mist-foam">{{ tx.description }}</div>
+            <div class="text-xs text-mist-slate">{{ formatDate(tx.created_at) }}</div>
           </div>
           <div
             class="text-sm font-semibold"
-            :class="tx.amount > 0 ? 'text-green-600' : 'text-red-600'"
+            :class="tx.amount > 0 ? 'text-organic-seafoam' : 'text-coral'"
           >
             {{ tx.amount > 0 ? '+' : '' }}{{ tx.amount }} credits
           </div>

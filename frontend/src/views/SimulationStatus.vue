@@ -1,16 +1,16 @@
 <template>
   <div class="max-w-3xl mx-auto px-4 py-8">
     <div class="mb-6">
-      <router-link to="/dashboard" class="text-sm text-blue-600 hover:underline">&larr; Back to Dashboard</router-link>
-      <h1 class="text-2xl font-bold text-gray-900 mt-2">Simulation Running</h1>
+      <router-link to="/dashboard" class="text-sm text-ocean-glow hover:underline">&larr; Back to Dashboard</router-link>
+      <h1 class="text-2xl font-bold text-mist-foam mt-2">Simulation Running</h1>
     </div>
 
     <div v-if="job" class="space-y-6">
-      <div class="bg-white border border-gray-200 rounded-lg p-6">
+      <div class="bg-ocean-deep border border-mist-depth rounded-2xl p-6">
         <div class="flex items-center justify-between mb-4">
           <div>
-            <h2 class="font-semibold text-gray-800">{{ job.goal }}</h2>
-            <p class="text-sm text-gray-500 capitalize">{{ job.tier }} tier</p>
+            <h2 class="font-semibold text-mist-foam">{{ job.goal }}</h2>
+            <p class="text-sm text-mist-slate capitalize">{{ job.tier }} tier</p>
           </div>
           <span
             class="px-3 py-1 rounded-full text-sm font-medium"
@@ -25,24 +25,24 @@
           :completed-steps="completedSteps"
         />
 
-        <p v-if="job.pipeline_stage" class="text-xs text-gray-400 mt-3">
+        <p v-if="job.pipeline_stage" class="text-xs text-mist-slate mt-3">
           Stage {{ job.pipeline_stage }} of 5
         </p>
       </div>
 
       <div v-if="job.status === 'completed'" class="text-center py-4">
-        <p class="text-green-600 font-medium mb-3">Simulation complete!</p>
+        <p class="text-organic-seafoam font-medium mb-3">Simulation complete!</p>
         <router-link
           :to="`/sim/${jobId}/results`"
-          class="px-6 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+          class="px-6 py-2 bg-gradient-to-br from-organic-sage to-organic-seafoam text-white rounded-md hover:shadow-[0_0_24px_rgba(16,185,129,0.3)]"
         >
           View Results
         </router-link>
       </div>
 
-      <div v-if="job.status === 'failed'" class="bg-red-50 border border-red-200 rounded-lg p-4">
-        <p class="text-red-700 font-medium">Simulation failed</p>
-        <p class="text-red-600 text-sm mt-1">{{ job.error || 'An unexpected error occurred.' }}</p>
+      <div v-if="job.status === 'failed'" class="bg-coral/10 border border-coral/20 rounded-2xl p-4">
+        <p class="text-coral font-medium">Simulation failed</p>
+        <p class="text-coral text-sm mt-1">{{ job.error || 'An unexpected error occurred.' }}</p>
       </div>
 
       <div v-if="job.messages && job.messages.length > 0">
@@ -50,7 +50,7 @@
       </div>
     </div>
 
-    <div v-else-if="loading" class="text-center py-12 text-gray-500">
+    <div v-else-if="loading" class="text-center py-12 text-mist-slate">
       Loading simulation status...
     </div>
   </div>
@@ -107,11 +107,11 @@ onUnmounted(() => {
 
 function statusClass(status) {
   const map = {
-    completed: 'bg-green-100 text-green-800',
-    running: 'bg-blue-100 text-blue-800',
-    pending: 'bg-yellow-100 text-yellow-800',
-    failed: 'bg-red-100 text-red-800',
+    completed: 'bg-ocean-glow/10 text-ocean-glow border border-ocean-glow/20',
+    running: 'bg-organic-violet/10 text-organic-violet border border-organic-violet/20',
+    pending: 'bg-mist-slate/10 text-mist-slate border border-mist-slate/20',
+    failed: 'bg-coral/10 text-coral border border-coral/20',
   }
-  return map[status] ?? 'bg-gray-100 text-gray-800'
+  return map[status] ?? 'bg-mist-depth text-mist-slate'
 }
 </script>
