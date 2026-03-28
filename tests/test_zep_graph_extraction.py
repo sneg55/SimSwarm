@@ -5,7 +5,6 @@ import sys
 import types
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 
 # ---------------------------------------------------------------------------

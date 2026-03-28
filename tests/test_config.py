@@ -1,5 +1,3 @@
-import os
-import pytest
 from saas.config import Settings
 
 

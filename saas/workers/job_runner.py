@@ -7,7 +7,6 @@ import os
 from dataclasses import dataclass
 
 import httpx
-from sqlalchemy import update
 
 from saas.gpu.provider import GPUProvider, GPUProviderConfig
 
@@ -367,7 +366,6 @@ class JobRunner:
             raise RuntimeError(f"Pod {pod_id} is idle — pipeline was never started or already reset")
 
         # Still running — create a minimal config for the polling loop
-        from dataclasses import dataclass as _dc
         minimal_config = type("MinimalConfig", (), {"job_id": job_id})()
 
         try:

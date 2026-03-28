@@ -264,7 +264,7 @@ def _run_async(coro) -> object:
     error.
     """
     try:
-        loop = asyncio.get_running_loop()
+        asyncio.get_running_loop()  # noqa: F841 — we just check if one exists
     except RuntimeError:
         # No running loop — safe to use asyncio.run directly
         return asyncio.run(coro)

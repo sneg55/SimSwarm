@@ -2,7 +2,6 @@
 End-to-end integration test: create a job via API, verify it's persisted,
 query it back, and verify the full flow works.
 """
-import pytest
 from unittest.mock import patch, MagicMock
 
 

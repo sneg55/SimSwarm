@@ -1,6 +1,5 @@
 """Tests for email verification and password reset endpoints."""
 from datetime import datetime, timedelta, timezone
-from unittest.mock import patch
 
 import pytest
 from sqlalchemy import select

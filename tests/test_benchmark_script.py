@@ -1,7 +1,6 @@
 """
 Tests for infra/scripts/benchmark.py — Task 1 (7 tests)
 """
-import pytest
 
 from infra.scripts.benchmark import (
     CREDIT_PRICES_USD,

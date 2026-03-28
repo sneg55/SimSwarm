@@ -138,7 +138,7 @@ def test_cleanup_terminates_pod_not_in_active_jobs():
         with patch("runpod.get_pods", return_value=mock_pods):
             with patch("runpod.terminate_pod") as mock_terminate:
                 with patch("saas.workers.tasks._get_active_job_pod_ids", return_value=set()):
-                    result = cleanup_orphaned_pods()
+                    cleanup_orphaned_pods()
     mock_terminate.assert_called_once_with("pod_orphan")
 
 
@@ -149,5 +149,5 @@ def test_cleanup_preserves_pod_with_active_job():
         with patch("runpod.get_pods", return_value=mock_pods):
             with patch("runpod.terminate_pod") as mock_terminate:
                 with patch("saas.workers.tasks._get_active_job_pod_ids", return_value={"pod_active"}):
-                    result = cleanup_orphaned_pods()
+                    cleanup_orphaned_pods()
     mock_terminate.assert_not_called()

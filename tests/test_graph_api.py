@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 from sqlalchemy import text
 
 from saas.models.job import SimulationJob, JobStatus

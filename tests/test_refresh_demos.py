@@ -1,5 +1,4 @@
 """Tests for infra/scripts/refresh_demos.py"""
-import pytest
 from infra.scripts.refresh_demos import DEMO_CONFIGS, validate_snapshot
 
 

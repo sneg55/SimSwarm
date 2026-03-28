@@ -1,9 +1,8 @@
 """
 Tests for infra/scripts/benchmark_report.py — Task 2 (2 tests)
 """
-import pytest
 
-from infra.scripts.benchmark_report import MARGIN_THRESHOLD, generate_markdown_report
+from infra.scripts.benchmark_report import generate_markdown_report
 
 
 def _make_results(

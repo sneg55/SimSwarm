@@ -1,5 +1,4 @@
 """Tests for PDF export endpoint."""
-import pytest
 from unittest.mock import patch, MagicMock
 
 from saas.models.job import SimulationJob, JobStatus

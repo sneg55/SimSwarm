@@ -10,12 +10,11 @@ Covers:
 
 from __future__ import annotations
 
-import json
 import time
 import hashlib
 import hmac
 import pytest
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 from saas.billing.credit_packs import CREDIT_PACKS
 
@@ -233,7 +232,6 @@ async def test_webhook_ignores_non_checkout_events(client, auth_headers):
     Events other than checkout.session.completed should be accepted (200)
     but no credits should be added.
     """
-    user_id = auth_headers["_user_id"]
     other_event = MagicMock()
     other_event.type = "payment_intent.succeeded"
 

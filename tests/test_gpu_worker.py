@@ -70,7 +70,7 @@ class TestRunJobArgParsing:
     """Verify that run_job.py's argparse setup accepts the expected CLI flags."""
 
     def _parse(self, args: list[str]):
-        mod = _load_run_job_module()
+        _load_run_job_module()  # verify it loads without error
         # Temporarily replace sys.argv so argparse reads our list
         original_argv = sys.argv[:]
         sys.argv = ["run_job.py"] + args

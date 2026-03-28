@@ -1,5 +1,4 @@
 """Tests for GPU provider abstraction layer."""
-import pytest
 from saas.gpu.provider import GPUProviderConfig, GPUInstance
 
 

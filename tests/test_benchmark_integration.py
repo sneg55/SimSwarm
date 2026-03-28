@@ -7,11 +7,9 @@ that results.json is written correctly and that all computed margins are positiv
 from __future__ import annotations
 
 import json
-from pathlib import Path
 
-import pytest
 
-from infra.scripts.benchmark import CREDIT_PRICES_USD, RESULTS_PATH, run_all_benchmarks
+from infra.scripts.benchmark import run_all_benchmarks
 
 
 # ---------------------------------------------------------------------------
