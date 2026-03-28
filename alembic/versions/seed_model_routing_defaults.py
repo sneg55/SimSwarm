@@ -21,9 +21,9 @@ def upgrade() -> None:
     op.execute("""
         INSERT INTO model_routing (sim_tier, model_id, gpu_type, max_rounds, vllm_args)
         VALUES
-            ('small', 'Qwen2.5-32B-Instruct-AWQ', 'a100-40gb', 200, '--quantization awq --max-model-len 32768'),
-            ('medium', 'Qwen2.5-32B-Instruct-AWQ', 'h100-80gb', 200, '--quantization awq --max-model-len 32768'),
-            ('large', 'Qwen2.5-32B-Instruct-AWQ', 'h100-80gb', 200, '--quantization awq --max-model-len 32768')
+            ('small', 'Qwen/Qwen2.5-32B-Instruct-AWQ', 'a100-40gb', 200, '--quantization awq --max-model-len 32768'),
+            ('medium', 'Qwen/Qwen2.5-32B-Instruct-AWQ', 'h100-80gb', 200, '--quantization awq --max-model-len 32768'),
+            ('large', 'Qwen/Qwen2.5-32B-Instruct-AWQ', 'h100-80gb', 200, '--quantization awq --max-model-len 32768')
         ON CONFLICT (sim_tier) DO NOTHING;
     """)
 

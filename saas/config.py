@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     # MiroFish engine config (injected into adapter)
     LLM_API_KEY: str
     LLM_BASE_URL: str = "http://localhost:8000/v1"
-    LLM_MODEL_NAME: str = "Qwen2.5-32B-Instruct-AWQ"
+    LLM_MODEL_NAME: str = "Qwen/Qwen2.5-32B-Instruct-AWQ"
     ZEP_API_KEY: str
 
     # Stripe billing

@@ -44,19 +44,19 @@ from refresh_demos import DEMO_CONFIGS, _load_seed_text
 # Model routing defaults (match seed_model_routing_defaults.py migration)
 TIER_ROUTING = {
     "small": {
-        "model_id": "Qwen2.5-32B-Instruct-AWQ",
+        "model_id": "Qwen/Qwen2.5-32B-Instruct-AWQ",
         "gpu_type": "a100-40gb",
         "max_rounds": 200,
         "vllm_args": "--quantization awq --max-model-len 32768",
     },
     "medium": {
-        "model_id": "Qwen2.5-32B-Instruct-AWQ",
+        "model_id": "Qwen/Qwen2.5-32B-Instruct-AWQ",
         "gpu_type": "h100-80gb",
         "max_rounds": 200,
         "vllm_args": "--quantization awq --max-model-len 32768",
     },
     "large": {
-        "model_id": "Qwen2.5-32B-Instruct-AWQ",
+        "model_id": "Qwen/Qwen2.5-32B-Instruct-AWQ",
         "gpu_type": "h100-80gb",
         "max_rounds": 200,
         "vllm_args": "--quantization awq --max-model-len 32768",
