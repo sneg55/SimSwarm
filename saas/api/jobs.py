@@ -70,7 +70,7 @@ async def create_job(
         raise HTTPException(status_code=500, detail=f"No model routing configured for tier: {body.tier.value}")
 
     # Dispatch to Celery worker
-    run_simulation_task.delay(
+    task_result = run_simulation_task.delay(
         job_id=job.id,
         user_id=user_id,
         seed_text=body.seed_text,
@@ -83,6 +83,10 @@ async def create_job(
         llm_api_key=os.getenv("LLM_API_KEY", "not-needed"),
         zep_api_key=os.getenv("ZEP_API_KEY", ""),
     )
+
+    # Store Celery task ID for recovery on worker restart
+    job.celery_task_id = task_result.id
+    await session.commit()
 
     return job
 

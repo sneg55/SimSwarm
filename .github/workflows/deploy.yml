@@ -76,6 +76,12 @@ jobs:
             fi
 
             docker compose build
+
+            # Graceful Celery shutdown: stop accepting new tasks, wait for in-flight to finish
+            # Send SIGTERM (warm shutdown) — Celery will finish current tasks then exit
+            # Timeout after 120s — if a task takes longer, it will be recovered on restart
+            docker compose stop -t 120 celery || true
+
             docker compose run --rm migrate
             docker compose up -d app celery redis db caddy frontend-init
             docker image prune -f
