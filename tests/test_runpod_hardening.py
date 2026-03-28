@@ -133,7 +133,7 @@ def test_task_has_max_retries_1():
 
 def test_cleanup_terminates_pod_not_in_active_jobs():
     from saas.workers.tasks import cleanup_orphaned_pods
-    mock_pods = [{"id": "pod_orphan", "name": "fishcloud-sim", "machine": {"gpuDisplayName": "A100"}}]
+    mock_pods = [{"id": "pod_orphan", "name": "fishcloud-sim", "machine": {"gpuDisplayName": "A100"}, "runtime": {"uptimeInSeconds": 600}}]
     with patch.dict(os.environ, {"RUNPOD_API_KEY": "test-key", "DATABASE_URL": ""}):
         with patch("runpod.get_pods", return_value=mock_pods):
             with patch("runpod.terminate_pod") as mock_terminate:

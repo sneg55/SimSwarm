@@ -157,6 +157,16 @@ def recover_stale_jobs() -> dict:
                 )
                 recovered.append({"job_id": job_id, "reason": reason})
 
+                from saas.workers.alerts import send_orphan_alert
+                age_s = int(age_seconds)
+                send_orphan_alert(
+                    pod_id=pod_id or "unknown",
+                    gpu_type="unknown",
+                    uptime_seconds=age_s,
+                    reason=f"recovery_{reason}",
+                    job_id=job_id,
+                )
+
             # Refund credits for recovered jobs
             for item in recovered:
                 jid = item["job_id"]
