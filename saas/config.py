@@ -24,4 +24,8 @@ class Settings(BaseSettings):
     MAX_SEED_CHARS: int = 50_000
     MAX_SIMULATION_ROUNDS: int = 200
 
+    # Worker image
+    WORKER_IMAGE_REPO: str = "ghcr.io/sneg55/simswarm-worker"
+    WORKER_IMAGE_TAG: str = "latest"
+
     model_config = {"env_file": ".env", "extra": "ignore"}

@@ -1,7 +1,7 @@
 import json
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -18,19 +18,19 @@ from saas.workers.tasks import run_simulation_task
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
-MAX_SEED_CHARS = 50_000
-
 
 @router.post("", response_model=JobResponse, status_code=201)
 async def create_job(
+    request: Request,
     body: JobCreate,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    if len(body.seed_text) > MAX_SEED_CHARS:
+    max_seed_chars = request.app.state.settings.MAX_SEED_CHARS
+    if len(body.seed_text) > max_seed_chars:
         raise HTTPException(
             status_code=400,
-            detail=f"Seed text exceeds maximum of {MAX_SEED_CHARS} characters",
+            detail=f"Seed text exceeds maximum of {max_seed_chars} characters",
         )
 
     user_id = current_user["user_id"]
