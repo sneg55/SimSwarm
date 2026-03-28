@@ -90,14 +90,14 @@ function buildElements() {
   }
 
   for (const edge of props.edges) {
-    if (visibleNodeIds.has(edge.source) && visibleNodeIds.has(edge.target)) {
+    if (visibleNodeIds.has(edge.source_node_uuid) && visibleNodeIds.has(edge.target_node_uuid)) {
       elements.push({
         group: 'edges',
         data: {
-          id: edge.id || `${edge.source}-${edge.target}-${edge.type}`,
-          source: edge.source,
-          target: edge.target,
-          label: edge.type || '',
+          id: edge.uuid || `e-${edge.source_node_uuid}-${edge.target_node_uuid}`,
+          source: edge.source_node_uuid,
+          target: edge.target_node_uuid,
+          label: edge.name || edge.fact || '',
         },
       })
     }

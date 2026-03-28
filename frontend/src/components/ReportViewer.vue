@@ -1,25 +1,29 @@
 <template>
-  <div class="report-prose" v-html="renderedMarkdown" />
+  <div class="report-prose" v-html="safeHtml" />
 </template>
 
 <script setup>
 import { computed } from 'vue'
+import MarkdownIt from 'markdown-it'
+import DOMPurify from 'dompurify'
+
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  typographer: true,
+})
 
 const props = defineProps({
   content: { type: String, default: '' },
 })
 
-const renderedMarkdown = computed(() => {
+const safeHtml = computed(() => {
   if (!props.content) return ''
-  return props.content
-    .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-    .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-    .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g, '<em>$1</em>')
-    .replace(/`(.+?)`/g, '<code>$1</code>')
-    .replace(/\n\n/g, '</p><p>')
-    .replace(/^(?!<[hp])(.+)/gm, '<p>$1</p>')
+  const rawHtml = md.render(props.content)
+  return DOMPurify.sanitize(rawHtml, {
+    ALLOWED_TAGS: ['h1','h2','h3','h4','p','strong','em','code','pre','ul','ol','li','a','blockquote','br','table','thead','tbody','tr','th','td'],
+    ALLOWED_ATTR: ['href','target','rel'],
+  })
 })
 </script>
 
