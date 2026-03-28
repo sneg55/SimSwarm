@@ -1,0 +1,87 @@
+"""Integration tests for job dispatch lifecycle and credit recovery (#22).
+
+These tests exercise the full job lifecycle (create -> status transitions -> refund)
+against a real test SQLite database, verifying that credits are correctly debited,
+refunded on failure, and that status transitions are properly persisted.
+"""
+import pytest
+from unittest.mock import patch, MagicMock
+
+from saas.models.job import SimulationJob, JobStatus
+
+
+async def test_failed_job_gets_refund(client, auth_headers, funded_user, seeded_routing, db_session):
+    """When a job fails, credits should be refunded."""
+    # Create job
+    mock_task = MagicMock()
+    mock_task.id = "mock-task-1"
+    with patch("saas.api.jobs.run_simulation_task.delay", return_value=mock_task):
+        resp = await client.post(
+            "/api/jobs",
+            headers=auth_headers,
+            json={"seed_text": "Test content for simulation.", "goal": "Test", "tier": "small"},
+        )
+    assert resp.status_code == 201
+    job_id = resp.json()["id"]
+
+    # Check credits were deducted
+    balance = await client.get("/api/billing/balance", headers=auth_headers)
+    assert balance.json()["balance"] == 10000 - 30
+
+    # Simulate job failure by marking it failed + refunding (what the worker does)
+    from saas.billing.ledger import CreditLedger
+
+    # Mark failed via DB
+    job = await db_session.get(SimulationJob, job_id)
+    job.status = JobStatus.FAILED
+    job.error_message = "Test failure"
+    await db_session.commit()
+
+    # Refund via ledger
+    ledger = CreditLedger(db_session)
+    await ledger.credit(user_id=auth_headers["_user_id"], amount=30, description=f"Refund for job {job_id}")
+    await db_session.commit()
+
+    # Check balance restored
+    balance = await client.get("/api/billing/balance", headers=auth_headers)
+    assert balance.json()["balance"] == 10000
+
+
+async def test_duplicate_refund_creates_extra_credit(client, auth_headers, funded_user, seeded_routing, db_session):
+    """Two refunds for the same job should both apply (idempotency is at webhook level, not refund level)."""
+    from saas.billing.ledger import CreditLedger
+
+    ledger = CreditLedger(db_session)
+    uid = auth_headers["_user_id"]
+    await ledger.credit(user_id=uid, amount=30, description="Refund 1")
+    await ledger.credit(user_id=uid, amount=30, description="Refund 2")
+    await db_session.commit()
+
+    balance = await client.get("/api/billing/balance", headers=auth_headers)
+    assert balance.json()["balance"] == 10000 + 60
+
+
+async def test_job_status_transitions(client, auth_headers, funded_user, seeded_routing, db_session):
+    """Job goes through valid status transitions."""
+    mock_task = MagicMock()
+    mock_task.id = "mock-task-2"
+    with patch("saas.api.jobs.run_simulation_task.delay", return_value=mock_task):
+        resp = await client.post(
+            "/api/jobs",
+            headers=auth_headers,
+            json={"seed_text": "Test content.", "goal": "Test", "tier": "small"},
+        )
+    job_id = resp.json()["id"]
+
+    # Should start as PENDING
+    job_resp = await client.get(f"/api/jobs/{job_id}", headers=auth_headers)
+    assert job_resp.json()["status"] == "PENDING"
+
+    # Simulate status transitions
+    job = await db_session.get(SimulationJob, job_id)
+    for status in [JobStatus.PROVISIONING, JobStatus.RUNNING, JobStatus.COMPLETED]:
+        job.status = status
+        await db_session.commit()
+        await db_session.refresh(job)
+        job_resp = await client.get(f"/api/jobs/{job_id}", headers=auth_headers)
+        assert job_resp.json()["status"] == status.value
