@@ -88,15 +88,19 @@ def _infer_pipeline_stage(log_lines: list[str]) -> int | None:
 class JobRunner:
     """Manages the full lifecycle of a simulation job on a GPU instance."""
 
-    def __init__(self, gpu_provider: GPUProvider, stage_callback=None):
+    def __init__(self, gpu_provider: GPUProvider, stage_callback=None, pod_id_callback=None):
         self.gpu_provider = gpu_provider
         # Optional async callable(job_id, stage) invoked when pipeline_stage changes
         self._stage_callback = stage_callback
+        # Optional async callable(job_id, pod_id) invoked right after GPU provisioning
+        self._pod_id_callback = pod_id_callback
 
     async def run(self, config: JobConfig) -> dict:
         """Provision a GPU, run the pipeline, then terminate the instance.
 
-        Enforces the tier timeout as a hard upper bound on the entire job.
+        Provisioning runs with its own internal timeout (MAX_POLL_ATTEMPTS).
+        The tier timeout wraps only pipeline execution, ensuring the finally
+        block always has a valid pod_id to terminate.
         """
         gpu_config = GPUProviderConfig(
             gpu_type=config.gpu_type,
@@ -106,28 +110,22 @@ class JobRunner:
             env_vars=config.to_mirofish_env(),
         )
 
-        # Mark job as provisioning so the frontend can show GPU spin-up status
         if self._stage_callback is not None:
             try:
                 await self._stage_callback(config.job_id, 0)
             except Exception:
                 pass
 
-        timeout = config.timeout_seconds
+        timeout = getattr(config, "_timeout_override", None) or config.timeout_seconds
         logger.info(f"Job {config.job_id}: starting with {timeout}s tier timeout ({config.tier})")
 
-        try:
-            return await asyncio.wait_for(
-                self._run_inner(gpu_config, config), timeout=timeout
-            )
-        except asyncio.TimeoutError:
-            raise TimeoutError(
-                f"Job {config.job_id} exceeded {config.tier} tier timeout of {timeout}s"
-            )
+        return await self._run_inner(gpu_config, config, timeout)
 
-    async def _run_inner(self, gpu_config, config: JobConfig) -> dict:
-        """Inner run method wrapped by the tier timeout."""
+    async def _run_inner(self, gpu_config, config: JobConfig, timeout: int | float) -> dict:
+        """Provision GPU, run pipeline with tier timeout, guarantee teardown."""
         import time
+
+        # Phase 1: Provision (own internal timeout via MAX_POLL_ATTEMPTS)
         provision_start = time.monotonic()
         instance = await self.gpu_provider.provision(gpu_config)
         provision_seconds = int(time.monotonic() - provision_start)
@@ -139,18 +137,33 @@ class JobRunner:
                    "pod_id": pod_id, "elapsed_s": provision_seconds},
         )
 
+        # Persist pod_id immediately so cleanup/recovery can find it
+        if self._pod_id_callback is not None:
+            try:
+                await self._pod_id_callback(config.job_id, pod_id)
+            except Exception:
+                logger.warning("pod_id_callback failed for job %d", config.job_id)
+
+        # Phase 2: Pipeline (wrapped with tier timeout, teardown guaranteed)
         try:
             pipeline_start = time.monotonic()
-            result = await self._execute_pipeline(instance.instance_id, config)
+            result = await asyncio.wait_for(
+                self._execute_pipeline(pod_id, config),
+                timeout=timeout,
+            )
             pipeline_seconds = int(time.monotonic() - pipeline_start)
             result["pod_id"] = pod_id
             result["provision_seconds"] = provision_seconds
             result["pipeline_seconds"] = pipeline_seconds
             return result
+        except asyncio.TimeoutError:
+            raise TimeoutError(
+                f"Job {config.job_id} exceeded {config.tier} tier timeout of {timeout}s"
+            )
         except Exception as e:
-            logger.error(f"Pipeline failed for pod {instance.instance_id}: {e}")
+            logger.error(f"Pipeline failed for pod {pod_id}: {e}")
             try:
-                worker_url = f"https://{instance.instance_id}-5000.proxy.runpod.net"
+                worker_url = f"https://{pod_id}-5000.proxy.runpod.net"
                 async with httpx.AsyncClient(timeout=10) as client:
                     status_resp = await client.get(f"{worker_url}/status")
                     if status_resp.status_code == 200:
@@ -159,7 +172,7 @@ class JobRunner:
                 logger.warning("Could not retrieve worker status before termination")
             raise
         finally:
-            await self.gpu_provider.terminate(instance.instance_id)
+            await self.gpu_provider.terminate(pod_id)
 
     async def _log_worker_output(
         self, worker_url: str, source: str = "all", tail: int = 20,

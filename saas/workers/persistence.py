@@ -140,6 +140,33 @@ def _update_pipeline_stage(job_id: int, stage: int) -> None:
     _run_async(_do_update())
 
 
+def _update_pod_id(job_id: int, pod_id: str) -> None:
+    """Persist pod_id to the SimulationJob row immediately after GPU provisioning."""
+    from sqlalchemy import text
+
+    factory = _get_worker_session_factory()
+    if factory is None:
+        logger.warning("DATABASE_URL not set; skipping pod_id update for job %d", job_id)
+        return
+
+    async def _do_update():
+        async with factory() as session:
+            try:
+                await session.execute(
+                    text(
+                        "UPDATE simulation_jobs SET pod_id = :pod_id "
+                        "WHERE id = :job_id"
+                    ),
+                    {"pod_id": pod_id, "job_id": job_id},
+                )
+                await session.commit()
+                logger.info("Saved pod_id=%s for job %d (early persist)", pod_id, job_id)
+            except Exception as exc:
+                logger.warning("Could not save pod_id for job %d: %s", job_id, exc)
+
+    _run_async(_do_update())
+
+
 def _update_job_metadata(job_id: int, pod_id: str, provision_seconds: int | None = None, pipeline_seconds: int | None = None) -> None:
     """Persist pod_id and timing metadata to the SimulationJob row."""
     from sqlalchemy import text
