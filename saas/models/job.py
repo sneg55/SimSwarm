@@ -42,3 +42,4 @@ class SimulationJob(Base):
     retry_count: Mapped[int] = mapped_column(Integer, default=0)
     provision_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
     pipeline_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    key_insight: Mapped[str | None] = mapped_column(String(200), nullable=True)
