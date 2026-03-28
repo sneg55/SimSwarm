@@ -385,6 +385,62 @@ def run_simulation_task(
         raise
 
 
+@celery_app.task(
+    name="fishcloud.resume_simulation",
+    bind=True,
+    max_retries=0,
+)
+def resume_simulation_task(
+    self,
+    job_id: int,
+    user_id: str,
+    pod_id: str,
+    credits_charged: int = 0,
+) -> dict:
+    """Resume polling an existing pod after worker restart.
+
+    Reconnects to a pod that was running a simulation when the worker died.
+    Polls /status until complete, saves results, and terminates the pod.
+    """
+    gpu_provider = _get_gpu_provider()
+
+    async def _stage_cb(j_id: int, stage: int) -> None:
+        _update_pipeline_stage(j_id, stage)
+
+    runner = JobRunner(gpu_provider=gpu_provider, stage_callback=_stage_cb)
+
+    try:
+        result = _run_async(runner.resume(pod_id=pod_id, job_id=job_id))
+
+        report = result.get("report", "")
+        chat_log = result.get("chat_log", "")
+        graph_data = result.get("graph_data", "{}")
+
+        _save_job_results(job_id=job_id, report=report, chat_log=chat_log, graph_data=graph_data)
+
+        logger.info(
+            "job.resumed_completed job_id=%d pod_id=%s report_chars=%d",
+            job_id, pod_id, len(report),
+        )
+        return result
+
+    except Exception as exc:
+        error_msg = f"Resume failed: {exc}"
+        logger.error("job.resume_failed job_id=%d pod_id=%s error=%s", job_id, pod_id, error_msg)
+
+        _mark_job_failed(job_id=job_id, error_message=error_msg)
+        if credits_charged > 0:
+            _refund_credits(job_id=job_id, user_id=user_id, credits=credits_charged)
+
+        # Terminate the pod — it's no use to us anymore
+        try:
+            _run_async(gpu_provider.terminate(pod_id))
+        except Exception:
+            pass
+
+        raise
+
+
 @celery_app.task(name="fishcloud.cleanup_orphaned_pods")
 def cleanup_orphaned_pods() -> dict:
     """Terminate RunPod pods that have no matching RUNNING/PENDING job.
@@ -489,6 +545,7 @@ def recover_stale_jobs() -> dict:
         from saas.workers.job_runner import TIER_TIMEOUTS
         now = datetime.now(timezone.utc)
         recovered = []
+        resumed = []
 
         with engine.connect() as conn:
             for row in stale_jobs:
@@ -502,15 +559,22 @@ def recover_stale_jobs() -> dict:
                 age_seconds = (now - created_at).total_seconds()
                 pod_alive = pod_id in active_pods if pod_id else False
 
-                # Skip if pod is still alive and job isn't past timeout
                 if pod_alive and age_seconds < timeout:
+                    # Pod is still running and within timeout — resume polling
                     logger.info(
-                        "recover.skip_alive job_id=%d pod_id=%s age=%ds",
+                        "recover.resuming job_id=%d pod_id=%s age=%ds",
                         job_id, pod_id, int(age_seconds),
                     )
+                    resume_simulation_task.delay(
+                        job_id=job_id,
+                        user_id=user_id,
+                        pod_id=pod_id,
+                        credits_charged=credits_charged,
+                    )
+                    resumed.append({"job_id": job_id, "pod_id": pod_id})
                     continue
 
-                # Job is stale — mark failed and refund
+                # Job is stale — pod gone or past timeout — mark failed and refund
                 reason = "pod_gone" if not pod_alive else "timeout"
                 error_msg = f"Job recovered after worker restart ({reason}, age={int(age_seconds)}s)"
 
@@ -561,9 +625,18 @@ def recover_stale_jobs() -> dict:
             conn.commit()
 
         engine.dispose()
-        result = {"stale_jobs": len(stale_jobs), "recovered": len(recovered), "details": recovered}
-        if recovered:
-            logger.warning("recover.summary stale=%d recovered=%d", len(stale_jobs), len(recovered))
+        result = {
+            "stale_jobs": len(stale_jobs),
+            "recovered": len(recovered),
+            "resumed": len(resumed),
+            "details": recovered,
+            "resumed_details": resumed,
+        }
+        if recovered or resumed:
+            logger.warning(
+                "recover.summary stale=%d recovered=%d resumed=%d",
+                len(stale_jobs), len(recovered), len(resumed),
+            )
         return result
 
     except Exception as e:

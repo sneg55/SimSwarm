@@ -243,12 +243,19 @@ class JobRunner:
                     error_msg = resp.text[:2000]
                 raise RuntimeError(f"Worker rejected job: {error_msg}")
 
-        pipeline_start = time.monotonic()
         logger.info("Job accepted by worker, polling /status...")
 
-        # ------------------------------------------------------------------
-        # 2b. Poll /status until completed or failed (up to 1 hour)
-        # ------------------------------------------------------------------
+        return await self._poll_until_complete(worker_url, instance_id, config)
+
+    async def _poll_until_complete(
+        self, worker_url: str, instance_id: str, config: JobConfig,
+    ) -> dict:
+        """Poll /status until completed or failed (up to 1 hour).
+
+        Shared by _execute_pipeline (normal flow) and resume (reconnect flow).
+        """
+        import time
+        poll_start = time.monotonic()
         max_polls = 360  # 360 * 10s = 1 hour
         last_stage: int | None = None
         for poll in range(max_polls):
@@ -265,7 +272,7 @@ class JobRunner:
             log_lines: list[str] = []
 
             if poll % 6 == 0:  # Log every 60s
-                elapsed = int(time.monotonic() - pipeline_start)
+                elapsed = int(time.monotonic() - poll_start)
                 logger.info(f"Pipeline status: {job_status} ({elapsed}s elapsed, poll {poll + 1}/{max_polls})")
                 # Pull recent logs from the worker
                 try:
@@ -292,7 +299,7 @@ class JobRunner:
 
             if job_status == "completed":
                 result = status_data
-                elapsed = int(time.monotonic() - pipeline_start)
+                elapsed = int(time.monotonic() - poll_start)
                 logger.info(
                     f"Pipeline completed in {elapsed}s!",
                     extra={"event": "pipeline_completed", "job_id": config.job_id,
@@ -309,9 +316,6 @@ class JobRunner:
         else:
             raise TimeoutError("Pipeline did not complete within 1 hour")
 
-        # ------------------------------------------------------------------
-        # 3. Return structured result for the Celery task to persist
-        # ------------------------------------------------------------------
         return {
             "job_id": config.job_id,
             "instance_id": instance_id,
@@ -320,3 +324,56 @@ class JobRunner:
             "graph_data": result.get("graph_data", "{}"),
             "status": "completed",
         }
+
+    async def resume(self, pod_id: str, job_id: int) -> dict:
+        """Reconnect to an existing pod and poll until complete.
+
+        Used after worker restart to pick up jobs that were running on pods
+        that are still alive.
+        """
+        worker_url = f"https://{pod_id}-5000.proxy.runpod.net"
+        logger.info(
+            "job.resuming job_id=%d pod_id=%s url=%s",
+            job_id, pod_id, worker_url,
+        )
+
+        # Quick health check — is the pod actually responding?
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(f"{worker_url}/status")
+                status_data = resp.json()
+                job_status = status_data.get("status", "unknown")
+                logger.info("job.resume_status job_id=%d pod_status=%s", job_id, job_status)
+        except Exception as e:
+            raise RuntimeError(f"Cannot reach pod {pod_id} for resume: {e}")
+
+        # If already completed, return result immediately
+        if job_status == "completed":
+            logger.info("job.resume_already_complete job_id=%d", job_id)
+            return {
+                "job_id": job_id,
+                "instance_id": pod_id,
+                "report": status_data.get("report", ""),
+                "chat_log": status_data.get("chat_log", "[]"),
+                "graph_data": status_data.get("graph_data", "{}"),
+                "status": "completed",
+            }
+
+        if job_status == "failed":
+            error_msg = status_data.get("error", "Unknown error")
+            raise RuntimeError(f"Pod pipeline already failed: {error_msg}")
+
+        if job_status == "idle":
+            raise RuntimeError(f"Pod {pod_id} is idle — pipeline was never started or already reset")
+
+        # Still running — create a minimal config for the polling loop
+        from dataclasses import dataclass as _dc
+        minimal_config = type("MinimalConfig", (), {"job_id": job_id})()
+
+        try:
+            result = await self._poll_until_complete(worker_url, pod_id, minimal_config)
+            return result
+        finally:
+            # Terminate pod after resume completes (success or failure)
+            logger.info("job.resume_terminating pod_id=%s", pod_id)
+            await self.gpu_provider.terminate(pod_id)
