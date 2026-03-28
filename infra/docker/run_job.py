@@ -404,6 +404,98 @@ def extract_graph_data(graph_id: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Structured results (no LLM calls — pure data transformation)
+# ---------------------------------------------------------------------------
+
+FINDING_COLORS = ["#22D3EE", "#A78BFA", "#F97316", "#6EE7B7", "#FF6B6B", "#FBBF24"]
+
+
+def build_structured_results(outline, section_contents, chat_log, graph_data):
+    """Build structured results from pipeline outputs. No LLM calls needed."""
+    brief = ""
+    if outline and outline.get("summary"):
+        brief = outline["summary"]
+
+    # Findings from outline sections + section content
+    findings = []
+    sections = (outline or {}).get("sections", [])
+    sorted_files = sorted(section_contents.keys())
+    for i, section in enumerate(sections):
+        content = ""
+        if i < len(sorted_files):
+            raw = section_contents[sorted_files[i]]
+            paragraphs = [p.strip() for p in raw.split("\n\n") if p.strip() and not p.strip().startswith("#")]
+            content = paragraphs[0] if paragraphs else ""
+        findings.append({
+            "label": "FINDING",
+            "title": section.get("title", f"Section {i + 1}"),
+            "description": content[:500],
+            "metric": "",
+            "accentColor": FINDING_COLORS[i % len(FINDING_COLORS)],
+        })
+
+    # Sentiment from chat_log action types per platform
+    sentiment = []
+    platform_actions = {}
+    for action in chat_log:
+        platform = action.get("platform", "unknown")
+        action_type = action.get("action_type", "")
+        if platform not in platform_actions:
+            platform_actions[platform] = {"positive": 0, "total": 0}
+        platform_actions[platform]["total"] += 1
+        if action_type in ("CREATE_POST", "LIKE_POST", "REPOST", "COMMENT"):
+            platform_actions[platform]["positive"] += 1
+    for platform, counts in platform_actions.items():
+        total = counts["total"]
+        positive = counts["positive"]
+        value = int((positive / total) * 100) if total > 0 else 0
+        sentiment.append({"label": platform.capitalize(), "value": value, "direction": "positive" if value >= 50 else "negative"})
+
+    # Coalitions from FOLLOW patterns
+    coalitions = []
+    follow_graph = {}
+    agent_names = set()
+    for action in chat_log:
+        name = action.get("agent_name", "")
+        if name:
+            agent_names.add(name)
+        if action.get("action_type") == "FOLLOW":
+            target = action.get("action_args", {}).get("target", "")
+            if name and target:
+                follow_graph.setdefault(name, set()).add(target)
+    visited = set()
+    coalition_colors = ["#22D3EE", "#A78BFA", "#F97316", "#6EE7B7", "#FF6B6B"]
+    ci = 0
+    for agent in follow_graph:
+        if agent in visited:
+            continue
+        group = {agent}
+        for target in follow_graph.get(agent, set()):
+            if agent in follow_graph.get(target, set()):
+                group.add(target)
+        if len(group) >= 2:
+            visited.update(group)
+            coalitions.append({
+                "name": f"Coalition {ci + 1}",
+                "description": f"Mutual followers: {', '.join(sorted(group))}",
+                "agents": len(group),
+                "strength": min(100, len(group) * 20),
+                "color": coalition_colors[ci % len(coalition_colors)],
+            })
+            ci += 1
+
+    # Confidence from simulation metadata
+    meta = graph_data.get("metadata", {})
+    confidence = [
+        {"label": "Agents", "value": str(len(agent_names)), "color": "#22D3EE"},
+        {"label": "Rounds", "value": str(len(chat_log)), "color": "#A78BFA"},
+        {"label": "Graph Entities", "value": str(meta.get("total_nodes", 0)), "color": "#6EE7B7"},
+    ]
+
+    return {"brief": brief, "findings": findings, "sentiment": sentiment, "coalitions": coalitions, "confidence": confidence}
+
+
+# ---------------------------------------------------------------------------
 # Main pipeline
 # ---------------------------------------------------------------------------
 
@@ -420,6 +512,28 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
 
     # Extract graph data from Zep before the ephemeral graph is destroyed
     graph_data = extract_graph_data(graph_id)
+
+    # Build structured results from pipeline outputs
+    structured = {}
+    try:
+        report_dirs = list(Path("/tmp/results").parent.glob("report_*"))
+        if not report_dirs:
+            report_dirs = list(Path("/tmp").glob("report_*"))
+        outline = None
+        section_contents = {}
+        for rd in report_dirs:
+            outline_file = rd / "outline.json"
+            if outline_file.exists():
+                outline = json.loads(outline_file.read_text(encoding="utf-8"))
+            for sf in sorted(rd.glob("section_*.md")):
+                section_contents[sf.name] = sf.read_text(encoding="utf-8")
+        structured = build_structured_results(outline, section_contents, chat_log, graph_data)
+        print(f"[run_job] Structured results: {len(structured.get('findings', []))} findings", flush=True)
+    except Exception as exc:
+        print(f"[run_job] WARNING: structured results failed: {exc}", flush=True)
+
+    structured_str = json.dumps(structured, ensure_ascii=False, default=str)
+    (out / "structured_results.json").write_text(structured_str, encoding="utf-8")
 
     (out / "report.md").write_text(report_md, encoding="utf-8")
     chat_log_str = json.dumps(chat_log, ensure_ascii=False, default=str)
