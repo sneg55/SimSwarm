@@ -197,7 +197,7 @@ def prepare_simulation(project_id: str, graph_id: str, seed_text: str, goal: str
         project_id=project_id,
         graph_id=graph_id,
         enable_twitter=True,
-        enable_reddit=True,
+        enable_reddit=False,
     )
     simulation_id = state.simulation_id
 
@@ -230,7 +230,7 @@ def run_and_wait(simulation_id: str, max_rounds: int, poll_interval: int = 10) -
     print(f"[run_job] Step 4: Starting simulation (max_rounds={max_rounds})...", flush=True)
     run_state = SimulationRunner.start_simulation(
         simulation_id=simulation_id,
-        platform="parallel",
+        platform="twitter",
         max_rounds=max_rounds,
     )
 
