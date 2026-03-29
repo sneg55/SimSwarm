@@ -111,52 +111,67 @@ function getStylesheet() {
     {
       selector: 'node',
       style: {
-        'background-color': 'data(color)',
-        'background-opacity': 0.85,
+        // Concentric ring effect: dark fill + colored wide border + glow
+        'background-color': '#0B1120',
+        'background-opacity': 0.7,
         width: 'data(size)',
         height: 'data(size)',
         label: 'data(label)',
         'text-valign': 'bottom',
         'text-halign': 'center',
-        'text-margin-y': 8,
-        'font-size': 12,
+        'text-margin-y': 10,
+        'font-size': 13,
         'font-weight': 600,
         'font-family': 'Inter, system-ui, sans-serif',
         color: '#E2E8F0',
         'text-outline-color': '#0B1120',
-        'text-outline-width': 2,
-        'text-max-width': 120,
+        'text-outline-width': 2.5,
+        'text-max-width': 130,
         'text-wrap': 'ellipsis',
-        'border-width': 2,
+        // Thick colored ring border
+        'border-width': 4,
         'border-color': 'data(color)',
-        'border-opacity': 0.4,
+        'border-opacity': 0.9,
         'overlay-padding': 6,
-        'shadow-blur': 20,
+        // Bioluminescent glow
+        'shadow-blur': 25,
         'shadow-color': 'data(color)',
-        'shadow-opacity': 0.5,
+        'shadow-opacity': 0.6,
         'shadow-offset-x': 0,
         'shadow-offset-y': 0,
-        'transition-property': 'opacity, border-width, border-color, shadow-blur',
+        'transition-property': 'opacity, border-width, border-color, shadow-blur, shadow-opacity',
         'transition-duration': '300ms',
+      },
+    },
+    {
+      // Inner dot via :active pseudo-style workaround — use a second style for nodes
+      // Cytoscape doesn't support pseudo-elements, so we use pie-chart background
+      // to simulate the inner dot
+      selector: 'node',
+      style: {
+        'pie-size': '40%',
+        'pie-1-background-color': 'data(color)',
+        'pie-1-background-size': 100,
+        'pie-1-background-opacity': 0.9,
       },
     },
     {
       selector: 'edge',
       style: {
-        width: 1.5,
+        width: 2,
         'line-color': '#334155',
-        'line-opacity': 0.5,
+        'line-opacity': 0.4,
         'target-arrow-color': '#475569',
         'target-arrow-shape': 'triangle',
-        'arrow-scale': 0.7,
+        'arrow-scale': 0.8,
         'curve-style': 'bezier',
         label: props.showEdgeLabels ? 'data(label)' : '',
         'font-size': 9,
         color: '#94A3B8',
         'text-rotation': 'autorotate',
-        'text-margin-y': -8,
+        'text-margin-y': -10,
         'text-outline-color': '#0B1120',
-        'text-outline-width': 1.5,
+        'text-outline-width': 2,
         'transition-property': 'opacity, line-color, width',
         'transition-duration': '300ms',
       },
@@ -164,19 +179,18 @@ function getStylesheet() {
     {
       selector: '.highlighted',
       style: {
-        'border-width': 3,
-        'border-color': '#22D3EE',
-        'border-opacity': 0.8,
-        'shadow-blur': 40,
-        'shadow-opacity': 0.8,
+        'border-width': 5,
+        'border-opacity': 1,
+        'shadow-blur': 45,
+        'shadow-opacity': 0.9,
       },
     },
     {
       selector: '.highlighted-edge',
       style: {
-        width: 2.5,
+        width: 3,
         'line-color': '#22D3EE',
-        'line-opacity': 0.8,
+        'line-opacity': 0.9,
         'target-arrow-color': '#22D3EE',
       },
     },
@@ -184,25 +198,25 @@ function getStylesheet() {
       selector: '.neighbor',
       style: {
         opacity: 1,
-        'shadow-blur': 25,
-        'shadow-opacity': 0.6,
+        'shadow-blur': 30,
+        'shadow-opacity': 0.7,
       },
     },
     {
       selector: '.dimmed',
       style: {
-        opacity: 0.15,
+        opacity: 0.12,
       },
     },
     {
       selector: '.selected-node',
       style: {
-        'border-width': 3,
+        'border-width': 5,
         'border-color': '#A78BFA',
         'border-opacity': 1,
-        'shadow-blur': 50,
+        'shadow-blur': 55,
         'shadow-color': '#A78BFA',
-        'shadow-opacity': 0.7,
+        'shadow-opacity': 0.8,
       },
     },
   ]
@@ -294,7 +308,7 @@ function focusNode(id) {
 
 function exportImage() {
   if (!cy) return null
-  return cy.png({ full: true, scale: 2, bg: '#ffffff' })
+  return cy.png({ full: true, scale: 2, bg: '#0B1120' })
 }
 
 function getCy() {

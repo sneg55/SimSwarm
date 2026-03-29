@@ -2,7 +2,8 @@
   <div
     ref="wrapperRef"
     class="relative bg-ocean-abyss rounded-xl border border-mist-depth overflow-hidden"
-    :class="isFullscreen ? 'fixed inset-0 z-50 rounded-none' : 'h-[600px]'"
+    :class="isFullscreen ? 'fixed inset-0 z-50 rounded-none' : ''"
+    :style="!isFullscreen ? 'height: calc(100vh - 120px)' : ''"
   >
     <!-- Loading state -->
     <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-ocean-abyss/80 z-40">
@@ -24,6 +25,21 @@
 
     <!-- Graph content -->
     <template v-else>
+      <!-- Ambient particles -->
+      <div class="ambient-particles" aria-hidden="true">
+        <div v-for="i in 30" :key="i" class="particle"
+          :style="{
+            left: `${(i * 37 + 13) % 100}%`,
+            top: `${(i * 53 + 7) % 100}%`,
+            width: `${2 + (i % 3)}px`,
+            height: `${2 + (i % 3)}px`,
+            opacity: 0.15 + (i % 5) * 0.05,
+            animationDelay: `${(i * 0.7) % 8}s`,
+            animationDuration: `${6 + (i % 4) * 2}s`,
+          }"
+        />
+      </div>
+
       <GraphCanvas
         ref="canvasRef"
         :nodes="visibleNodes"
@@ -271,3 +287,24 @@ onBeforeUnmount(() => {
   clearTimeout(hoverTimer)
 })
 </script>
+
+<style scoped>
+.ambient-particles {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  background: #22d3ee;
+  animation: particle-drift ease-in-out infinite alternate;
+}
+@keyframes particle-drift {
+  0% { transform: translate(0, 0) scale(1); opacity: 0.1; }
+  50% { opacity: 0.3; }
+  100% { transform: translate(12px, -18px) scale(1.4); opacity: 0.08; }
+}
+</style>
