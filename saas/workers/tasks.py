@@ -7,6 +7,9 @@ from saas.workers.celery_app import celery_app
 from saas.workers.job_runner import JobConfig, JobRunner
 from saas.workers.utils import _run_async, _get_gpu_provider
 from saas.workers.persistence import (
+    _async_update_heartbeat,
+    _async_update_pipeline_stage,
+    _async_update_pod_id,
     _extract_key_insight,
     _mark_job_failed,
     _save_job_results,
@@ -74,13 +77,13 @@ def run_simulation_task(
     gpu_provider = _get_gpu_provider()
 
     async def _stage_cb(j_id: int, stage: int) -> None:
-        _update_pipeline_stage(j_id, stage)
+        await _async_update_pipeline_stage(j_id, stage)
 
     async def _pod_id_cb(j_id: int, pod_id: str) -> None:
-        _update_pod_id(j_id, pod_id)
+        await _async_update_pod_id(j_id, pod_id)
 
     async def _heartbeat_cb(j_id: int) -> None:
-        _update_heartbeat(j_id)
+        await _async_update_heartbeat(j_id)
 
     runner = JobRunner(
         gpu_provider=gpu_provider,
@@ -168,10 +171,10 @@ def resume_simulation_task(
     gpu_provider = _get_gpu_provider()
 
     async def _stage_cb(j_id: int, stage: int) -> None:
-        _update_pipeline_stage(j_id, stage)
+        await _async_update_pipeline_stage(j_id, stage)
 
     async def _heartbeat_cb(j_id: int) -> None:
-        _update_heartbeat(j_id)
+        await _async_update_heartbeat(j_id)
 
     runner = JobRunner(
         gpu_provider=gpu_provider,

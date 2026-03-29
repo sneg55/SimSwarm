@@ -121,52 +121,54 @@ def _mark_job_failed(job_id: int, error_message: str) -> None:
 
 def _update_pipeline_stage(job_id: int, stage: int) -> None:
     """Update pipeline_stage on a SimulationJob row."""
+    _run_async(_async_update_pipeline_stage(job_id, stage))
+
+
+async def _async_update_pipeline_stage(job_id: int, stage: int) -> None:
+    """Async impl of _update_pipeline_stage — safe to await from async callbacks."""
     from sqlalchemy import text
 
     factory = _get_worker_session_factory()
     if factory is None:
         return
-
-    async def _do_update():
-        async with factory() as session:
-            try:
-                await session.execute(
-                    text("UPDATE simulation_jobs SET pipeline_stage = :stage WHERE id = :job_id"),
-                    {"stage": stage, "job_id": job_id},
-                )
-                await session.commit()
-                logger.debug("Set pipeline_stage=%d for job %d", stage, job_id)
-            except Exception as exc:
-                logger.warning("Could not update pipeline_stage for job %d: %s", job_id, exc)
-
-    _run_async(_do_update())
+    async with factory() as session:
+        try:
+            await session.execute(
+                text("UPDATE simulation_jobs SET pipeline_stage = :stage WHERE id = :job_id"),
+                {"stage": stage, "job_id": job_id},
+            )
+            await session.commit()
+            logger.debug("Set pipeline_stage=%d for job %d", stage, job_id)
+        except Exception as exc:
+            logger.warning("Could not update pipeline_stage for job %d: %s", job_id, exc)
 
 
 def _update_pod_id(job_id: int, pod_id: str) -> None:
     """Persist pod_id to the SimulationJob row immediately after GPU provisioning."""
+    _run_async(_async_update_pod_id(job_id, pod_id))
+
+
+async def _async_update_pod_id(job_id: int, pod_id: str) -> None:
+    """Async impl of _update_pod_id — safe to await from async callbacks."""
     from sqlalchemy import text
 
     factory = _get_worker_session_factory()
     if factory is None:
         logger.warning("DATABASE_URL not set; skipping pod_id update for job %d", job_id)
         return
-
-    async def _do_update():
-        async with factory() as session:
-            try:
-                await session.execute(
-                    text(
-                        "UPDATE simulation_jobs SET pod_id = :pod_id "
-                        "WHERE id = :job_id"
-                    ),
-                    {"pod_id": pod_id, "job_id": job_id},
-                )
-                await session.commit()
-                logger.info("Saved pod_id=%s for job %d (early persist)", pod_id, job_id)
-            except Exception as exc:
-                logger.warning("Could not save pod_id for job %d: %s", job_id, exc)
-
-    _run_async(_do_update())
+    async with factory() as session:
+        try:
+            await session.execute(
+                text(
+                    "UPDATE simulation_jobs SET pod_id = :pod_id "
+                    "WHERE id = :job_id"
+                ),
+                {"pod_id": pod_id, "job_id": job_id},
+            )
+            await session.commit()
+            logger.info("Saved pod_id=%s for job %d (early persist)", pod_id, job_id)
+        except Exception as exc:
+            logger.warning("Could not save pod_id for job %d: %s", job_id, exc)
 
 
 def _update_job_metadata(job_id: int, pod_id: str, provision_seconds: int | None = None, pipeline_seconds: int | None = None) -> None:
@@ -206,27 +208,28 @@ def _update_job_metadata(job_id: int, pod_id: str, provision_seconds: int | None
 
 def _update_heartbeat(job_id: int) -> None:
     """Update last_heartbeat timestamp on a SimulationJob row."""
+    _run_async(_async_update_heartbeat(job_id))
+
+
+async def _async_update_heartbeat(job_id: int) -> None:
+    """Async impl of _update_heartbeat — safe to await from async callbacks."""
     from sqlalchemy import text
 
     factory = _get_worker_session_factory()
     if factory is None:
         return
-
-    async def _do_update():
-        async with factory() as session:
-            try:
-                await session.execute(
-                    text(
-                        "UPDATE simulation_jobs SET last_heartbeat = :now "
-                        "WHERE id = :job_id"
-                    ),
-                    {"now": datetime.now(timezone.utc), "job_id": job_id},
-                )
-                await session.commit()
-            except Exception as exc:
-                logger.warning("Could not update heartbeat for job %d: %s", job_id, exc)
-
-    _run_async(_do_update())
+    async with factory() as session:
+        try:
+            await session.execute(
+                text(
+                    "UPDATE simulation_jobs SET last_heartbeat = :now "
+                    "WHERE id = :job_id"
+                ),
+                {"now": datetime.now(timezone.utc), "job_id": job_id},
+            )
+            await session.commit()
+        except Exception as exc:
+            logger.warning("Could not update heartbeat for job %d: %s", job_id, exc)
 
 
 def _update_job_retry(job_id: int, retry_count: int) -> None:
