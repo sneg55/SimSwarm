@@ -142,7 +142,7 @@ import FindingCard from '../components/results/FindingCard.vue'
 import SentimentBars from '../components/results/SentimentBars.vue'
 import CoalitionCard from '../components/results/CoalitionCard.vue'
 import ConfidenceGrid from '../components/results/ConfidenceGrid.vue'
-import { getJob, getJobGraph } from '../api/jobs.js'
+import { getJob, getJobGraph, createShareLink } from '../api/jobs.js'
 
 const route = useRoute()
 const jobId = route.params.id
@@ -347,11 +347,19 @@ function triggerDownload(blob, filename) {
   URL.revokeObjectURL(url)
 }
 
-function handleShare() {
-  if (navigator.share) {
-    navigator.share({ title: job.value?.goal, url: window.location.href }).catch(() => {})
-  } else {
-    navigator.clipboard.writeText(window.location.href).then(() => alert('Link copied!')).catch(() => {})
+async function handleShare() {
+  try {
+    const data = await createShareLink(jobId)
+    const publicUrl = `${window.location.origin}/s/${data.share_token}`
+    if (navigator.share) {
+      navigator.share({ title: job.value?.goal, url: publicUrl }).catch(() => {})
+    } else {
+      await navigator.clipboard.writeText(publicUrl)
+      alert('Public link copied!')
+    }
+  } catch (err) {
+    console.error('Failed to create share link:', err)
+    alert('Failed to create share link.')
   }
 }
 

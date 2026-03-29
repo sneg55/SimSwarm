@@ -39,3 +39,13 @@ export async function exportJSON(jobId) {
   const resp = await api.get(`/jobs/${jobId}/export/json`, { responseType: 'blob' })
   return resp.data
 }
+
+export async function createShareLink(jobId) {
+  const resp = await api.post(`/jobs/${jobId}/share`)
+  return resp.data
+}
+
+export async function revokeShareLink(jobId) {
+  const resp = await api.delete(`/jobs/${jobId}/share`)
+  return resp.data
+}
