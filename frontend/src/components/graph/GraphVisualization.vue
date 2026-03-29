@@ -335,6 +335,8 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onEscKey)
   clearTimeout(hoverTimer)
 })
+
+defineExpose({ exportImage: onExport })
 </script>
 
 <style scoped>

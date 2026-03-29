@@ -239,6 +239,17 @@ onMounted(() => {
   initAttractors()
   initAgents(W, H)
   lastTime = performance.now() * 0.001
+  // Skip animation loop for users who prefer reduced motion — render once static
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    ctx.clearRect(0, 0, W, H)
+    for (const a of agents) {
+      ctx.beginPath()
+      ctx.arc(a.x, a.y, a.size, 0, Math.PI * 2)
+      ctx.fillStyle = `rgba(${a.r},${a.g},${a.b},0.5)`
+      ctx.fill()
+    }
+    return
+  }
   raf = requestAnimationFrame(animate)
 
   const parent = containerRef.value.parentElement

@@ -21,8 +21,8 @@
     <template v-else>
       <!-- ── Story View ── -->
       <div v-if="viewMode === 'story'" class="relative pt-[120px] pb-24">
-        <!-- Left timeline -->
-        <StoryTimeline :sections="storySections" />
+        <!-- Left TOC -->
+        <ReportToc :items="storySections" />
 
         <!-- Content -->
         <div class="max-w-[800px] mx-auto pl-12 pr-4 xl:pl-16 space-y-12">
@@ -77,6 +77,7 @@
       <!-- ── Graph View ── -->
       <div v-else-if="viewMode === 'graph'" class="pt-[52px] overflow-hidden" style="height: 100vh">
         <GraphVisualization
+          ref="graphVizRef"
           :nodes="graphData?.nodes || []"
           :edges="graphData?.edges || []"
           :metadata="graphData?.metadata || {}"
@@ -157,6 +158,7 @@ const job = ref(null)
 const loading = ref(true)
 const viewMode = ref('story')
 
+const graphVizRef = ref(null)
 const graphData = ref(null)
 const graphLoading = ref(false)
 const graphError = ref(null)
@@ -348,10 +350,9 @@ function exportCSV() {
 }
 
 function exportPNG() {
-  // Graph PNG export is delegated to the GraphVisualization component via the
-  // canvas it manages. We emit a custom event that GraphVisualization can listen
-  // to if wired; for now, print a message to the console.
-  console.warn('PNG export: trigger from GraphVisualization component ref if needed.')
+  if (graphVizRef.value) {
+    graphVizRef.value.exportImage()
+  }
 }
 
 function triggerDownload(blob, filename) {
