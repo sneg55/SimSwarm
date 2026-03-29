@@ -2,7 +2,7 @@
   <div class="fixed top-[56px] left-0 right-0 z-40 glass-solid border-b border-mist-depth/50">
     <div class="max-w-6xl mx-auto px-4 md:px-8 py-2.5 flex items-center justify-between">
     <div class="flex items-center gap-2 text-sm text-mist-slate">
-      <router-link to="/dashboard" class="hover:text-mist-drift transition-colors">&larr; Dashboard</router-link>
+      <router-link :to="backLink" class="hover:text-mist-drift transition-colors">&larr; {{ backLabel }}</router-link>
       <span>/</span>
       <span class="text-mist-drift">{{ title }}</span>
     </div>
@@ -21,6 +21,8 @@ defineProps({
   title: { type: String, default: 'Results' },
   viewMode: { type: String, default: 'story' },
   showToggle: { type: Boolean, default: true },
+  backLink: { type: String, default: '/dashboard' },
+  backLabel: { type: String, default: 'Dashboard' },
 })
 
 defineEmits(['update:viewMode'])
