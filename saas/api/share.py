@@ -1,7 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi.responses import HTMLResponse
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
+import html as html_mod
 
 from saas.database import get_session
 from saas.models.job import SimulationJob, JobStatus
@@ -77,6 +79,60 @@ async def get_shared_result(
         "created_at": job.created_at.isoformat() if job.created_at else None,
         "completed_at": job.completed_at.isoformat() if job.completed_at else None,
     }
+
+
+@router.get("/{token}/og", response_class=HTMLResponse)
+async def get_shared_og_page(
+    token: str,
+    request: Request,
+    session: AsyncSession = Depends(get_session),
+):
+    """Return an HTML page with OpenGraph meta tags for link previews."""
+    result = await session.execute(
+        select(SimulationJob).where(SimulationJob.share_token == token)
+    )
+    job = result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Shared result not found")
+
+    title = html_mod.escape(job.goal or "SimSwarm Simulation")
+    description = ""
+    if job.key_insight:
+        description = html_mod.escape(job.key_insight[:200])
+    elif job.result_report:
+        # First non-heading paragraph, max 200 chars
+        for line in job.result_report.split("\n"):
+            stripped = line.strip()
+            if stripped and not stripped.startswith("#") and len(stripped) > 30:
+                description = html_mod.escape(stripped[:200])
+                break
+    if not description:
+        description = html_mod.escape(f"AI swarm simulation: {job.goal or ''}"[:200])
+
+    tier = html_mod.escape((job.tier or "").capitalize())
+    canonical = f"https://simswarm.com/s/{token}"
+
+    return f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{title} — SimSwarm</title>
+<meta name="description" content="{description}">
+<meta property="og:type" content="article">
+<meta property="og:title" content="{title}">
+<meta property="og:description" content="{description}">
+<meta property="og:url" content="{canonical}">
+<meta property="og:site_name" content="SimSwarm">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="{title}">
+<meta name="twitter:description" content="{description}">
+<meta http-equiv="refresh" content="0;url=/s/{token}">
+</head>
+<body>
+<p>Redirecting to <a href="/s/{token}">SimSwarm results</a>...</p>
+</body>
+</html>"""
 
 
 @router.get("/{token}/graph")

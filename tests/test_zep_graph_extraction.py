@@ -170,11 +170,15 @@ class TestGraphExtractionHappyPath:
     def test_extract_graph_entity_types_excludes_generic_labels(self):
         nodes = [
             _make_mock_node("n1", "Alice", ["Entity", "Node", "Person"], ""),
+            _make_mock_node("n2", "Bob", ["Entity", "Node"], ""),
+        ]
+        edges = [
+            _make_mock_edge("e1", "knows", "Alice knows Bob", "n1", "n2", "Alice", "Bob"),
         ]
 
         mock_cls = MagicMock()
         mock_cls.return_value.get_all_nodes.return_value = nodes
-        mock_cls.return_value.get_all_edges.return_value = []
+        mock_cls.return_value.get_all_edges.return_value = edges
 
         run_job = _import_run_job(mock_cls)
         result = run_job.extract_graph_data("graph-id")

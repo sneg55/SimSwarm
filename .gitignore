@@ -1,6 +1,8 @@
 __pycache__/
 *.pyc
 .env
+.env.local
+.env.docker
 !.env.example
 !.env.production
 .venv/
@@ -17,3 +19,4 @@ docs/benchmarks/results.json
 .worktrees/
 .superpowers/
 celerybeat-schedule*
+docker-compose.override.yml

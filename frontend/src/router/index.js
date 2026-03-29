@@ -54,6 +54,11 @@ const routes = [
     name: 'SharedResult',
     component: () => import('../views/SharedResult.vue'),
   },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('../views/NotFound.vue'),
+  },
 ]
 
 const router = createRouter({

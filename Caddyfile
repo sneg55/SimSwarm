@@ -1,4 +1,13 @@
 {$DOMAIN:localhost} {
+	# Security headers
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+
 	# Frontend static files
 	handle /assets/* {
 		root * /srv/frontend
@@ -7,6 +16,17 @@
 
 	# API proxy
 	handle /api/* {
+		reverse_proxy app:8080
+	}
+
+	# Share link OG tags for crawlers (bots get meta tags, browsers get SPA)
+	@crawler {
+		header_regexp User-Agent (?i)(bot|crawl|spider|preview|slack|twitter|facebook|linkedin|discord|telegram|whatsapp|signal|embedly|quora|pinterest|vkshare|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|TelegramBot|WhatsApp|redditbot)
+		path /s/*
+	}
+	handle @crawler {
+		uri strip_prefix /s
+		uri * /api/share{uri}/og
 		reverse_proxy app:8080
 	}
 
