@@ -8,6 +8,8 @@
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { getEntityColor, getPrimaryLabel } from './graphColors.js'
 
+const PANEL_WIDTH = 320 // w-80 = 20rem
+
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
   edges: { type: Array, default: () => [] },
@@ -15,6 +17,7 @@ const props = defineProps({
   showEdgeLabels: { type: Boolean, default: false },
   layoutName: { type: String, default: 'force' },
   selectedNodeId: { type: String, default: null },
+  panelOpen: { type: Boolean, default: false },
 })
 
 const emit = defineEmits(['node-click', 'node-hover', 'node-unhover', 'ready'])
@@ -84,10 +87,12 @@ function buildGraph() {
   const typeNames = Object.keys(typeGroups)
   const clusterCount = typeNames.length || 1
 
-  // Create cluster centers in a circle
+  // Create cluster centers in a circle — use available width (excluding panel)
+  const rightBound = props.panelOpen ? W - PANEL_WIDTH : W
+  const centerX = rightBound / 2 / W  // proportional center of available area
   const clusters = typeNames.map((_, i) => ({
-    x: 0.5 + Math.cos((i / clusterCount) * Math.PI * 2 - Math.PI / 2) * 0.3,
-    y: 0.5 + Math.sin((i / clusterCount) * Math.PI * 2 - Math.PI / 2) * 0.3,
+    x: centerX + Math.cos((i / clusterCount) * Math.PI * 2 - Math.PI / 2) * 0.2,
+    y: 0.5 + Math.sin((i / clusterCount) * Math.PI * 2 - Math.PI / 2) * 0.2,
   }))
 
   const nodeIdMap = {}
@@ -103,7 +108,7 @@ function buildGraph() {
       const sentiment = node.sentiment ?? 0
       const baseSize = 4 + Math.sqrt(connCount + 1) * 3
       const angle = (i / group.length) * Math.PI * 2 + Math.random() * 0.5
-      const radius = 0.05 + Math.random() * 0.08
+      const radius = 0.03 + Math.random() * 0.05
 
       const gn = {
         id: node.uuid,
@@ -248,9 +253,10 @@ function animate(timestamp) {
     n.x += n.vx
     n.y += n.vy
 
-    // Bounds
+    // Bounds — keep nodes within visible area (left of panel when open)
+    const rBound = props.panelOpen ? W - PANEL_WIDTH - 40 : W - 40
     if (n.x < 40) n.vx += 0.08
-    if (n.x > W - 40) n.vx -= 0.08
+    if (n.x > rBound) n.vx -= 0.08
     if (n.y < 40) n.vy += 0.08
     if (n.y > H - 40) n.vy -= 0.08
   }
@@ -390,14 +396,48 @@ function runLayout() {
   buildGraph()
 }
 
+function fitToVisibleArea() {
+  if (!graphNodes.length || !W || !H) return
+  const rightBound = props.panelOpen ? W - PANEL_WIDTH : W
+  const margin = 50
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
+  for (const n of graphNodes) {
+    if (props.hiddenTypes.has(n.type)) continue
+    minX = Math.min(minX, n.x)
+    maxX = Math.max(maxX, n.x)
+    minY = Math.min(minY, n.y)
+    maxY = Math.max(maxY, n.y)
+  }
+  if (minX === Infinity) return
+
+  const bbW = maxX - minX || 1
+  const bbH = maxY - minY || 1
+  const availW = rightBound - margin * 2
+  const availH = H - margin * 2
+  const scale = Math.min(availW / bbW, availH / bbH, 1)
+  const bbCx = (minX + maxX) / 2
+  const bbCy = (minY + maxY) / 2
+  const targetCx = margin + availW / 2
+  const targetCy = margin + availH / 2
+
+  for (const n of graphNodes) {
+    n.x = (n.x - bbCx) * scale + targetCx
+    n.y = (n.y - bbCy) * scale + targetCy
+    n.homeX = n.x / W
+    n.homeY = n.y / H
+  }
+}
+
 function focusNode(id) {
   const node = graphNodes.find(n => n.id === id)
   if (!node) return
   highlightedNodeId = id
   highlightStartTime = performance.now() * 0.001
-  // Pan node to center
-  const cx = W / 2, cy = H / 2
-  const dx = cx - node.x, dy = cy - node.y
+  // Pan node to center of available area (left of panel)
+  const rightBound = props.panelOpen ? W - PANEL_WIDTH : W
+  const cx = rightBound / 2, cy2 = H / 2
+  const dx = cx - node.x, dy = cy2 - node.y
   for (const n of graphNodes) {
     n.x += dx; n.y += dy
     n.homeX += dx / W; n.homeY += dy / H
@@ -413,7 +453,7 @@ function exportImage() {
 
 function getCy() { return null }
 
-defineExpose({ runLayout, focusNode, exportImage, getCy })
+defineExpose({ runLayout, focusNode, exportImage, getCy, fitToVisibleArea })
 
 // Watch for data changes
 watch([() => props.nodes, () => props.edges], () => {
@@ -425,6 +465,11 @@ watch(() => props.hiddenTypes, () => {}, { deep: true })
 watch(() => props.selectedNodeId, (id) => {
   if (id) focusNode(id)
   else { selectedNode = null; connectedIds.clear(); highlightedNodeId = null }
+})
+
+// When panel opens/closes, refit nodes to visible area
+watch(() => props.panelOpen, () => {
+  setTimeout(() => fitToVisibleArea(), 50)
 })
 
 onMounted(() => {

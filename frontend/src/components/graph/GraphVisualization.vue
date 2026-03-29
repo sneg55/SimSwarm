@@ -47,6 +47,7 @@
         :show-edge-labels="showEdgeLabels"
         :layout-name="layoutName"
         :selected-node-id="selectedNode?.id || null"
+        :panel-open="!!selectedNode"
         @node-click="onNodeClick"
         @node-hover="onNodeHover"
         @node-unhover="onNodeUnhover"
@@ -238,8 +239,7 @@ function onRefresh() {
 }
 
 function onZoomFit() {
-  const cy = canvasRef.value?.getCy?.()
-  if (cy) cy.fit(undefined, 30)
+  if (canvasRef.value) canvasRef.value.fitToVisibleArea()
 }
 
 function toggleFullscreen() {
