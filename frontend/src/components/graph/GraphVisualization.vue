@@ -53,16 +53,13 @@
         @ready="onCanvasReady"
       />
 
-      <!-- Search bar (top-left) -->
-      <div class="absolute top-3 left-3 z-10">
+      <!-- Unified toolbar bar -->
+      <div class="absolute top-0 left-0 right-0 z-10 flex items-center gap-2 px-3 py-2 glass border-b border-mist-depth/50">
         <GraphSearchBar
           :nodes="allNodes"
           @select-node="onSearchSelect"
         />
-      </div>
-
-      <!-- Controls (top-right) -->
-      <div class="absolute top-3 right-3 z-10">
+        <div class="flex-1" />
         <GraphControls
           :show-edge-labels="showEdgeLabels"
           :layout-name="layoutName"
@@ -79,11 +76,12 @@
       </div>
 
       <!-- Legend (bottom-left) -->
-      <div class="absolute bottom-3 left-3 z-10">
+      <div class="absolute bottom-14 left-3 z-10">
         <GraphLegend
           :entity-types="entityTypeSummary"
           :hidden-types="hiddenTypes"
           :filter-banner="filterBanner"
+          :nodes="allNodes"
           @toggle-type="toggleType"
           @show-all="showAllTypes"
           @hide-all="hideAllTypes"

@@ -242,6 +242,18 @@ function getStylesheet() {
         'shadow-opacity': 0.8,
       },
     },
+    {
+      selector: '.selected-edge',
+      style: {
+        label: 'data(label)',
+        width: 3,
+        'line-color': '#22D3EE',
+        'line-opacity': 0.85,
+        'target-arrow-color': '#22D3EE',
+        color: '#E2E8F0',
+        'font-size': 10,
+      },
+    },
   ]
 }
 
@@ -262,12 +274,20 @@ function initCytoscape() {
   // Re-fit after layout completes and start ambient glow animation
   cy.on('layoutstop', () => {
     cy.fit(undefined, 30)
-    startAmbientGlow()
+    startAmbientAnimation()
   })
 
   cy.on('tap', 'node', (evt) => {
     const node = evt.target
     const data = node.data()
+    // Clear previous selection
+    cy.elements().removeClass('selected-node selected-edge dimmed')
+    // Highlight selected node + connected edges, dim the rest
+    const neighborhood = node.neighborhood().add(node)
+    cy.elements().addClass('dimmed')
+    neighborhood.removeClass('dimmed')
+    node.addClass('selected-node').removeClass('dimmed')
+    node.connectedEdges().addClass('selected-edge').removeClass('dimmed')
     emit('node-click', {
       id: data.id,
       name: data.label,
@@ -282,6 +302,7 @@ function initCytoscape() {
 
   cy.on('tap', (evt) => {
     if (evt.target === cy) {
+      cy.elements().removeClass('selected-node selected-edge dimmed')
       emit('node-click', null)
     }
   })
@@ -311,6 +332,18 @@ function initCytoscape() {
     cy.elements().removeClass('dimmed neighbor highlighted highlighted-edge')
   })
 
+  // Pause drift when user grabs a node, update anchor on release
+  cy.on('grab', 'node', () => { stopAmbientAnimation() })
+  cy.on('free', 'node', (evt) => {
+    const node = evt.target
+    if (nodeAnchors) {
+      const pos = node.position()
+      const a = nodeAnchors.get(node.id())
+      if (a) { a.x = pos.x; a.y = pos.y }
+    }
+    startAmbientAnimation()
+  })
+
   // Edge hover — show label on individual edge
   cy.on('mouseover', 'edge', (evt) => {
     evt.target.addClass('hover-edge')
@@ -322,18 +355,51 @@ function initCytoscape() {
   emit('ready')
 }
 
-let glowInterval = null
-function startAmbientGlow() {
-  if (glowInterval) clearInterval(glowInterval)
-  glowInterval = setInterval(() => {
-    if (!cy) return
-    cy.nodes().forEach((node, i) => {
-      const phase = (Date.now() / 2000 + i * 0.7) % (Math.PI * 2)
-      const blur = 20 + Math.sin(phase) * 10
-      const opacity = 0.5 + Math.sin(phase) * 0.2
-      node.style({ 'shadow-blur': blur, 'shadow-opacity': opacity })
+let animFrame = null
+let nodeAnchors = null
+
+function startAmbientAnimation() {
+  // Store each node's layout position as its "anchor"
+  if (!cy) return
+  nodeAnchors = new Map()
+  cy.nodes().forEach((node, i) => {
+    const pos = node.position()
+    nodeAnchors.set(node.id(), {
+      x: pos.x, y: pos.y,
+      phase: i * 1.3,       // offset so nodes drift differently
+      speed: 0.3 + (i % 5) * 0.1,
+      radius: 3 + (i % 4) * 1.5,
     })
-  }, 100)
+  })
+
+  function tick() {
+    if (!cy || !nodeAnchors) return
+    const t = Date.now() / 1000
+    cy.batch(() => {
+      cy.nodes().forEach((node) => {
+        const a = nodeAnchors.get(node.id())
+        if (!a) return
+        // Gentle drift around anchor
+        const dx = Math.sin(t * a.speed + a.phase) * a.radius
+        const dy = Math.cos(t * a.speed * 0.7 + a.phase + 1.5) * a.radius
+        node.position({ x: a.x + dx, y: a.y + dy })
+        // Glow pulse
+        const glowPhase = (t + a.phase) % (Math.PI * 2)
+        node.style({
+          'shadow-blur': 20 + Math.sin(glowPhase) * 10,
+          'shadow-opacity': 0.5 + Math.sin(glowPhase) * 0.2,
+        })
+      })
+    })
+    animFrame = requestAnimationFrame(tick)
+  }
+  tick()
+}
+
+function stopAmbientAnimation() {
+  if (animFrame) cancelAnimationFrame(animFrame)
+  animFrame = null
+  nodeAnchors = null
 }
 
 function runLayout(name) {
@@ -405,7 +471,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  if (glowInterval) clearInterval(glowInterval)
+  stopAmbientAnimation()
   if (cy) {
     cy.destroy()
     cy = null

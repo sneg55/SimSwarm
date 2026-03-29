@@ -27,7 +27,7 @@
         <!-- Content -->
         <div class="max-w-[800px] mx-auto pl-12 pr-4 xl:pl-16 space-y-12">
           <!-- Simulation header -->
-          <div id="story-header" class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
+          <div id="story-header" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
             <h1 class="text-2xl font-bold text-mist-foam mb-2">{{ job.goal }}</h1>
             <p class="text-sm text-mist-slate capitalize">
               {{ job.tier }} tier
@@ -37,17 +37,18 @@
           </div>
 
           <!-- Report -->
-          <div id="story-report" class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
+          <div id="story-report" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
             <template v-if="structured">
               <div v-if="structured.brief" class="mb-8">
                 <h2 class="text-lg font-bold text-mist-foam mb-3">Executive Brief</h2>
                 <p class="text-sm text-mist-drift leading-relaxed">{{ structured.brief }}</p>
               </div>
               <ConfidenceGrid v-if="structured.confidence?.length" :items="structured.confidence" class="mb-8" />
-              <div v-if="structured.findings?.length" class="mb-8">
+              <div v-if="structured.findings?.length" class="mb-8" data-reveal data-reveal-stagger>
                 <h2 class="text-lg font-bold text-mist-foam mb-4">Key Findings</h2>
                 <div class="grid gap-4">
                   <FindingCard v-for="(f, i) in structured.findings" :key="i"
+                    data-reveal-child
                     :label="f.label" :title="f.title" :description="f.description"
                     :metric="f.metric" :accent-color="f.accentColor" />
                 </div>
@@ -93,7 +94,7 @@
         <!-- Content shifted right on xl screens -->
         <div class="max-w-[800px] mx-auto pl-12 pr-4 xl:pl-16 space-y-12">
           <!-- Simulation header -->
-          <div id="report-header" class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
+          <div id="report-header" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
             <h1 class="text-2xl font-bold text-mist-foam mb-2">{{ job.goal }}</h1>
             <p class="text-sm text-mist-slate capitalize">
               {{ job.tier }} tier
@@ -103,7 +104,7 @@
           </div>
 
           <!-- Report -->
-          <div id="report-content" class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
+          <div id="report-content" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
             <ReportViewer :content="job.result_report || job.report || 'No report available.'" />
           </div>
 
@@ -143,10 +144,13 @@ import FindingCard from '../components/results/FindingCard.vue'
 import SentimentBars from '../components/results/SentimentBars.vue'
 import CoalitionCard from '../components/results/CoalitionCard.vue'
 import ConfidenceGrid from '../components/results/ConfidenceGrid.vue'
+import { useScrollReveal } from '../composables/useScrollReveal.js'
 import { getJob, getJobGraph, createShareLink } from '../api/jobs.js'
 
 const route = useRoute()
 const jobId = route.params.id
+
+useScrollReveal()
 
 const job = ref(null)
 const loading = ref(true)
@@ -226,7 +230,7 @@ const sentimentBars = computed(() => {
 // ── Graph helpers ─────────────────────────────────────────────────────────────
 
 function buildNodeRelationships(nodes, edges) {
-  const nameMap = Object.fromEntries(nodes.map(n => [n.uuid, n.name]))
+  const nameMap = Object.fromEntries(nodes.map(n => [n.uuid, n.name || n.uuid]))
   const relMap = {}
   for (const edge of edges) {
     if (!relMap[edge.source_node_uuid]) relMap[edge.source_node_uuid] = []

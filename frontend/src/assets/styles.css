@@ -45,4 +45,28 @@
   .glow-coral-lg {
     box-shadow: 0 0 40px rgba(255, 107, 107, 0.4), 0 6px 20px rgba(0, 0, 0, 0.3);
   }
+
+  /* ── Scroll-reveal animations ── */
+  [data-reveal] {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.7s ease, transform 0.7s ease;
+    /* Keep element in layout flow so IntersectionObserver can detect it */
+    will-change: opacity, transform;
+  }
+  [data-reveal].revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  /* Stagger children */
+  [data-reveal-child] {
+    opacity: 0;
+    transform: translateY(16px);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+  }
+  [data-reveal-child].revealed {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
