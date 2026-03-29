@@ -136,6 +136,8 @@ function buildGraph() {
         connectionCount: connCount,
         summary: node.summary || '',
         labels: (node.labels || []).join(', '),
+        stance: node.stance || null,
+        influenceWeight: node.influence_weight ?? null,
         relationships: node.relationships || [],
       }
       graphNodes.push(gn)
@@ -189,6 +191,7 @@ function onMouseMove(e) {
       name: hoveredNode.name,
       entityType: hoveredNode.type,
       sentiment: hoveredNode.sentiment,
+      stance: hoveredNode.stance,
       x: mouseX,
       y: mouseY,
     })
@@ -213,6 +216,8 @@ function onClick() {
       entityType: hoveredNode.type,
       labels: hoveredNode.labels,
       sentiment: hoveredNode.sentiment,
+      stance: hoveredNode.stance,
+      influenceWeight: hoveredNode.influenceWeight,
       summary: hoveredNode.summary,
       connectionCount: hoveredNode.connectionCount,
       relationships: hoveredNode.relationships,

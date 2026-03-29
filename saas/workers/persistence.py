@@ -125,7 +125,10 @@ def _update_pipeline_stage(job_id: int, stage: int) -> None:
 
 
 async def _async_update_pipeline_stage(job_id: int, stage: int) -> None:
-    """Async impl of _update_pipeline_stage — safe to await from async callbacks."""
+    """Async impl of _update_pipeline_stage — safe to await from async callbacks.
+
+    Also transitions status to RUNNING on the first real pipeline stage (>= 1).
+    """
     from sqlalchemy import text
 
     factory = _get_worker_session_factory()
@@ -133,10 +136,20 @@ async def _async_update_pipeline_stage(job_id: int, stage: int) -> None:
         return
     async with factory() as session:
         try:
-            await session.execute(
-                text("UPDATE simulation_jobs SET pipeline_stage = :stage WHERE id = :job_id"),
-                {"stage": stage, "job_id": job_id},
-            )
+            if stage >= 1:
+                await session.execute(
+                    text(
+                        "UPDATE simulation_jobs "
+                        "SET pipeline_stage = :stage, status = 'RUNNING' "
+                        "WHERE id = :job_id"
+                    ),
+                    {"stage": stage, "job_id": job_id},
+                )
+            else:
+                await session.execute(
+                    text("UPDATE simulation_jobs SET pipeline_stage = :stage WHERE id = :job_id"),
+                    {"stage": stage, "job_id": job_id},
+                )
             await session.commit()
             logger.debug("Set pipeline_stage=%d for job %d", stage, job_id)
         except Exception as exc:
@@ -160,13 +173,13 @@ async def _async_update_pod_id(job_id: int, pod_id: str) -> None:
         try:
             await session.execute(
                 text(
-                    "UPDATE simulation_jobs SET pod_id = :pod_id "
+                    "UPDATE simulation_jobs SET pod_id = :pod_id, status = 'PROVISIONING' "
                     "WHERE id = :job_id"
                 ),
                 {"pod_id": pod_id, "job_id": job_id},
             )
             await session.commit()
-            logger.info("Saved pod_id=%s for job %d (early persist)", pod_id, job_id)
+            logger.info("Saved pod_id=%s for job %d (status → PROVISIONING)", pod_id, job_id)
         except Exception as exc:
             logger.warning("Could not save pod_id for job %d: %s", job_id, exc)
 

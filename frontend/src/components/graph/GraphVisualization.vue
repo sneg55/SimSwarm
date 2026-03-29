@@ -96,6 +96,7 @@
       <!-- Detail panel (right side) -->
       <GraphDetailPanel
         :node="selectedNode"
+        :agent-actions="agentActions"
         @close="selectedNode = null"
         @navigate-to="navigateToNode"
       />
@@ -121,6 +122,9 @@
           {{ hoveredNode.sentiment > 0.2 ? 'Positive' : hoveredNode.sentiment < -0.2 ? 'Negative' : 'Neutral' }}
           {{ hoveredNode.sentiment > 0 ? '+' : '' }}{{ hoveredNode.sentiment.toFixed(2) }}
         </div>
+        <div v-if="hoveredNode.stance && hoveredNode.stance !== 'neutral'" class="mt-0.5 text-[11px] text-mist-drift capitalize">
+          {{ hoveredNode.stance }}
+        </div>
       </div>
     </template>
   </div>
@@ -142,6 +146,7 @@ const props = defineProps({
   nodes: { type: Array, default: () => [] },
   edges: { type: Array, default: () => [] },
   metadata: { type: Object, default: () => ({}) },
+  chatLog: { type: Array, default: () => [] },
   loading: { type: Boolean, default: false },
   error: { type: String, default: '' },
 })
@@ -191,6 +196,12 @@ const entityTypeSummary = computed(() => {
   return Object.values(map).sort((a, b) => b.count - a.count)
 })
 
+const agentActions = computed(() => {
+  if (!selectedNode.value || !props.chatLog.length) return []
+  const name = selectedNode.value.name
+  return props.chatLog.filter(e => e.agent_name === name)
+})
+
 function onNodeClick(data) {
   if (data) {
     selectedNode.value = data
@@ -230,6 +241,8 @@ function onSearchSelect(uuid) {
       entityType,
       labels: (node.labels || []).join(', '),
       sentiment: node.sentiment ?? 0,
+      stance: node.stance || null,
+      influenceWeight: node.influence_weight ?? null,
       summary: node.summary || '',
       connectionCount: node.connection_count || 0,
       relationships: node.relationships || [],
@@ -295,6 +308,8 @@ function navigateToNode(nodeId) {
       entityType,
       labels: (node.labels || []).join(', '),
       sentiment: node.sentiment ?? 0,
+      stance: node.stance || null,
+      influenceWeight: node.influence_weight ?? null,
       summary: node.summary || '',
       connectionCount: node.connection_count || 0,
       relationships: node.relationships || [],

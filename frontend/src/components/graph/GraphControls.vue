@@ -26,15 +26,19 @@
     <div class="w-px h-5 bg-mist-depth" />
 
     <!-- Group by toggle (Type / Sentiment) -->
-    <div class="flex gap-0.5 bg-ocean-deep border border-mist-depth rounded-lg p-0.5">
+    <div class="relative flex bg-ocean-abyss/60 border border-mist-depth rounded-full p-[3px]">
+      <div
+        class="absolute top-[3px] h-[calc(100%-6px)] rounded-full bg-ocean-teal/25 border border-ocean-teal/40 transition-all duration-200 ease-out"
+        :style="{ left: groupBy === 'type' ? '3px' : '50%', width: 'calc(50% - 3px)' }"
+      />
       <button
-        class="text-xs font-medium px-3 py-1 rounded-md transition-all"
-        :class="groupBy === 'type' ? 'text-mist-foam bg-ocean-teal/20' : 'text-mist-slate hover:text-mist-drift'"
+        class="relative z-10 text-xs font-semibold px-4 py-1.5 rounded-full transition-colors duration-200"
+        :class="groupBy === 'type' ? 'text-mist-foam' : 'text-mist-slate hover:text-mist-drift'"
         @click="$emit('set-group-by', 'type')"
       >Type</button>
       <button
-        class="text-xs font-medium px-3 py-1 rounded-md transition-all"
-        :class="groupBy === 'sentiment' ? 'text-mist-foam bg-ocean-teal/20' : 'text-mist-slate hover:text-mist-drift'"
+        class="relative z-10 text-xs font-semibold px-4 py-1.5 rounded-full transition-colors duration-200"
+        :class="groupBy === 'sentiment' ? 'text-mist-foam' : 'text-mist-slate hover:text-mist-drift'"
         @click="$emit('set-group-by', 'sentiment')"
       >Sentiment</button>
     </div>

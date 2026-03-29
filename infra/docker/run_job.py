@@ -352,6 +352,11 @@ def extract_graph_data(graph_id: str) -> dict:
             labels = getattr(n, "labels", None) or (n.get("labels", []) if isinstance(n, dict) else [])
             summary = getattr(n, "summary", None) or (n.get("summary", "") if isinstance(n, dict) else "")
 
+            # Skip orphan nodes (no edges) — they add visual noise
+            conn = connection_count.get(str(uuid), 0)
+            if conn == 0:
+                continue
+
             # Primary label = first label that is not "Entity" or "Node"
             primary_label = None
             for lbl in (labels or []):
@@ -366,7 +371,7 @@ def extract_graph_data(graph_id: str) -> dict:
                 "name": str(name),
                 "labels": list(labels or []),
                 "summary": str(summary or ""),
-                "connection_count": connection_count.get(str(uuid), 0),
+                "connection_count": conn,
             })
 
         def _attr(obj, key):
@@ -494,6 +499,44 @@ def score_entity_sentiment(graph_data: dict, chat_log: list[dict]) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Per-agent stance injection from simulation config
+# ---------------------------------------------------------------------------
+
+def inject_agent_stance(simulation_id: str, graph_data: dict) -> None:
+    """Read agent_configs from simulation_config.json and inject stance +
+    influence_weight into matching graph nodes by entity name."""
+    from app.services.simulation_manager import SimulationManager
+
+    sm = SimulationManager()
+    config = sm.get_simulation_config(simulation_id)
+    if not config:
+        print("[run_job] No simulation_config.json found, skipping stance injection", flush=True)
+        return
+
+    agent_configs = config.get("agent_configs", [])
+    if not agent_configs:
+        return
+
+    # Build lookup: lowercase entity name → agent config
+    name_to_agent = {}
+    for ac in agent_configs:
+        name = (ac.get("entity_name") or "").strip().lower()
+        if name:
+            name_to_agent[name] = ac
+
+    matched = 0
+    for node in graph_data.get("nodes", []):
+        node_name = (node.get("name") or "").strip().lower()
+        ac = name_to_agent.get(node_name)
+        if ac:
+            node["stance"] = ac.get("stance", "neutral")
+            node["influence_weight"] = ac.get("influence_weight", 1.0)
+            matched += 1
+
+    print(f"[run_job] Stance injected: {matched}/{len(graph_data.get('nodes', []))} nodes matched", flush=True)
+
+
+# ---------------------------------------------------------------------------
 # Structured results (no LLM calls — pure data transformation)
 # ---------------------------------------------------------------------------
 
@@ -602,6 +645,12 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
 
     # Extract graph data from Zep before the ephemeral graph is destroyed
     graph_data = extract_graph_data(graph_id)
+
+    # Inject per-agent stance from simulation config into graph nodes
+    try:
+        inject_agent_stance(simulation_id, graph_data)
+    except Exception as exc:
+        print(f"[run_job] WARNING: stance injection failed: {exc}", flush=True)
 
     # Score per-entity sentiment from chat_log mentions
     try:

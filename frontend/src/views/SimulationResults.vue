@@ -80,6 +80,7 @@
           :nodes="graphData?.nodes || []"
           :edges="graphData?.edges || []"
           :metadata="graphData?.metadata || {}"
+          :chat-log="chatLog"
           :loading="graphLoading"
           :error="graphError"
           @node-selected="onNodeSelected"
@@ -166,6 +167,15 @@ const pdfLoading = ref(false)
 const isSmallScreen = ref(window.innerWidth < 768)
 
 // ── Computed ──────────────────────────────────────────────────────────────────
+
+const chatLog = computed(() => {
+  if (!job.value) return []
+  try {
+    const raw = job.value.result_chat_log || job.value.chat_log || '[]'
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    return Array.isArray(parsed) ? parsed : []
+  } catch { return [] }
+})
 
 const chatMessages = computed(() => {
   if (!job.value) return []
