@@ -15,23 +15,21 @@
     </div>
 
     <!-- Results -->
-    <div v-else class="max-w-6xl mx-auto px-4 py-8">
-      <!-- Header -->
-      <div class="mb-6">
-        <h1 class="text-2xl font-bold text-mist-foam mb-2">{{ result.title }}</h1>
-        <p class="text-sm text-mist-slate capitalize">
-          {{ result.tier }} tier
-          <span v-if="result.created_at"> &bull; {{ formatDate(result.created_at) }}</span>
-        </p>
-      </div>
-
-      <!-- View mode toggle -->
-      <div class="mb-6">
+    <div v-else>
+      <!-- Header + Toggle (constrained width) -->
+      <div class="max-w-6xl mx-auto px-4 pt-8 pb-4">
+        <div class="mb-6">
+          <h1 class="text-2xl font-bold text-mist-foam mb-2">{{ result.title }}</h1>
+          <p class="text-sm text-mist-slate capitalize">
+            {{ result.tier }} tier
+            <span v-if="result.created_at"> &bull; {{ formatDate(result.created_at) }}</span>
+          </p>
+        </div>
         <ViewModeToggle v-model="viewMode" />
       </div>
 
       <!-- Story View -->
-      <div v-if="viewMode === 'story'">
+      <div v-if="viewMode === 'story'" class="max-w-6xl mx-auto px-4 pb-8">
         <div class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
           <template v-if="structured">
             <div v-if="structured.brief" class="mb-8">
@@ -64,8 +62,8 @@
         </div>
       </div>
 
-      <!-- Graph View -->
-      <div v-if="viewMode === 'graph'" style="height: calc(100vh - 220px)">
+      <!-- Graph View (full width, full height) -->
+      <div v-if="viewMode === 'graph'" class="overflow-hidden" style="height: calc(100vh - 140px)">
         <GraphVisualization
           :nodes="graphNodes"
           :edges="graphEdges"
@@ -74,7 +72,7 @@
       </div>
 
       <!-- Report View -->
-      <div v-if="viewMode === 'report'">
+      <div v-if="viewMode === 'report'" class="max-w-6xl mx-auto px-4 pb-8">
         <div class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
           <ReportViewer :content="result.report || 'No report available.'" />
         </div>
@@ -82,12 +80,14 @@
       </div>
 
       <!-- CTA Banner -->
-      <div class="mt-12 bg-ocean-deep border border-mist-depth rounded-xl p-8 text-center">
+      <div class="max-w-6xl mx-auto px-4 mt-12 mb-8">
+      <div class="bg-ocean-deep border border-mist-depth rounded-xl p-8 text-center">
         <h3 class="text-lg font-bold text-mist-foam mb-2">Run your own simulation</h3>
         <p class="text-sm text-mist-slate mb-4">Create AI-powered predictions on any topic</p>
         <router-link to="/register" class="inline-block px-6 py-2 bg-ocean-cyan text-ocean-abyss font-semibold rounded-lg hover:bg-ocean-glow transition-colors">
           Get Started
         </router-link>
+      </div>
       </div>
     </div>
   </div>
