@@ -58,7 +58,8 @@ async def test_register_login_balance_flow(client):
     # List jobs (should be empty)
     jobs = await client.get("/api/jobs", headers=headers)
     assert jobs.status_code == 200
-    assert jobs.json() == []
+    assert jobs.json()["jobs"] == []
+    assert jobs.json()["total"] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -115,7 +116,7 @@ async def test_full_job_lifecycle(client, auth_headers, funded_user, seeded_rout
     # List jobs — should contain our new job
     list_resp = await client.get("/api/jobs", headers=auth_headers)
     assert list_resp.status_code == 200
-    job_ids = [j["id"] for j in list_resp.json()]
+    job_ids = [j["id"] for j in list_resp.json()["jobs"]]
     assert job_id in job_ids
 
     # Balance should be deducted (was 10000, minus 30)
@@ -197,7 +198,8 @@ async def test_job_ownership_isolation(client, db_session, seeded_routing):
     # User2 job list should be empty
     jobs2 = await client.get("/api/jobs", headers=h2)
     assert jobs2.status_code == 200
-    assert jobs2.json() == []
+    assert jobs2.json()["jobs"] == []
+    assert jobs2.json()["total"] == 0
 
     # User2 cannot retrieve user1's job
     get_resp = await client.get(f"/api/jobs/{job_id}", headers=h2)
@@ -205,8 +207,8 @@ async def test_job_ownership_isolation(client, db_session, seeded_routing):
 
     # User1 can still see their own job
     jobs1 = await client.get("/api/jobs", headers=h1)
-    assert len(jobs1.json()) == 1
-    assert jobs1.json()[0]["id"] == job_id
+    assert len(jobs1.json()["jobs"]) == 1
+    assert jobs1.json()["jobs"][0]["id"] == job_id
 
 
 # ---------------------------------------------------------------------------

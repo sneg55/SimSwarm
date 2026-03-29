@@ -45,3 +45,25 @@ class JobResponse(BaseModel):
     completed_at: datetime | None
 
     model_config = {"from_attributes": True}
+
+
+class JobSummary(BaseModel):
+    id: int
+    goal: str
+    tier: str
+    credits_charged: int
+    status: str
+    pipeline_stage: int | None = None
+    key_insight: str | None = None
+    error_message: str | None = None
+    created_at: datetime
+    completed_at: datetime | None = None
+
+    model_config = {"from_attributes": True}
+
+
+class JobListResponse(BaseModel):
+    jobs: list[JobSummary]
+    total: int
+    page: int
+    per_page: int

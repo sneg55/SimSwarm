@@ -58,6 +58,16 @@
         <div class="space-y-3">
           <SimCard v-for="job in recentJobs" :key="job.id" :job="job" @delete="handleDelete" />
         </div>
+
+        <!-- Load more -->
+        <div v-if="hasMore" class="flex justify-center mt-8">
+          <button
+            @click="loadMore"
+            class="bg-ocean-deep border border-mist-depth text-mist-drift hover:border-ocean-teal/40 hover:text-mist-foam rounded-xl px-6 py-2.5 text-sm font-semibold transition-all"
+          >
+            Load more
+          </button>
+        </div>
       </template>
     </div>
   </div>
@@ -75,6 +85,10 @@ import { useCreditsStore } from '../stores/credits.js'
 const creditsStore = useCreditsStore()
 const jobs = ref([])
 const loading = ref(true)
+const page = ref(1)
+const totalJobs = ref(0)
+
+const hasMore = computed(() => jobs.value.length < totalJobs.value)
 
 const activeJobs = computed(() =>
   jobs.value.filter(j => ['RUNNING', 'PROVISIONING', 'PENDING'].includes(j.status))
@@ -86,8 +100,9 @@ const recentJobs = computed(() =>
 
 onMounted(async () => {
   try {
-    const [jobData, balanceData] = await Promise.all([listJobs(), getBalance()])
-    jobs.value = jobData.jobs || jobData
+    const [jobData, balanceData] = await Promise.all([listJobs(page.value), getBalance()])
+    jobs.value = jobData.jobs
+    totalJobs.value = jobData.total
     creditsStore.setBalance(balanceData.balance ?? balanceData)
   } catch (err) {
     console.error('Failed to load dashboard data:', err)
@@ -96,11 +111,24 @@ onMounted(async () => {
   }
 })
 
+async function loadMore() {
+  try {
+    page.value += 1
+    const data = await listJobs(page.value)
+    jobs.value = [...jobs.value, ...data.jobs]
+    totalJobs.value = data.total
+  } catch (err) {
+    console.error('Failed to load more jobs:', err)
+    page.value -= 1
+  }
+}
+
 async function handleDelete(jobId) {
   if (!confirm('Delete this simulation? This cannot be undone.')) return
   try {
     await deleteJob(jobId)
     jobs.value = jobs.value.filter(j => j.id !== jobId)
+    totalJobs.value = Math.max(0, totalJobs.value - 1)
   } catch (err) {
     console.error('Failed to delete job:', err)
   }

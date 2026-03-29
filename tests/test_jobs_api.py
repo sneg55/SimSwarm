@@ -97,8 +97,14 @@ async def test_list_user_jobs(client, auth_headers, funded_user, seeded_routing)
     response = await client.get("/api/jobs", headers=auth_headers)
     assert response.status_code == 200
     data = response.json()
-    assert len(data) == 2
-    assert all(j["user_id"] == auth_headers["_user_id"] for j in data)
+    assert data["total"] == 2
+    assert data["page"] == 1
+    assert data["per_page"] == 10
+    jobs = data["jobs"]
+    assert len(jobs) == 2
+    # JobSummary does not include user_id; verify other fields are present
+    assert all("goal" in j for j in jobs)
+    assert all("status" in j for j in jobs)
 
 
 async def test_unauthenticated_request_returns_401(client):

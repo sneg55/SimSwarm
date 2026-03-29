@@ -2,13 +2,13 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from saas.database import get_session
 from saas.models.job import SimulationJob, JobStatus
 from saas.models.model_routing import ModelRouting
-from saas.schemas.jobs import JobCreate, JobResponse, TIER_CREDITS
+from saas.schemas.jobs import JobCreate, JobResponse, JobListResponse, TIER_CREDITS
 from saas.billing.ledger import CreditLedger, InsufficientCreditsError
 from saas.auth.dependencies import get_current_user
 import os
@@ -172,18 +172,27 @@ async def get_job_graph(
     return Response(content=job.result_graph, media_type="application/json")
 
 
-@router.get("", response_model=list[JobResponse])
+@router.get("", response_model=JobListResponse)
 async def list_jobs(
+    page: int = 1,
+    per_page: int = 10,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     user_id = current_user["user_id"]
+    total_result = await session.execute(
+        select(func.count()).select_from(SimulationJob).where(SimulationJob.user_id == user_id)
+    )
+    total = total_result.scalar_one()
     result = await session.execute(
         select(SimulationJob)
         .where(SimulationJob.user_id == user_id)
         .order_by(SimulationJob.created_at.desc())
+        .offset((page - 1) * per_page)
+        .limit(per_page)
     )
-    return result.scalars().all()
+    jobs = result.scalars().all()
+    return JobListResponse(jobs=jobs, total=total, page=page, per_page=per_page)
 
 
 @router.post("/{job_id}/share")

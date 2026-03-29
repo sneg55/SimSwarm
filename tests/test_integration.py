@@ -42,7 +42,7 @@ async def test_full_job_lifecycle(client, auth_headers, funded_user, seeded_rout
     # 4. List jobs for user
     list_resp = await client.get("/api/jobs", headers=auth_headers)
     assert list_resp.status_code == 200
-    jobs = list_resp.json()
+    jobs = list_resp.json()["jobs"]
     assert len(jobs) == 1
     assert jobs[0]["id"] == job_id
 

@@ -15,8 +15,8 @@ export async function getJob(jobId) {
   return response.data
 }
 
-export async function listJobs() {
-  const response = await api.get('/jobs')
+export async function listJobs(page = 1, perPage = 10) {
+  const response = await api.get('/jobs', { params: { page, per_page: perPage } })
   return response.data
 }
 
