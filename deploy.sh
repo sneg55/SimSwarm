@@ -37,7 +37,8 @@ fi
 echo "Building and starting services..."
 docker compose build
 docker compose run --rm migrate
-docker compose up -d app celery redis db caddy frontend-init
+docker compose run --rm frontend-init
+docker compose up -d app celery redis db caddy
 
 echo ""
 echo "=== Deploy complete ==="
