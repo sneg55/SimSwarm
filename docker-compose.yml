@@ -1,6 +1,7 @@
 services:
   app:
     build: .
+    image: fishcloud-app
     container_name: simswarm-api
     restart: unless-stopped
     env_file: .env
@@ -24,7 +25,7 @@ services:
       - no-new-privileges:true
 
   celery:
-    build: .
+    image: fishcloud-app
     container_name: simswarm-celery
     restart: unless-stopped
     env_file: .env
@@ -90,7 +91,7 @@ services:
 
   # Copy frontend build into shared volume
   frontend-init:
-    build: .
+    image: fishcloud-app
     container_name: simswarm-frontend-init
     command: cp -r /app/frontend/dist/. /srv/frontend/
     volumes:
@@ -99,7 +100,7 @@ services:
 
   # Run migrations on deploy (one-shot)
   migrate:
-    build: .
+    image: fishcloud-app
     container_name: simswarm-migrate
     env_file: .env
     environment:

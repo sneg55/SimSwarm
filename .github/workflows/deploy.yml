@@ -62,7 +62,9 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: root
           key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 10m
           script: |
+            set -euo pipefail
             cd /opt/fishcloud
             git config --global --add safe.directory /opt/fishcloud
             git pull origin main
@@ -76,16 +78,42 @@ jobs:
                 echo "WORKER_IMAGE_TAG=${SHORT_SHA}" >> .env
             fi
 
-            docker compose build --no-cache app celery frontend-init migrate
+            # Build single image — celery/migrate/frontend-init all reuse it
+            docker compose build --no-cache app
 
-            # Graceful Celery shutdown: stop accepting new tasks, wait for in-flight to finish
-            # Send SIGTERM (warm shutdown) — Celery will finish current tasks then exit
-            # Timeout after 120s — if a task takes longer, it will be recovered on restart
+            # Pre-flight: verify single migration head
+            heads=$(docker compose run --rm --no-deps app alembic heads 2>/dev/null | grep -c head || true)
+            if [ "$heads" -gt 1 ]; then
+                echo "ERROR: Multiple alembic heads. Aborting deploy."
+                docker compose run --rm --no-deps app alembic heads
+                exit 1
+            fi
+
+            # Graceful Celery shutdown (finish in-flight tasks, 120s timeout)
             docker compose stop -t 120 celery || true
 
+            # Run migrations
             docker compose run --rm migrate
-            # Re-run frontend-init to copy fresh frontend build into Caddy volume
-            docker compose rm -f frontend-init
+
+            # Copy frontend assets into Caddy volume
+            docker compose rm -f frontend-init || true
             docker compose run --rm frontend-init
+
+            # Start services
             docker compose up -d app celery redis db caddy
+
+            # Health check (wait up to 60s)
+            for i in $(seq 1 20); do
+                if curl -sf http://localhost:8080/api/health > /dev/null 2>&1; then
+                    echo "Health check passed"
+                    break
+                fi
+                if [ "$i" -eq 20 ]; then
+                    echo "ERROR: Health check failed after 60s"
+                    docker compose logs --tail=20 app
+                    exit 1
+                fi
+                sleep 3
+            done
+
             docker image prune -f

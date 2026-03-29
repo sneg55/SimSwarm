@@ -28,3 +28,13 @@ jobs:
 
       - name: Lint
         run: ruff check saas/ tests/
+
+      - name: Check alembic single head
+        run: |
+          heads=$(alembic heads 2>/dev/null | wc -l)
+          if [ "$heads" -gt 1 ]; then
+            echo "::error::Multiple alembic heads detected! Run 'alembic merge heads' before merging."
+            alembic heads
+            exit 1
+          fi
+          echo "Single migration head — OK"
