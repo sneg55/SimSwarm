@@ -82,12 +82,12 @@
         <!-- Agent Activity -->
         <div v-if="agentActions.length > 0" class="mt-6 pt-4 border-t border-mist-depth/50">
           <h4 class="text-[10px] font-bold tracking-widest text-mist-slate uppercase mb-3">
-            Activity ({{ agentActions.length }})
+            Activity ({{ dedupedActions.length }})
           </h4>
 
           <div class="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
             <div
-              v-for="(action, i) in agentActions"
+              v-for="(action, i) in dedupedActions"
               :key="i"
               class="rounded-lg bg-ocean-abyss/40 border border-mist-depth/30 px-3 py-2"
             >
@@ -95,7 +95,7 @@
                 <span class="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded"
                   :class="actionBadgeClass(action.action_type)"
                 >{{ actionLabel(action.action_type) }}</span>
-                <span v-if="action.platform" class="text-[10px] text-mist-slate/50">{{ action.platform }}</span>
+                <span v-if="action.platforms.length" class="text-[10px] text-mist-slate/50">{{ action.platforms.join(', ') }}</span>
                 <span class="text-[10px] text-mist-slate/40 ml-auto">R{{ action.round_num }}</span>
               </div>
               <p v-if="actionContent(action)" class="text-xs text-mist-drift leading-relaxed">
@@ -119,6 +119,23 @@ const props = defineProps({
 })
 
 defineEmits(['close', 'navigate-to'])
+
+const dedupedActions = computed(() => {
+  const seen = new Map()
+  for (const a of props.agentActions) {
+    const content = a.action_args?.content || ''
+    const key = `${a.action_type}:${a.round_num}:${content}`
+    if (seen.has(key)) {
+      const existing = seen.get(key)
+      if (a.platform && !existing.platforms.includes(a.platform)) {
+        existing.platforms.push(a.platform)
+      }
+    } else {
+      seen.set(key, { ...a, platforms: [a.platform || ''].filter(Boolean) })
+    }
+  }
+  return [...seen.values()]
+})
 
 const nodeColor = computed(() => {
   if (!props.node) return '#6b7280'
