@@ -76,7 +76,7 @@
       </div>
 
       <!-- Legend (bottom-left) -->
-      <div class="absolute bottom-3 left-3 z-10">
+      <div class="absolute bottom-14 left-3 z-10">
         <GraphLegend
           :entity-types="entityTypeSummary"
           :hidden-types="hiddenTypes"
