@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SimSwarm — Dashboard Mockup</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0B1426;
+    color: #CBD5E1;
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.6;
+  }
+
+  /* ---- NAVBAR (simplified) ---- */
+  .navbar {
+    position: sticky; top: 0; z-index: 50;
+    padding: 12px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(11, 20, 38, 0.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(30, 41, 59, 0.8);
+  }
+  .nav-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 20px; font-weight: 800; color: #F1F5F9;
+    letter-spacing: -0.03em;
+  }
+  .nav-links { display: flex; gap: 24px; align-items: center; font-size: 14px; color: #94A3B8; }
+  .nav-link { cursor: pointer; transition: color 0.3s; }
+  .nav-link:hover { color: #F1F5F9; }
+  .nav-link.active { color: #22D3EE; }
+
+  .credit-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(110, 231, 183, 0.2);
+    border-radius: 20px; padding: 5px 14px;
+    font-size: 13px; font-weight: 600; color: #6EE7B7;
+  }
+
+  /* ---- TOP STRIP (Waterline) ---- */
+  .waterline {
+    background: linear-gradient(180deg, #0F2035 0%, #0B1426 100%);
+    border-bottom: 1px solid #1E293B;
+    padding: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .waterline::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 60% 80% at 80% 50%, rgba(14, 116, 144, 0.06), transparent);
+    pointer-events: none;
+  }
+  .waterline-inner {
+    max-width: 1000px; margin: 0 auto;
+    display: flex; align-items: center; justify-content: space-between;
+    position: relative;
+  }
+  .waterline-left {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .waterline-greeting {
+    font-size: 24px; font-weight: 700; color: #F1F5F9;
+    letter-spacing: -0.02em;
+  }
+  .waterline-balance {
+    font-size: 14px; color: #94A3B8;
+  }
+  .waterline-balance strong {
+    color: #6EE7B7; font-weight: 600;
+  }
+
+  .btn-new-sim {
+    display: flex; align-items: center; gap: 10px;
+    background: linear-gradient(135deg, #FF6B6B, #F97316);
+    color: white; font-weight: 700; font-size: 15px;
+    padding: 14px 28px; border-radius: 12px; border: none;
+    cursor: pointer;
+    box-shadow: 0 0 24px rgba(255, 107, 107, 0.2);
+    transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s;
+  }
+  .btn-new-sim:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 36px rgba(255, 107, 107, 0.35), 0 6px 20px rgba(0,0,0,0.3);
+  }
+  .btn-new-sim .icon {
+    width: 20px; height: 20px;
+    border: 2px solid rgba(255,255,255,0.5);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; line-height: 1;
+    transition: border-color 0.3s;
+  }
+  .btn-new-sim:hover .icon { border-color: white; }
+
+  /* ---- SIMULATIONS LIST ---- */
+  .sims-area {
+    max-width: 1000px; margin: 0 auto;
+    padding: 32px;
+  }
+  .sims-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px;
+  }
+  .sims-title {
+    font-size: 16px; font-weight: 600; color: #F1F5F9;
+  }
+  .sims-filter {
+    font-size: 13px; color: #64748B; cursor: pointer;
+    transition: color 0.3s;
+  }
+  .sims-filter:hover { color: #94A3B8; }
+
+  /* Simulation cards */
+  .sim-card {
+    background: linear-gradient(180deg, #0B1426, #0F2035);
+    border: 1px solid #1E293B;
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 12px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1),
+                border-color 0.3s, box-shadow 0.4s;
+  }
+  .sim-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--card-glow), transparent);
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  .sim-card:hover {
+    transform: translateY(-2px);
+    border-color: #164E63;
+    box-shadow: 0 8px 32px rgba(14, 116, 144, 0.1);
+  }
+  .sim-card:hover::before { opacity: 1; }
+
+  .sim-card-top {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 10px;
+  }
+  .sim-title {
+    font-size: 16px; font-weight: 600; color: #F1F5F9;
+    transition: color 0.3s;
+  }
+  .sim-card:hover .sim-title { color: #22D3EE; }
+  .sim-goal {
+    font-size: 14px; color: #94A3B8; line-height: 1.5;
+    margin-bottom: 12px;
+  }
+  .sim-insight {
+    display: flex; align-items: flex-start; gap: 10px;
+    font-size: 14px; color: #CBD5E1; line-height: 1.5;
+    margin-bottom: 12px;
+    padding: 8px 12px;
+    background: rgba(15, 32, 53, 0.6);
+    border-radius: 8px;
+    border: 1px solid #1E293B;
+  }
+  .insight-bar {
+    width: 3px; min-height: 18px; flex-shrink: 0;
+    border-radius: 2px;
+    margin-top: 2px;
+  }
+  .sim-meta {
+    display: flex; gap: 16px; align-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: #64748B;
+    transition: color 0.3s;
+  }
+  .sim-card:hover .sim-meta { color: #94A3B8; }
+
+  /* Status badges */
+  .status {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600;
+    padding: 4px 10px; border-radius: 20px;
+  }
+  .status-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+  }
+  .status-completed {
+    color: #22D3EE;
+    background: rgba(34, 211, 238, 0.1);
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    --card-glow: #22D3EE;
+  }
+  .status-completed .status-dot {
+    background: #22D3EE;
+  }
+  .status-running {
+    color: #A78BFA;
+    background: rgba(167, 139, 250, 0.1);
+    border: 1px solid rgba(167, 139, 250, 0.2);
+    --card-glow: #A78BFA;
+  }
+  .status-running .status-dot {
+    background: #A78BFA;
+    animation: breathe 2.5s ease-in-out infinite;
+  }
+  @keyframes breathe {
+    0%, 100% { opacity: 0.4; transform: scale(0.8); }
+    50% { opacity: 1; transform: scale(1.2); }
+  }
+  .status-pending {
+    color: #64748B;
+    background: rgba(100, 116, 139, 0.1);
+    border: 1px solid rgba(100, 116, 139, 0.2);
+    --card-glow: #64748B;
+  }
+  .status-pending .status-dot { background: #64748B; }
+  .status-failed {
+    color: #FF6B6B;
+    background: rgba(255, 107, 107, 0.1);
+    border: 1px solid rgba(255, 107, 107, 0.2);
+    --card-glow: #FF6B6B;
+  }
+  .status-failed .status-dot { background: #FF6B6B; }
+
+  /* Action link on card */
+  .sim-action {
+    font-size: 13px; font-weight: 600; color: #22D3EE;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .sim-card:hover .sim-action { opacity: 1; }
+
+  /* ---- EMPTY STATE ---- */
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+  }
+  .empty-illustration {
+    width: 120px; height: 120px;
+    margin: 0 auto 24px;
+    position: relative;
+  }
+  .empty-ring {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    border: 1px solid;
+    animation: pulse-ring 4s ease-in-out infinite;
+  }
+  @keyframes pulse-ring {
+    0%, 100% { transform: scale(0.9); opacity: 0.15; }
+    50% { transform: scale(1.1); opacity: 0.05; }
+  }
+  .empty-dot {
+    position: absolute;
+    border-radius: 50%;
+    animation: breathe 3s ease-in-out infinite;
+  }
+  .empty-text {
+    font-size: 18px; color: #94A3B8; max-width: 360px; margin: 0 auto 24px;
+    line-height: 1.6;
+  }
+  .empty-cta {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: linear-gradient(135deg, #0E7490, #0891B2);
+    color: white; font-weight: 600; font-size: 15px;
+    padding: 12px 24px; border-radius: 10px; border: none;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(14, 116, 144, 0.3);
+    transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s;
+  }
+  .empty-cta:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 32px rgba(14, 116, 144, 0.5);
+  }
+
+  /* ---- TAB SWITCH ---- */
+  .tab-bar {
+    display: flex; gap: 4px;
+    margin-bottom: 32px;
+  }
+  .tab-btn {
+    font-size: 13px; font-weight: 500; color: #64748B;
+    padding: 6px 14px; border-radius: 8px; border: none;
+    background: transparent; cursor: pointer;
+    transition: all 0.25s;
+  }
+  .tab-btn:hover { color: #94A3B8; background: rgba(30, 41, 59, 0.4); }
+  .tab-btn.active {
+    color: #F1F5F9;
+    background: rgba(14, 116, 144, 0.15);
+  }
+
+  /* Section label */
+  .section-badge {
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #64748B;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-badge::after {
+    content: '';
+    flex: 1; height: 1px;
+    background: linear-gradient(90deg, #1E293B, transparent);
+  }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <svg width="28" height="28" viewBox="0 0 48 48" fill="none">
+      <circle cx="24" cy="24" r="16" stroke="#22D3EE" stroke-width="1.5" fill="none" opacity="0.15"/>
+      <circle cx="24" cy="24" r="10" stroke="#A78BFA" stroke-width="1.5" fill="none" opacity="0.2"/>
+      <circle cx="24" cy="24" r="5" fill="#0E7490"/><circle cx="24" cy="24" r="2.5" fill="#F1F5F9" opacity="0.85"/>
+      <circle cx="12" cy="18" r="2" fill="#22D3EE" opacity="0.6"/><circle cx="36" cy="30" r="2" fill="#FF6B6B" opacity="0.6"/>
+    </svg>
+    SimSwarm
+  </div>
+  <div class="nav-links">
+    <span class="nav-link active">Dashboard</span>
+    <span class="nav-link">New Simulation</span>
+    <span class="nav-link">j.smith@acmecorp.com</span>
+    <span class="credit-badge">&#x2295; 342 credits</span>
+    <span class="nav-link" style="color: #64748B;">Sign out</span>
+  </div>
+</nav>
+
+<!-- WATERLINE STRIP -->
+<div class="waterline">
+  <div class="waterline-inner">
+    <div class="waterline-left">
+      <div class="waterline-greeting">Welcome back</div>
+      <div class="waterline-balance">
+        <strong>342 credits</strong> remaining &middot; 3 simulations this week
+      </div>
+    </div>
+    <button class="btn-new-sim">
+      <span class="icon">+</span>
+      New Simulation
+    </button>
+  </div>
+</div>
+
+<!-- SIMULATIONS -->
+<div class="sims-area">
+
+  <!-- Active simulations -->
+  <div class="section-badge">Active</div>
+
+  <div class="sim-card" style="--card-glow: #A78BFA;">
+    <div class="sim-card-top">
+      <div class="sim-title">EU AI Act — Industry Compliance Impact</div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span class="sim-action">View progress &rarr;</span>
+        <span class="status status-running"><span class="status-dot"></span> Running</span>
+      </div>
+    </div>
+    <div class="sim-goal">How will major tech companies adjust their AI products in the first 90 days of enforcement?</div>
+    <div class="sim-meta">
+      <span>Medium tier</span>
+      <span>&middot;</span>
+      <span>1,200 agents</span>
+      <span>&middot;</span>
+      <span>Step 3/5 — Simulating</span>
+      <span>&middot;</span>
+      <span>Started 8 min ago</span>
+    </div>
+  </div>
+
+  <!-- Recent simulations -->
+  <div class="section-badge" style="margin-top: 32px;">Recent</div>
+
+  <div class="sim-card" style="--card-glow: #22D3EE;">
+    <div class="sim-card-top">
+      <div class="sim-title">Tesla Q1 Earnings — Market Reaction</div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span class="sim-action">View results &rarr;</span>
+        <span class="status status-completed"><span class="status-dot"></span> Completed</span>
+      </div>
+    </div>
+    <div class="sim-insight">
+      <span class="insight-bar" style="background: #FF6B6B;"></span>
+      Institutional sentiment dropped 34% within 48hrs, driven by supply-chain analyst cluster
+    </div>
+    <div class="sim-meta">
+      <span>Medium tier</span>
+      <span>&middot;</span>
+      <span>847 agents</span>
+      <span>&middot;</span>
+      <span>4m 32s</span>
+      <span>&middot;</span>
+      <span>2 hours ago</span>
+    </div>
+  </div>
+
+  <div class="sim-card" style="--card-glow: #22D3EE;">
+    <div class="sim-card-top">
+      <div class="sim-title">Product Launch — Gen Z Sentiment Analysis</div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span class="sim-action">View results &rarr;</span>
+        <span class="status status-completed"><span class="status-dot"></span> Completed</span>
+      </div>
+    </div>
+    <div class="sim-insight">
+      <span class="insight-bar" style="background: #6EE7B7;"></span>
+      Gen Z reception 72% positive — "authenticity" and "transparency" emerged as dominant themes
+    </div>
+    <div class="sim-meta">
+      <span>Small tier</span>
+      <span>&middot;</span>
+      <span>480 agents</span>
+      <span>&middot;</span>
+      <span>2m 18s</span>
+      <span>&middot;</span>
+      <span>Yesterday</span>
+    </div>
+  </div>
+
+  <div class="sim-card" style="--card-glow: #FF6B6B;">
+    <div class="sim-card-top">
+      <div class="sim-title">Crisis Response — Data Breach Scenario</div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span class="sim-action">View details &rarr;</span>
+        <span class="status status-failed"><span class="status-dot"></span> Failed</span>
+      </div>
+    </div>
+    <div class="sim-goal" style="font-size: 13px; color: #64748B;">Simulation timed out — GPU exceeded maximum duration. Try a smaller tier.</div>
+    <div class="sim-meta">
+      <span>Large tier</span>
+      <span>&middot;</span>
+      <span>5,000 agents</span>
+      <span>&middot;</span>
+      <span>GPU timeout</span>
+      <span>&middot;</span>
+      <span>2 days ago</span>
+    </div>
+  </div>
+
+  <div class="sim-card" style="--card-glow: #22D3EE;">
+    <div class="sim-card-top">
+      <div class="sim-title">Bitcoin Halving — Narrative Evolution</div>
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span class="sim-action">View results &rarr;</span>
+        <span class="status status-completed"><span class="status-dot"></span> Completed</span>
+      </div>
+    </div>
+    <div class="sim-insight">
+      <span class="insight-bar" style="background: #FBBF24;"></span>
+      "Digital gold" narrative strengthened 41% post-halving, with emerging miner-capitulation counter-narrative
+    </div>
+    <div class="sim-meta">
+      <span>Medium tier</span>
+      <span>&middot;</span>
+      <span>1,500 agents</span>
+      <span>&middot;</span>
+      <span>6m 12s</span>
+      <span>&middot;</span>
+      <span>4 days ago</span>
+    </div>
+  </div>
+
+</div>
+
+</body>
+</html>

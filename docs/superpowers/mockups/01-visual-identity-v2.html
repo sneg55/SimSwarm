@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SimSwarm — Visual Identity</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #0B1426;
+    color: #CBD5E1;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    line-height: 1.6;
+    padding: 40px 24px;
+  }
+
+  .container { max-width: 960px; margin: 0 auto; }
+
+  h2 {
+    font-size: 32px;
+    font-weight: 700;
+    color: #F1F5F9;
+    letter-spacing: -0.02em;
+    margin-bottom: 8px;
+  }
+
+  h3 {
+    font-size: 20px;
+    font-weight: 600;
+    color: #F1F5F9;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+
+  .subtitle { color: #94A3B8; margin-bottom: 32px; }
+  .label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748B;
+    margin-bottom: 10px;
+  }
+
+  .section {
+    margin-bottom: 48px;
+  }
+
+  /* ---- COLOR PALETTE ---- */
+  .palette-row { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+  .swatch {
+    flex: 1; min-width: 100px;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.35s ease;
+    cursor: pointer;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .swatch:hover {
+    transform: translateY(-6px) scale(1.03);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  }
+  .swatch-color {
+    height: 72px;
+    transition: height 0.3s ease;
+  }
+  .swatch:hover .swatch-color { height: 80px; }
+  .swatch-info {
+    background: #1e293b;
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  .swatch-info .name { font-weight: 600; color: #e2e8f0; }
+  .swatch-info .hex { color: #94a3b8; }
+  .swatch-info .use { color: #64748b; font-size: 11px; }
+
+  /* ---- BUTTONS ---- */
+  .btn {
+    border: none;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1),
+                box-shadow 0.3s ease,
+                filter 0.3s ease;
+  }
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,0.15), transparent 60%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+  }
+  .btn:hover::after { opacity: 1; }
+  .btn:hover { transform: translateY(-2px); }
+  .btn:active { transform: translateY(0) scale(0.97); transition-duration: 0.1s; }
+
+  .btn-primary {
+    background: linear-gradient(135deg, #0E7490, #0891B2);
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 0 20px rgba(14, 116, 144, 0.3);
+  }
+  .btn-primary:hover {
+    box-shadow: 0 0 32px rgba(14, 116, 144, 0.5), 0 4px 16px rgba(0,0,0,0.3);
+    filter: brightness(1.1);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: #22D3EE;
+    border: 1px solid #164E63;
+    font-weight: 500;
+  }
+  .btn-ghost:hover {
+    background: rgba(22, 78, 99, 0.3);
+    border-color: #0E7490;
+    box-shadow: 0 0 20px rgba(34, 211, 238, 0.1);
+  }
+
+  .btn-cta {
+    background: linear-gradient(135deg, #FF6B6B, #F97316);
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 0 20px rgba(255, 107, 107, 0.2);
+  }
+  .btn-cta:hover {
+    box-shadow: 0 0 36px rgba(255, 107, 107, 0.4), 0 4px 16px rgba(0,0,0,0.3);
+    filter: brightness(1.1);
+  }
+
+  /* ---- RIPPLE ---- */
+  .ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.25);
+    transform: scale(0);
+    animation: ripple-anim 0.6s ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes ripple-anim {
+    to { transform: scale(4); opacity: 0; }
+  }
+
+  /* ---- SIMULATION CARD ---- */
+  .sim-card {
+    background: linear-gradient(180deg, #0B1426, #0F2035);
+    border: 1px solid #1E293B;
+    border-radius: 12px;
+    padding: 20px;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1),
+                border-color 0.3s ease,
+                box-shadow 0.4s ease;
+  }
+  .sim-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #22D3EE, transparent);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .sim-card:hover {
+    transform: translateY(-4px);
+    border-color: #164E63;
+    box-shadow: 0 8px 32px rgba(14, 116, 144, 0.15), 0 0 0 1px rgba(34, 211, 238, 0.05);
+  }
+  .sim-card:hover::before { opacity: 1; }
+  .sim-card:active {
+    transform: translateY(-2px) scale(0.99);
+    transition-duration: 0.1s;
+  }
+
+  .sim-card .status-badge {
+    font-size: 13px;
+    font-weight: 600;
+    color: #22D3EE;
+    background: rgba(34, 211, 238, 0.1);
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(34, 211, 238, 0.2);
+    transition: background 0.3s ease, box-shadow 0.3s ease;
+  }
+  .sim-card:hover .status-badge {
+    background: rgba(34, 211, 238, 0.15);
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.15);
+  }
+  .sim-card .title {
+    font-size: 16px; font-weight: 600; color: #F1F5F9;
+    margin-bottom: 6px;
+    transition: color 0.3s ease;
+  }
+  .sim-card:hover .title { color: #22D3EE; }
+  .sim-card .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: #64748B;
+    display: flex; gap: 16px; margin-top: 16px;
+    transition: color 0.3s ease;
+  }
+  .sim-card:hover .meta { color: #94A3B8; }
+
+  /* ---- FORM ELEMENTS ---- */
+  .form-input {
+    background: #0B1426;
+    border: 1px solid #1E293B;
+    color: #CBD5E1;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 15px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    width: 100%;
+    transition: border-color 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+  }
+  .form-input::placeholder { color: #475569; transition: color 0.3s ease; }
+  .form-input:hover {
+    border-color: #164E63;
+    background: #0D1A30;
+  }
+  .form-input:focus {
+    border-color: #0E7490;
+    box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.15), 0 0 20px rgba(14, 116, 144, 0.1);
+    background: #0D1A30;
+  }
+  .form-input:focus::placeholder { color: #64748B; }
+
+  .dropzone {
+    background: #0B1426;
+    border: 2px dashed #164E63;
+    border-radius: 10px;
+    padding: 32px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.3s ease, background 0.3s ease, transform 0.25s ease;
+    position: relative;
+  }
+  .dropzone:hover {
+    border-color: #0E7490;
+    background: rgba(14, 116, 144, 0.05);
+  }
+  .dropzone.drag-over {
+    border-color: #22D3EE;
+    background: rgba(34, 211, 238, 0.05);
+    transform: scale(1.01);
+    box-shadow: 0 0 30px rgba(34, 211, 238, 0.1) inset;
+  }
+  .dropzone-icon {
+    font-size: 28px;
+    margin-bottom: 8px;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .dropzone:hover .dropzone-icon { transform: translateY(-4px); }
+
+  .tag {
+    font-size: 12px;
+    color: #94A3B8;
+    background: #0B1426;
+    border: 1px solid #1E293B;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    display: inline-block;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .tag:hover {
+    background: rgba(14, 116, 144, 0.15);
+    border-color: #0E7490;
+    color: #22D3EE;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(14, 116, 144, 0.15);
+  }
+  .tag:active { transform: translateY(0) scale(0.95); }
+
+  /* ---- BIOLUMINESCENT NODES ---- */
+  .glow-node {
+    border-radius: 50%;
+    position: relative;
+    cursor: pointer;
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .glow-node:hover { transform: scale(1.25); }
+  .glow-node::after {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    transition: border-color 0.3s ease, inset 0.3s ease;
+  }
+  .glow-node:hover::after {
+    border-color: rgba(255,255,255,0.15);
+    inset: -8px;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 20px var(--glow-color), 0 0 40px var(--glow-faint); }
+    50% { box-shadow: 0 0 30px var(--glow-color), 0 0 60px var(--glow-faint), 0 0 80px var(--glow-faintest); }
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-6px); }
+  }
+
+  .glow-node.breathing {
+    animation: pulse-glow 3s ease-in-out infinite, float 4s ease-in-out infinite;
+  }
+  .glow-node.breathing:hover { animation-play-state: paused; transform: scale(1.25); }
+
+  /* ---- PROGRESS PIPELINE ---- */
+  .pipeline { display: flex; align-items: center; gap: 0; justify-content: center; }
+  .pipeline-step {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    position: relative; z-index: 1;
+  }
+  .pipeline-dot {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 600;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    cursor: pointer;
+    position: relative;
+  }
+  .pipeline-dot.done {
+    background: rgba(16, 185, 129, 0.15);
+    color: #6EE7B7;
+    border: 2px solid rgba(110, 231, 183, 0.3);
+  }
+  .pipeline-dot.done:hover {
+    transform: scale(1.15);
+    box-shadow: 0 0 20px rgba(110, 231, 183, 0.3);
+    background: rgba(16, 185, 129, 0.25);
+  }
+  .pipeline-dot.active {
+    background: rgba(14, 116, 144, 0.2);
+    color: #22D3EE;
+    border: 2px solid rgba(34, 211, 238, 0.4);
+    animation: pulse-glow 2.5s ease-in-out infinite;
+    --glow-color: rgba(34, 211, 238, 0.2);
+    --glow-faint: rgba(34, 211, 238, 0.08);
+    --glow-faintest: rgba(34, 211, 238, 0.03);
+  }
+  .pipeline-dot.active:hover {
+    animation-play-state: paused;
+    transform: scale(1.15);
+    box-shadow: 0 0 24px rgba(34, 211, 238, 0.35);
+  }
+  .pipeline-dot.pending {
+    background: #0F2035;
+    color: #475569;
+    border: 2px solid #1E293B;
+  }
+  .pipeline-dot.pending:hover {
+    border-color: #334155;
+    color: #64748B;
+    transform: scale(1.05);
+  }
+  .pipeline-line {
+    width: 48px; height: 2px;
+    margin-bottom: 28px;
+    transition: background 0.6s ease;
+  }
+  .pipeline-line.done { background: linear-gradient(90deg, #10B981, #6EE7B7); }
+  .pipeline-line.active {
+    background: linear-gradient(90deg, #6EE7B7, #22D3EE);
+    position: relative;
+    overflow: hidden;
+  }
+  .pipeline-line.active::after {
+    content: '';
+    position: absolute;
+    top: 0; left: -100%; width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: shimmer 2s infinite;
+  }
+  @keyframes shimmer {
+    to { left: 200%; }
+  }
+  .pipeline-line.pending { background: #1E293B; }
+  .pipeline-label {
+    font-size: 12px;
+    color: #64748B;
+    transition: color 0.3s ease;
+  }
+  .pipeline-step:hover .pipeline-label { color: #94A3B8; }
+
+  /* ---- CREDIT BADGE ---- */
+  .credit-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(110, 231, 183, 0.2);
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 14px; font-weight: 600;
+    color: #6EE7B7;
+    cursor: pointer;
+    transition: all 0.3s ease;
+  }
+  .credit-badge:hover {
+    background: rgba(16, 185, 129, 0.18);
+    box-shadow: 0 0 16px rgba(110, 231, 183, 0.15);
+    transform: translateY(-1px);
+  }
+  .credit-badge .icon {
+    transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .credit-badge:hover .icon { transform: rotate(90deg); }
+
+  .credit-badge.low {
+    background: rgba(255, 107, 107, 0.1);
+    border-color: rgba(255, 107, 107, 0.2);
+    color: #FF6B6B;
+  }
+  .credit-badge.low:hover {
+    background: rgba(255, 107, 107, 0.18);
+    box-shadow: 0 0 16px rgba(255, 107, 107, 0.15);
+  }
+
+  /* ---- TIER SELECTOR ---- */
+  .tier-cards { display: flex; gap: 12px; flex-wrap: wrap; }
+  .tier-card {
+    flex: 1; min-width: 140px;
+    background: #0F2035;
+    border: 2px solid #1E293B;
+    border-radius: 12px;
+    padding: 20px;
+    cursor: pointer;
+    text-align: center;
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  .tier-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 50% 120%, var(--tier-glow), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+  }
+  .tier-card:hover::before { opacity: 1; }
+  .tier-card:hover {
+    border-color: var(--tier-border);
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+  }
+  .tier-card.selected {
+    border-color: var(--tier-border);
+    background: #0B1426;
+    box-shadow: 0 0 24px var(--tier-glow);
+  }
+  .tier-card.selected::before { opacity: 1; }
+  .tier-card .tier-name {
+    font-size: 16px; font-weight: 600; color: #F1F5F9;
+    margin-bottom: 4px;
+    transition: color 0.3s ease;
+    position: relative;
+  }
+  .tier-card:hover .tier-name,
+  .tier-card.selected .tier-name { color: var(--tier-accent); }
+  .tier-card .tier-range {
+    font-size: 12px; color: #64748B;
+    font-family: 'JetBrains Mono', monospace;
+    position: relative;
+  }
+  .tier-card .tier-cost {
+    font-size: 20px; font-weight: 700; margin-top: 12px;
+    position: relative;
+    transition: transform 0.3s ease;
+  }
+  .tier-card:hover .tier-cost { transform: scale(1.05); }
+
+  /* ---- NAVBAR PREVIEW ---- */
+  .nav-preview {
+    background: rgba(11, 20, 38, 0.85);
+    backdrop-filter: blur(16px);
+    border: 1px solid #1E293B;
+    border-radius: 12px;
+    padding: 12px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-brand {
+    font-size: 18px; font-weight: 700; color: #F1F5F9;
+    letter-spacing: -0.02em;
+    cursor: pointer;
+    transition: color 0.3s ease;
+  }
+  .nav-brand:hover { color: #22D3EE; }
+  .nav-brand .dot {
+    display: inline-block;
+    width: 8px; height: 8px;
+    background: #22D3EE;
+    border-radius: 50%;
+    margin-left: 2px;
+    box-shadow: 0 0 8px rgba(34, 211, 238, 0.4);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+  .nav-brand:hover .dot {
+    transform: scale(1.3);
+    box-shadow: 0 0 14px rgba(34, 211, 238, 0.6);
+  }
+  .nav-links { display: flex; gap: 24px; align-items: center; }
+  .nav-link {
+    font-size: 14px; font-weight: 500; color: #94A3B8;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.3s ease;
+    padding-bottom: 2px;
+  }
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; left: 0;
+    width: 0; height: 2px;
+    background: #22D3EE;
+    border-radius: 1px;
+    transition: width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .nav-link:hover { color: #F1F5F9; }
+  .nav-link:hover::after { width: 100%; }
+  .nav-link.active { color: #22D3EE; }
+  .nav-link.active::after { width: 100%; }
+
+  /* ---- TOOLTIP ---- */
+  .has-tooltip {
+    position: relative;
+  }
+  .has-tooltip .tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    background: #1E293B;
+    color: #F1F5F9;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .has-tooltip:hover .tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ---- LAYOUT GRID ---- */
+  .component-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 16px;
+  }
+  .component-panel {
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  /* ---- NOTIFICATION TOAST ---- */
+  .toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #0F2035;
+    border: 1px solid #164E63;
+    border-radius: 12px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    color: #CBD5E1;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    transform: translateY(120px);
+    opacity: 0;
+    transition: transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.3s ease;
+    z-index: 100;
+    cursor: pointer;
+  }
+  .toast.show {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  .toast .toast-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #22D3EE;
+    box-shadow: 0 0 8px rgba(34, 211, 238, 0.5);
+    animation: pulse-glow 2s ease-in-out infinite;
+    --glow-color: rgba(34, 211, 238, 0.3);
+    --glow-faint: rgba(34, 211, 238, 0.1);
+    --glow-faintest: rgba(34, 211, 238, 0.05);
+    flex-shrink: 0;
+  }
+
+  /* ---- DESIGN PRINCIPLE BOX ---- */
+  .principle-box {
+    margin-top: 24px;
+    padding: 16px 20px;
+    background: rgba(14, 116, 144, 0.08);
+    border: 1px solid #164E63;
+    border-radius: 10px;
+    font-size: 14px;
+    color: #CBD5E1;
+    transition: background 0.3s ease;
+  }
+  .principle-box:hover {
+    background: rgba(14, 116, 144, 0.12);
+  }
+  .principle-box strong { color: #22D3EE; }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <h2>SimSwarm Visual Identity</h2>
+  <p class="subtitle">Color palette, typography, micro-interactions, and component DNA — all interactive. Hover, click, and explore.</p>
+
+  <!-- ============ COLOR PALETTE ============ -->
+  <div class="section">
+    <h3>Color Palette: "Deep Ocean"</h3>
+    <p style="margin-bottom: 20px; color: #94a3b8; font-size: 14px;">Hover swatches to preview. Click to copy hex value.</p>
+
+    <div class="label">Primary — Ocean Depths</div>
+    <div class="palette-row">
+      <div class="swatch" onclick="copyHex('#0B1426', this)">
+        <div class="swatch-color" style="background: #0B1426; border: 1px solid #1e293b;"></div>
+        <div class="swatch-info"><div class="name">Abyss</div><div class="hex">#0B1426</div><div class="use">Page backgrounds</div></div>
+      </div>
+      <div class="swatch" onclick="copyHex('#0F2035', this)">
+        <div class="swatch-color" style="background: #0F2035;"></div>
+        <div class="swatch-info"><div class="name">Deep</div><div class="hex">#0F2035</div><div class="use">Card surfaces</div></div>
+      </div>
+      <div class="swatch" onclick="copyHex('#164E63', this)">
+        <div class="swatch-color" style="background: #164E63;"></div>
+        <div class="swatch-info"><div class="name">Teal</div><div class="hex">#164E63</div><div class="use">Interactive surfaces</div></div>
+      </div>
+      <div class="swatch" onclick="copyHex('#0E7490', this)">
+        <div class="swatch-color" style="background: #0E7490;"></div>
+        <div class="swatch-info"><div class="name">Cyan</div><div class="hex">#0E7490</div><div class="use">Primary actions</div></div>
+      </div>
+      <div class="swatch" onclick="copyHex('#22D3EE', this)">
+        <div class="swatch-color" style="background: #22D3EE;"></div>
+        <div class="swatch-info"><div class="name">Bioluminescent</div><div class="hex">#22D3EE</div><div class="use">Glows & highlights</div></div>
+      </div>
+    </div>
+
+    <div class="label">Accent — Coral Reef</div>
+    <div class="palette-row">
+      <div class="swatch" onclick="copyHex('#FF6B6B', this)">
+        <div class="swatch-color" style="background: #FF6B6B;"></div>
+        <div class="swatch-info"><div class="name">Coral</div><div class="hex">#FF6B6B</div><div class="use">CTAs & alerts</div></div>
+      </div>
+      <div class="swatch" onclick="copyHex('#F97316', this)">
+        <div class="swatch-color" style="background: #F97316;"></div>
+        <div class="swatch-info"><div class="name">Warm Amber</div><div class="hex">#F97316</div><div class="use">Warnings & energy</div></div>
+      </div>
+      <div class="swatch" onclick="copyHex('#FBBF24', this)">
+        <div class="swatch-color" style="background: #FBBF24;"></div>
+        <div class="swatch-info"><div class="name">Sand</div><div class="hex">#FBBF24</div><div class="use">Highlights & badges</div></div>
+      </div>
+    </div>
+
+    <div class="label">Organic — Living Systems</div>
+    <div class="palette-row">
+      <div class="swatch" onclick="copyHex('#10B981', this)">
+        <div class="swatch-color" style="background: #10B981;"></div>
+        <div class="swatch-info"><div class="name">Sage</div><div class="hex">#10B981</div><div class="use">Success & growth</div></div>
+      </div>
+      <div class="swatch" onclick="copyHex('#6EE7B7', this)">
+        <div class="swatch-color" style="background: #6EE7B7;"></div>
+        <div class="swatch-info"><div class="name">Seafoam</div><div class="hex">#6EE7B7</div><div class="use">Positive sentiment</div></div>
+      </div>
+      <div class="swatch" onclick="copyHex('#A78BFA', this)">
+        <div class="swatch-color" style="background: #A78BFA;"></div>
+        <div class="swatch-info"><div class="name">Deep Violet</div><div class="hex">#A78BFA</div><div class="use">AI / swarm identity</div></div>
+      </div>
+    </div>
+
+    <div class="label">Neutrals — Ocean Mist</div>
+    <div class="palette-row">
+      <div class="swatch" onclick="copyHex('#F1F5F9', this)" style="min-width: 80px;">
+        <div class="swatch-color" style="background: #F1F5F9; height: 48px;"></div>
+        <div class="swatch-info"><div class="hex">#F1F5F9</div><div class="use">Foam</div></div>
+      </div>
+      <div class="swatch" onclick="copyHex('#CBD5E1', this)" style="min-width: 80px;">
+        <div class="swatch-color" style="background: #CBD5E1; height: 48px;"></div>
+        <div class="swatch-info"><div class="hex">#CBD5E1</div><div class="use">Mist</div></div>
+      </div>
+      <div class="swatch" onclick="copyHex('#94A3B8', this)" style="min-width: 80px;">
+        <div class="swatch-color" style="background: #94A3B8; height: 48px;"></div>
+        <div class="swatch-info"><div class="hex">#94A3B8</div><div class="use">Drift</div></div>
+      </div>
+      <div class="swatch" onclick="copyHex('#64748B', this)" style="min-width: 80px;">
+        <div class="swatch-color" style="background: #64748B; height: 48px;"></div>
+        <div class="swatch-info"><div class="hex">#64748B</div><div class="use">Slate</div></div>
+      </div>
+      <div class="swatch" onclick="copyHex('#1E293B', this)" style="min-width: 80px;">
+        <div class="swatch-color" style="background: #1E293B; height: 48px; border: 1px solid #334155;"></div>
+        <div class="swatch-info"><div class="hex">#1E293B</div><div class="use">Depth</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TYPOGRAPHY ============ -->
+  <div class="section">
+    <h3>Typography</h3>
+    <div style="background: #0F2035; border: 1px solid #1e293b; border-radius: 12px; padding: 32px;">
+      <div style="margin-bottom: 24px;">
+        <div class="label">Headings — Inter</div>
+        <div style="font-size: 40px; font-weight: 700; color: #F1F5F9; letter-spacing: -0.02em; line-height: 1.1;">Watch the swarm evolve</div>
+        <div style="font-size: 24px; font-weight: 600; color: #CBD5E1; margin-top: 12px; letter-spacing: -0.01em;">Emergent intelligence, visible in real time</div>
+        <div style="font-size: 18px; font-weight: 500; color: #94A3B8; margin-top: 8px;">Section heading for card titles</div>
+      </div>
+      <div style="margin-bottom: 24px;">
+        <div class="label">Body — Inter</div>
+        <div style="font-size: 16px; font-weight: 400; color: #CBD5E1; line-height: 1.7; max-width: 560px;">
+          The digital ecosystem processed 847 unique agent interactions across 12 opinion clusters. Sentiment shifted measurably after the third round, revealing an emergent coalition.
+        </div>
+      </div>
+      <div>
+        <div class="label">Data / Code — JetBrains Mono</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 14px; color: #22D3EE; letter-spacing: 0.02em;">847 agents &middot; 12 clusters &middot; 3 rounds &middot; 94.2% confidence</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: #64748B; margin-top: 4px;">simulation_id: sw_7f3a9b &middot; duration: 4m 32s</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ NAVBAR ============ -->
+  <div class="section">
+    <h3>Navbar</h3>
+    <p style="margin-bottom: 12px; color: #94a3b8; font-size: 14px;">Frosted glass effect with animated brand mark. Hover the links.</p>
+    <div class="nav-preview">
+      <div class="nav-brand">SimSwarm<span class="dot"></span></div>
+      <div class="nav-links">
+        <div class="nav-link active">Dashboard</div>
+        <div class="nav-link">New Simulation</div>
+        <div class="nav-link">Account</div>
+        <div class="credit-badge">
+          <span class="icon">&#x2295;</span>
+          <span>420 credits</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ BUTTONS ============ -->
+  <div class="section">
+    <h3>Buttons</h3>
+    <p style="margin-bottom: 12px; color: #94a3b8; font-size: 14px;">Radial light follows cursor. Click for ripple effect. Try all three.</p>
+    <div class="component-panel" style="display: flex; flex-direction: column; gap: 12px; max-width: 320px;">
+      <button class="btn btn-primary" onmousedown="addRipple(event)">Run Simulation</button>
+      <button class="btn btn-ghost" onmousedown="addRipple(event)">View Results</button>
+      <button class="btn btn-cta" onmousedown="addRipple(event)">Get Started Free</button>
+    </div>
+  </div>
+
+  <!-- ============ SIMULATION CARD ============ -->
+  <div class="section">
+    <h3>Simulation Card</h3>
+    <p style="margin-bottom: 12px; color: #94a3b8; font-size: 14px;">Top-edge glow on hover. Title shifts to accent color. Metadata brightens.</p>
+    <div style="max-width: 480px;">
+      <div class="sim-card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <span class="status-badge">Completed</span>
+          <span style="font-size: 12px; color: #64748B;">2 hours ago</span>
+        </div>
+        <div class="title">Tesla Q1 Earnings Impact</div>
+        <div style="font-size: 14px; color: #94A3B8; line-height: 1.5;">How will markets react to the earnings miss?</div>
+        <div class="meta">
+          <span>847 agents</span>
+          <span>&middot;</span>
+          <span>Medium tier</span>
+          <span>&middot;</span>
+          <span>4m 32s</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FORM ELEMENTS ============ -->
+  <div class="section">
+    <h3>Form Elements</h3>
+    <p style="margin-bottom: 12px; color: #94a3b8; font-size: 14px;">Focus glow on inputs. Drag-over state on dropzone. Springy tags.</p>
+    <div class="component-panel" style="max-width: 480px;">
+      <div style="display: flex; flex-direction: column; gap: 12px;">
+        <input class="form-input" type="text" placeholder="What would you like to simulate?" />
+        <div class="dropzone" id="dropzone">
+          <div class="dropzone-icon">&#x1F30A;</div>
+          <div style="font-size: 14px; color: #64748B;">Drop your document here</div>
+          <div style="font-size: 12px; color: #475569; margin-top: 4px;">PDF, TXT, CSV, or Markdown</div>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <span class="tag">Press release</span>
+          <span class="tag">Policy draft</span>
+          <span class="tag">Earnings report</span>
+          <span class="tag">Campaign brief</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TIER SELECTOR ============ -->
+  <div class="section">
+    <h3>Tier Selector</h3>
+    <p style="margin-bottom: 12px; color: #94a3b8; font-size: 14px;">Click to select. Each tier has its own accent glow.</p>
+    <div class="tier-cards">
+      <div class="tier-card" style="--tier-glow: rgba(34, 211, 238, 0.08); --tier-border: #0E7490; --tier-accent: #22D3EE;" onclick="selectTier(this)">
+        <div class="tier-name">Small</div>
+        <div class="tier-range">1–500 agents</div>
+        <div class="tier-cost" style="color: #22D3EE;">30 credits</div>
+      </div>
+      <div class="tier-card selected" style="--tier-glow: rgba(167, 139, 250, 0.08); --tier-border: #7C3AED; --tier-accent: #A78BFA;" onclick="selectTier(this)">
+        <div class="tier-name">Medium</div>
+        <div class="tier-range">501–2,000 agents</div>
+        <div class="tier-cost" style="color: #A78BFA;">90 credits</div>
+      </div>
+      <div class="tier-card" style="--tier-glow: rgba(251, 191, 36, 0.08); --tier-border: #D97706; --tier-accent: #FBBF24;" onclick="selectTier(this)">
+        <div class="tier-name">Large</div>
+        <div class="tier-range">2,001–10,000 agents</div>
+        <div class="tier-cost" style="color: #FBBF24;">300 credits</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ PIPELINE PROGRESS ============ -->
+  <div class="section">
+    <h3>Pipeline Progress</h3>
+    <p style="margin-bottom: 12px; color: #94a3b8; font-size: 14px;">Breathing glow on active step. Shimmer on active connector. Hover for tooltips.</p>
+    <div class="component-panel">
+      <div class="pipeline">
+        <div class="pipeline-step has-tooltip">
+          <div class="pipeline-dot done">&#x2713;</div>
+          <div class="pipeline-label">Seed</div>
+          <div class="tooltip">Document processed</div>
+        </div>
+        <div class="pipeline-line done"></div>
+        <div class="pipeline-step has-tooltip">
+          <div class="pipeline-dot done">&#x2713;</div>
+          <div class="pipeline-label">Research</div>
+          <div class="tooltip">Context gathered</div>
+        </div>
+        <div class="pipeline-line active"></div>
+        <div class="pipeline-step has-tooltip">
+          <div class="pipeline-dot active">3</div>
+          <div class="pipeline-label">Simulate</div>
+          <div class="tooltip">Running 847 agents...</div>
+        </div>
+        <div class="pipeline-line pending"></div>
+        <div class="pipeline-step has-tooltip">
+          <div class="pipeline-dot pending">4</div>
+          <div class="pipeline-label">Analyze</div>
+          <div class="tooltip">Waiting...</div>
+        </div>
+        <div class="pipeline-line pending"></div>
+        <div class="pipeline-step has-tooltip">
+          <div class="pipeline-dot pending">5</div>
+          <div class="pipeline-label">Report</div>
+          <div class="tooltip">Waiting...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ BIOLUMINESCENT NODES ============ -->
+  <div class="section">
+    <h3>Bioluminescent Effects</h3>
+    <p style="margin-bottom: 12px; color: #94a3b8; font-size: 14px;">Breathing animation on idle. Hover to pause and enlarge. Each node type has its own glow signature.</p>
+    <div class="component-panel" style="display: flex; gap: 32px; justify-content: center; flex-wrap: wrap; padding: 40px;">
+      <div style="text-align: center;">
+        <div class="glow-node breathing" style="width: 64px; height: 64px; background: radial-gradient(circle, #22D3EE, #0E7490); --glow-color: rgba(34, 211, 238, 0.4); --glow-faint: rgba(34, 211, 238, 0.15); --glow-faintest: rgba(34, 211, 238, 0.06); margin: 0 auto 8px;"></div>
+        <div style="font-size: 12px; color: #94A3B8;">Active agent</div>
+      </div>
+      <div style="text-align: center;">
+        <div class="glow-node breathing" style="width: 48px; height: 48px; background: radial-gradient(circle, #FF6B6B, #DC2626); --glow-color: rgba(255, 107, 107, 0.35); --glow-faint: rgba(255, 107, 107, 0.12); --glow-faintest: rgba(255, 107, 107, 0.04); margin: 8px auto 8px; animation-delay: -1s;"></div>
+        <div style="font-size: 12px; color: #94A3B8;">Negative sentiment</div>
+      </div>
+      <div style="text-align: center;">
+        <div class="glow-node breathing" style="width: 56px; height: 56px; background: radial-gradient(circle, #6EE7B7, #10B981); --glow-color: rgba(110, 231, 183, 0.35); --glow-faint: rgba(110, 231, 183, 0.12); --glow-faintest: rgba(110, 231, 183, 0.04); margin: 4px auto 8px; animation-delay: -0.5s;"></div>
+        <div style="font-size: 12px; color: #94A3B8;">Positive cluster</div>
+      </div>
+      <div style="text-align: center;">
+        <div class="glow-node breathing" style="width: 40px; height: 40px; background: radial-gradient(circle, #A78BFA, #7C3AED); --glow-color: rgba(167, 139, 250, 0.35); --glow-faint: rgba(167, 139, 250, 0.12); --glow-faintest: rgba(167, 139, 250, 0.04); margin: 12px auto 8px; animation-delay: -2s;"></div>
+        <div style="font-size: 12px; color: #94A3B8;">AI synthesis</div>
+      </div>
+      <div style="text-align: center;">
+        <div class="glow-node breathing" style="width: 52px; height: 52px; background: radial-gradient(circle, #FBBF24, #F97316); --glow-color: rgba(251, 191, 36, 0.3); --glow-faint: rgba(251, 191, 36, 0.1); --glow-faintest: rgba(251, 191, 36, 0.04); margin: 6px auto 8px; animation-delay: -1.5s;"></div>
+        <div style="font-size: 12px; color: #94A3B8;">Emerging trend</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ CREDIT BADGES ============ -->
+  <div class="section">
+    <h3>Credit Badges</h3>
+    <p style="margin-bottom: 12px; color: #94a3b8; font-size: 14px;">Icon rotates on hover. Low-balance state shifts to coral.</p>
+    <div style="display: flex; gap: 16px; align-items: center; flex-wrap: wrap;">
+      <div class="credit-badge">
+        <span class="icon">&#x2295;</span>
+        <span>420 credits</span>
+      </div>
+      <div class="credit-badge low">
+        <span class="icon">&#x2295;</span>
+        <span>12 credits</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ TOAST ============ -->
+  <div class="section">
+    <h3>Notification Toast</h3>
+    <p style="margin-bottom: 12px; color: #94a3b8; font-size: 14px;">Springs up from bottom-right. Click button to preview.</p>
+    <button class="btn btn-ghost" onclick="showToast()" onmousedown="addRipple(event)">Show Toast</button>
+  </div>
+
+  <div class="principle-box">
+    <strong>Micro-interaction principles:</strong> Every interaction uses <code style="color: #22D3EE; background: rgba(34, 211, 238, 0.1); padding: 2px 6px; border-radius: 4px;">cubic-bezier(0.34, 1.56, 0.64, 1)</code> — a slightly springy ease that feels organic, like water tension releasing. Glows breathe on 3s cycles. Hovers lift elements gently (2-6px). Active states compress briefly. Nothing snaps. Everything flows.
+  </div>
+
+</div>
+
+<!-- TOAST ELEMENT -->
+<div class="toast" id="toast" onclick="this.classList.remove('show')">
+  <div class="toast-dot"></div>
+  <span>Simulation complete — <strong style="color: #22D3EE;">Tesla Q1 Earnings</strong></span>
+</div>
+
+<script>
+  // Radial light follow on buttons
+  document.querySelectorAll('.btn').forEach(btn => {
+    btn.addEventListener('mousemove', e => {
+      const rect = btn.getBoundingClientRect();
+      btn.style.setProperty('--mx', ((e.clientX - rect.left) / rect.width * 100) + '%');
+      btn.style.setProperty('--my', ((e.clientY - rect.top) / rect.height * 100) + '%');
+    });
+  });
+
+  // Ripple effect
+  function addRipple(e) {
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    ripple.style.left = (e.clientX - rect.left) + 'px';
+    ripple.style.top = (e.clientY - rect.top) + 'px';
+    ripple.style.width = ripple.style.height = Math.max(rect.width, rect.height) + 'px';
+    btn.appendChild(ripple);
+    setTimeout(() => ripple.remove(), 600);
+  }
+
+  // Copy hex
+  function copyHex(hex, el) {
+    navigator.clipboard.writeText(hex).catch(() => {});
+    const info = el.querySelector('.hex');
+    const orig = info.textContent;
+    info.textContent = 'Copied!';
+    info.style.color = '#22D3EE';
+    setTimeout(() => { info.textContent = orig; info.style.color = '#94a3b8'; }, 1200);
+  }
+
+  // Tier selection
+  function selectTier(el) {
+    document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+  }
+
+  // Dropzone drag states
+  const dz = document.getElementById('dropzone');
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); });
+
+  // Toast
+  function showToast() {
+    const t = document.getElementById('toast');
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3500);
+  }
+</script>
+
+</body>
+</html>

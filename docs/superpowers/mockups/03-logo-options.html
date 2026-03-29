@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SimSwarm — Logo Options</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0B1426;
+    color: #CBD5E1;
+    font-family: 'Inter', sans-serif;
+    padding: 48px 24px;
+  }
+  .container { max-width: 1000px; margin: 0 auto; }
+  h2 { font-size: 28px; font-weight: 800; color: #F1F5F9; letter-spacing: -0.02em; margin-bottom: 8px; }
+  .subtitle { color: #94A3B8; margin-bottom: 40px; font-size: 15px; }
+
+  .logo-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 24px;
+  }
+  .logo-card {
+    background: #0F2035;
+    border: 2px solid #1E293B;
+    border-radius: 16px;
+    padding: 40px;
+    cursor: pointer;
+    transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    position: relative;
+  }
+  .logo-card:hover {
+    border-color: #164E63;
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+  }
+  .logo-card.selected {
+    border-color: #22D3EE;
+    box-shadow: 0 0 30px rgba(34, 211, 238, 0.15);
+  }
+  .logo-card .letter-badge {
+    position: absolute;
+    top: 16px; left: 16px;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: #1E293B;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 700; color: #94A3B8;
+  }
+  .logo-card.selected .letter-badge {
+    background: #0E7490;
+    color: white;
+  }
+
+  /* Logo display area */
+  .logo-display {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-bottom: 32px;
+    min-height: 60px;
+  }
+  .logo-display .logo-text {
+    font-size: 26px; font-weight: 800; color: #F1F5F9;
+    letter-spacing: -0.03em;
+  }
+
+  /* Context previews */
+  .logo-contexts {
+    display: flex; gap: 12px;
+  }
+  .logo-ctx {
+    flex: 1;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .logo-ctx-label {
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748B;
+    margin-bottom: 6px;
+  }
+
+  /* Navbar preview */
+  .ctx-navbar {
+    background: rgba(11, 20, 38, 0.85);
+    backdrop-filter: blur(16px);
+    border: 1px solid #1E293B;
+    border-radius: 8px;
+    padding: 8px 16px;
+    display: flex; align-items: center;
+    justify-content: space-between;
+  }
+  .ctx-navbar .ctx-brand {
+    display: flex; align-items: center; gap: 8px;
+  }
+  .ctx-navbar .ctx-brand-text {
+    font-size: 14px; font-weight: 800; color: #F1F5F9;
+    letter-spacing: -0.02em;
+  }
+  .ctx-navbar .ctx-links {
+    display: flex; gap: 12px; font-size: 10px; color: #64748B;
+  }
+
+  /* Favicon preview */
+  .ctx-favicon {
+    background: #1E293B;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .ctx-favicon .fav-box {
+    width: 20px; height: 20px;
+    background: #0B1426;
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .ctx-favicon .fav-box svg { width: 14px; height: 14px; }
+  .ctx-favicon .fav-label {
+    font-size: 11px; color: #94A3B8;
+    white-space: nowrap;
+  }
+
+  .logo-desc {
+    font-size: 13px; color: #94A3B8;
+    margin-top: 16px;
+    line-height: 1.5;
+  }
+  .logo-desc strong { color: #CBD5E1; }
+
+  /* Animated SVGs */
+  @keyframes orbit1 {
+    0% { transform: rotate(0deg) translateX(12px) rotate(0deg); }
+    100% { transform: rotate(360deg) translateX(12px) rotate(-360deg); }
+  }
+  @keyframes orbit2 {
+    0% { transform: rotate(120deg) translateX(12px) rotate(-120deg); }
+    100% { transform: rotate(480deg) translateX(12px) rotate(-480deg); }
+  }
+  @keyframes orbit3 {
+    0% { transform: rotate(240deg) translateX(12px) rotate(-240deg); }
+    100% { transform: rotate(600deg) translateX(12px) rotate(-600deg); }
+  }
+  @keyframes pulse-soft {
+    0%, 100% { opacity: 0.5; }
+    50% { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h2>Logo Options</h2>
+<p class="subtitle">Click the one that feels right. Each shown at display size + navbar + favicon context.</p>
+
+<div class="logo-grid">
+
+  <!-- OPTION A: Convergence Node -->
+  <div class="logo-card" onclick="selectLogo(this)">
+    <div class="letter-badge">A</div>
+    <div class="logo-display">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <defs>
+          <linearGradient id="a1" x1="0" y1="0" x2="48" y2="48">
+            <stop offset="0%" stop-color="#22D3EE"/><stop offset="100%" stop-color="#0E7490"/>
+          </linearGradient>
+          <radialGradient id="a-glow" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="#22D3EE" stop-opacity="0.3"/>
+            <stop offset="100%" stop-color="#22D3EE" stop-opacity="0"/>
+          </radialGradient>
+        </defs>
+        <circle cx="24" cy="24" r="20" fill="url(#a-glow)"/>
+        <!-- 6 agent dots flowing inward via curves -->
+        <path d="M6 12 Q14 14, 20 21" stroke="#22D3EE" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+        <path d="M42 12 Q34 14, 28 21" stroke="#A78BFA" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+        <path d="M6 36 Q14 34, 20 27" stroke="#6EE7B7" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+        <path d="M42 36 Q34 34, 28 27" stroke="#FF6B6B" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+        <path d="M24 4 Q24 12, 24 20" stroke="#FBBF24" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+        <path d="M24 44 Q24 36, 24 28" stroke="#22D3EE" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.4"/>
+        <!-- Agent dots at path starts -->
+        <circle cx="6" cy="12" r="2.5" fill="#22D3EE" opacity="0.8"><animate attributeName="opacity" values="0.4;1;0.4" dur="3s" repeatCount="indefinite"/></circle>
+        <circle cx="42" cy="12" r="2.5" fill="#A78BFA" opacity="0.8"><animate attributeName="opacity" values="0.4;1;0.4" dur="3s" begin="0.5s" repeatCount="indefinite"/></circle>
+        <circle cx="6" cy="36" r="2.5" fill="#6EE7B7" opacity="0.8"><animate attributeName="opacity" values="0.4;1;0.4" dur="3s" begin="1s" repeatCount="indefinite"/></circle>
+        <circle cx="42" cy="36" r="2.5" fill="#FF6B6B" opacity="0.8"><animate attributeName="opacity" values="0.4;1;0.4" dur="3s" begin="1.5s" repeatCount="indefinite"/></circle>
+        <circle cx="24" cy="4" r="2" fill="#FBBF24" opacity="0.7"><animate attributeName="opacity" values="0.3;0.8;0.3" dur="3s" begin="2s" repeatCount="indefinite"/></circle>
+        <!-- Central convergence -->
+        <circle cx="24" cy="24" r="5" fill="url(#a1)" opacity="0.9"/>
+        <circle cx="24" cy="24" r="2.5" fill="#F1F5F9" opacity="0.85"/>
+      </svg>
+      <span class="logo-text">SimSwarm</span>
+    </div>
+    <div class="logo-contexts">
+      <div class="logo-ctx">
+        <div class="logo-ctx-label">Navbar</div>
+        <div class="ctx-navbar">
+          <div class="ctx-brand">
+            <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
+              <path d="M6 12 Q14 14, 20 21" stroke="#22D3EE" stroke-width="2" fill="none" opacity="0.6"/>
+              <path d="M42 12 Q34 14, 28 21" stroke="#A78BFA" stroke-width="2" fill="none" opacity="0.6"/>
+              <path d="M6 36 Q14 34, 20 27" stroke="#6EE7B7" stroke-width="2" fill="none" opacity="0.6"/>
+              <path d="M42 36 Q34 34, 28 27" stroke="#FF6B6B" stroke-width="2" fill="none" opacity="0.6"/>
+              <circle cx="24" cy="24" r="5" fill="#0E7490"/><circle cx="24" cy="24" r="2.5" fill="#F1F5F9" opacity="0.85"/>
+            </svg>
+            <span class="ctx-brand-text">SimSwarm</span>
+          </div>
+          <div class="ctx-links">Dashboard &middot; New Sim &middot; Account</div>
+        </div>
+      </div>
+      <div class="logo-ctx" style="flex: 0 0 auto;">
+        <div class="logo-ctx-label">Favicon</div>
+        <div class="ctx-favicon">
+          <div class="fav-box">
+            <svg viewBox="0 0 48 48" fill="none">
+              <circle cx="24" cy="24" r="8" fill="#0E7490"/><circle cx="24" cy="24" r="4" fill="#F1F5F9"/>
+              <circle cx="10" cy="12" r="3" fill="#22D3EE" opacity="0.7"/>
+              <circle cx="38" cy="12" r="3" fill="#A78BFA" opacity="0.7"/>
+              <circle cx="10" cy="36" r="3" fill="#6EE7B7" opacity="0.7"/>
+              <circle cx="38" cy="36" r="3" fill="#FF6B6B" opacity="0.7"/>
+            </svg>
+          </div>
+          <span class="fav-label">SimSwarm</span>
+        </div>
+      </div>
+    </div>
+    <div class="logo-desc"><strong>Convergence Node</strong> — Agents flow inward along curved paths to a central intelligence point. Communicates "many inputs, one insight."</div>
+  </div>
+
+  <!-- OPTION B: Orbital Swarm -->
+  <div class="logo-card" onclick="selectLogo(this)">
+    <div class="letter-badge">B</div>
+    <div class="logo-display">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <defs>
+          <linearGradient id="b1" x1="0" y1="0" x2="48" y2="48">
+            <stop offset="0%" stop-color="#22D3EE"/><stop offset="100%" stop-color="#0E7490"/>
+          </linearGradient>
+        </defs>
+        <!-- Orbital rings -->
+        <ellipse cx="24" cy="24" rx="20" ry="10" stroke="#22D3EE" stroke-width="1" fill="none" opacity="0.2" transform="rotate(-20 24 24)"/>
+        <ellipse cx="24" cy="24" rx="18" ry="12" stroke="#A78BFA" stroke-width="1" fill="none" opacity="0.15" transform="rotate(25 24 24)"/>
+        <ellipse cx="24" cy="24" rx="16" ry="14" stroke="#6EE7B7" stroke-width="1" fill="none" opacity="0.12" transform="rotate(70 24 24)"/>
+        <!-- Orbiting agent dots -->
+        <g transform="translate(24,24)">
+          <circle r="2.5" fill="#22D3EE" opacity="0.9" style="animation: orbit1 8s linear infinite; transform-origin: center;"/>
+        </g>
+        <g transform="translate(24,24)">
+          <circle r="2.5" fill="#A78BFA" opacity="0.9" style="animation: orbit2 10s linear infinite; transform-origin: center;"/>
+        </g>
+        <g transform="translate(24,24)">
+          <circle r="2" fill="#6EE7B7" opacity="0.8" style="animation: orbit3 12s linear infinite; transform-origin: center;"/>
+        </g>
+        <!-- Outer static particles -->
+        <circle cx="8" cy="8" r="1.5" fill="#FF6B6B" opacity="0.4"/>
+        <circle cx="40" cy="10" r="1" fill="#FBBF24" opacity="0.3"/>
+        <circle cx="38" cy="40" r="1.5" fill="#22D3EE" opacity="0.3"/>
+        <circle cx="10" cy="38" r="1" fill="#A78BFA" opacity="0.35"/>
+        <!-- Center -->
+        <circle cx="24" cy="24" r="5" fill="url(#b1)" opacity="0.9"/>
+        <circle cx="24" cy="24" r="2.5" fill="#F1F5F9" opacity="0.8"/>
+      </svg>
+      <span class="logo-text">SimSwarm</span>
+    </div>
+    <div class="logo-contexts">
+      <div class="logo-ctx">
+        <div class="logo-ctx-label">Navbar</div>
+        <div class="ctx-navbar">
+          <div class="ctx-brand">
+            <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
+              <ellipse cx="24" cy="24" rx="18" ry="9" stroke="#22D3EE" stroke-width="1.5" fill="none" opacity="0.25" transform="rotate(-20 24 24)"/>
+              <ellipse cx="24" cy="24" rx="16" ry="11" stroke="#A78BFA" stroke-width="1.5" fill="none" opacity="0.2" transform="rotate(35 24 24)"/>
+              <circle cx="24" cy="24" r="5" fill="#0E7490"/><circle cx="24" cy="24" r="2.5" fill="#F1F5F9" opacity="0.85"/>
+              <circle cx="12" cy="16" r="2" fill="#22D3EE" opacity="0.7"/>
+              <circle cx="36" cy="30" r="2" fill="#A78BFA" opacity="0.7"/>
+            </svg>
+            <span class="ctx-brand-text">SimSwarm</span>
+          </div>
+          <div class="ctx-links">Dashboard &middot; New Sim &middot; Account</div>
+        </div>
+      </div>
+      <div class="logo-ctx" style="flex: 0 0 auto;">
+        <div class="logo-ctx-label">Favicon</div>
+        <div class="ctx-favicon">
+          <div class="fav-box">
+            <svg viewBox="0 0 48 48" fill="none">
+              <ellipse cx="24" cy="24" rx="16" ry="8" stroke="#22D3EE" stroke-width="2.5" fill="none" opacity="0.3" transform="rotate(-25 24 24)"/>
+              <circle cx="24" cy="24" r="7" fill="#0E7490"/><circle cx="24" cy="24" r="3.5" fill="#F1F5F9"/>
+            </svg>
+          </div>
+          <span class="fav-label">SimSwarm</span>
+        </div>
+      </div>
+    </div>
+    <div class="logo-desc"><strong>Orbital Swarm</strong> — Agents orbit a central node on intersecting elliptical paths. Animated in the app, static rings in print. Feels scientific yet alive.</div>
+  </div>
+
+  <!-- OPTION C: Wave Pulse -->
+  <div class="logo-card" onclick="selectLogo(this)">
+    <div class="letter-badge">C</div>
+    <div class="logo-display">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <defs>
+          <linearGradient id="c1" x1="0" y1="24" x2="48" y2="24">
+            <stop offset="0%" stop-color="#22D3EE"/><stop offset="50%" stop-color="#A78BFA"/><stop offset="100%" stop-color="#FF6B6B"/>
+          </linearGradient>
+        </defs>
+        <!-- Concentric pulse rings -->
+        <circle cx="24" cy="24" r="20" stroke="#22D3EE" stroke-width="1" fill="none" opacity="0.1">
+          <animate attributeName="r" values="16;22;16" dur="4s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.15;0.05;0.15" dur="4s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="24" cy="24" r="14" stroke="#A78BFA" stroke-width="1" fill="none" opacity="0.15">
+          <animate attributeName="r" values="12;17;12" dur="4s" begin="1.3s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.2;0.06;0.2" dur="4s" begin="1.3s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="24" cy="24" r="8" stroke="#FF6B6B" stroke-width="1" fill="none" opacity="0.2">
+          <animate attributeName="r" values="8;12;8" dur="4s" begin="2.6s" repeatCount="indefinite"/>
+          <animate attributeName="opacity" values="0.25;0.08;0.25" dur="4s" begin="2.6s" repeatCount="indefinite"/>
+        </circle>
+        <!-- Scattered agent dots on rings -->
+        <circle cx="10" cy="16" r="2" fill="#22D3EE" opacity="0.7" style="animation: pulse-soft 3s ease-in-out infinite;"/>
+        <circle cx="38" cy="18" r="1.5" fill="#A78BFA" opacity="0.6" style="animation: pulse-soft 3s ease-in-out 0.5s infinite;"/>
+        <circle cx="14" cy="36" r="1.5" fill="#6EE7B7" opacity="0.6" style="animation: pulse-soft 3s ease-in-out 1s infinite;"/>
+        <circle cx="36" cy="34" r="2" fill="#FF6B6B" opacity="0.7" style="animation: pulse-soft 3s ease-in-out 1.5s infinite;"/>
+        <circle cx="24" cy="8" r="1.5" fill="#FBBF24" opacity="0.5" style="animation: pulse-soft 3s ease-in-out 2s infinite;"/>
+        <circle cx="30" cy="40" r="1.5" fill="#22D3EE" opacity="0.5" style="animation: pulse-soft 3s ease-in-out 2.5s infinite;"/>
+        <!-- Core -->
+        <circle cx="24" cy="24" r="5" fill="url(#c1)" opacity="0.9"/>
+        <circle cx="24" cy="24" r="2.5" fill="#F1F5F9" opacity="0.85"/>
+      </svg>
+      <span class="logo-text">SimSwarm</span>
+    </div>
+    <div class="logo-contexts">
+      <div class="logo-ctx">
+        <div class="logo-ctx-label">Navbar</div>
+        <div class="ctx-navbar">
+          <div class="ctx-brand">
+            <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
+              <circle cx="24" cy="24" r="16" stroke="#22D3EE" stroke-width="1.5" fill="none" opacity="0.15"/>
+              <circle cx="24" cy="24" r="10" stroke="#A78BFA" stroke-width="1.5" fill="none" opacity="0.2"/>
+              <circle cx="24" cy="24" r="5" fill="#0E7490"/><circle cx="24" cy="24" r="2.5" fill="#F1F5F9" opacity="0.85"/>
+              <circle cx="12" cy="18" r="2" fill="#22D3EE" opacity="0.6"/><circle cx="36" cy="30" r="2" fill="#FF6B6B" opacity="0.6"/>
+            </svg>
+            <span class="ctx-brand-text">SimSwarm</span>
+          </div>
+          <div class="ctx-links">Dashboard &middot; New Sim &middot; Account</div>
+        </div>
+      </div>
+      <div class="logo-ctx" style="flex: 0 0 auto;">
+        <div class="logo-ctx-label">Favicon</div>
+        <div class="ctx-favicon">
+          <div class="fav-box">
+            <svg viewBox="0 0 48 48" fill="none">
+              <circle cx="24" cy="24" r="16" stroke="#22D3EE" stroke-width="2.5" fill="none" opacity="0.2"/>
+              <circle cx="24" cy="24" r="10" stroke="#A78BFA" stroke-width="2.5" fill="none" opacity="0.25"/>
+              <circle cx="24" cy="24" r="7" fill="#0E7490"/><circle cx="24" cy="24" r="3.5" fill="#F1F5F9"/>
+            </svg>
+          </div>
+          <span class="fav-label">SimSwarm</span>
+        </div>
+      </div>
+    </div>
+    <div class="logo-desc"><strong>Wave Pulse</strong> — Concentric ripples radiating from center with agents scattered like particles in a wave field. Communicates "signal propagation" and emergent spread.</div>
+  </div>
+
+  <!-- OPTION D: Abstract S -->
+  <div class="logo-card" onclick="selectLogo(this)">
+    <div class="letter-badge">D</div>
+    <div class="logo-display">
+      <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+        <defs>
+          <linearGradient id="d1" x1="12" y1="6" x2="36" y2="42">
+            <stop offset="0%" stop-color="#22D3EE"/>
+            <stop offset="50%" stop-color="#A78BFA"/>
+            <stop offset="100%" stop-color="#FF6B6B"/>
+          </linearGradient>
+        </defs>
+        <!-- Flowing S-curve made of two arcs -->
+        <path d="M14 8 C28 8, 36 16, 24 24 C12 32, 20 40, 34 40" stroke="url(#d1)" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <!-- Agent dots flowing along the S -->
+        <circle cx="14" cy="8" r="3" fill="#22D3EE" opacity="0.9">
+          <animate attributeName="opacity" values="0.5;1;0.5" dur="2.5s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="32" cy="14" r="2.5" fill="#22D3EE" opacity="0.7" style="animation: pulse-soft 3s ease-in-out 0.3s infinite;"/>
+        <circle cx="24" cy="24" r="3" fill="#A78BFA" opacity="0.9">
+          <animate attributeName="opacity" values="0.5;1;0.5" dur="2.5s" begin="0.8s" repeatCount="indefinite"/>
+        </circle>
+        <circle cx="16" cy="34" r="2.5" fill="#FF6B6B" opacity="0.7" style="animation: pulse-soft 3s ease-in-out 1.2s infinite;"/>
+        <circle cx="34" cy="40" r="3" fill="#FF6B6B" opacity="0.9">
+          <animate attributeName="opacity" values="0.5;1;0.5" dur="2.5s" begin="1.6s" repeatCount="indefinite"/>
+        </circle>
+        <!-- Smaller scattered particles -->
+        <circle cx="22" cy="12" r="1.5" fill="#6EE7B7" opacity="0.4"/>
+        <circle cx="28" cy="36" r="1.5" fill="#FBBF24" opacity="0.4"/>
+        <circle cx="10" cy="20" r="1" fill="#22D3EE" opacity="0.3"/>
+        <circle cx="38" cy="28" r="1" fill="#A78BFA" opacity="0.3"/>
+      </svg>
+      <span class="logo-text">SimSwarm</span>
+    </div>
+    <div class="logo-contexts">
+      <div class="logo-ctx">
+        <div class="logo-ctx-label">Navbar</div>
+        <div class="ctx-navbar">
+          <div class="ctx-brand">
+            <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
+              <defs><linearGradient id="d1s" x1="12" y1="6" x2="36" y2="42"><stop offset="0%" stop-color="#22D3EE"/><stop offset="50%" stop-color="#A78BFA"/><stop offset="100%" stop-color="#FF6B6B"/></linearGradient></defs>
+              <path d="M14 8 C28 8, 36 16, 24 24 C12 32, 20 40, 34 40" stroke="url(#d1s)" stroke-width="3.5" stroke-linecap="round" fill="none"/>
+              <circle cx="14" cy="8" r="3" fill="#22D3EE" opacity="0.8"/>
+              <circle cx="24" cy="24" r="3" fill="#A78BFA" opacity="0.8"/>
+              <circle cx="34" cy="40" r="3" fill="#FF6B6B" opacity="0.8"/>
+            </svg>
+            <span class="ctx-brand-text">SimSwarm</span>
+          </div>
+          <div class="ctx-links">Dashboard &middot; New Sim &middot; Account</div>
+        </div>
+      </div>
+      <div class="logo-ctx" style="flex: 0 0 auto;">
+        <div class="logo-ctx-label">Favicon</div>
+        <div class="ctx-favicon">
+          <div class="fav-box">
+            <svg viewBox="0 0 48 48" fill="none">
+              <defs><linearGradient id="d1f" x1="12" y1="6" x2="36" y2="42"><stop offset="0%" stop-color="#22D3EE"/><stop offset="50%" stop-color="#A78BFA"/><stop offset="100%" stop-color="#FF6B6B"/></linearGradient></defs>
+              <path d="M14 8 C28 8, 36 16, 24 24 C12 32, 20 40, 34 40" stroke="url(#d1f)" stroke-width="5" stroke-linecap="round" fill="none"/>
+              <circle cx="14" cy="8" r="4" fill="#22D3EE"/>
+              <circle cx="24" cy="24" r="4" fill="#A78BFA"/>
+              <circle cx="34" cy="40" r="4" fill="#FF6B6B"/>
+            </svg>
+          </div>
+          <span class="fav-label">SimSwarm</span>
+        </div>
+      </div>
+    </div>
+    <div class="logo-desc"><strong>Abstract S</strong> — A flowing S-curve (for SimSwarm) with agents as nodes along the current. Doubles as a data-flow / river metaphor. Reads well at all sizes, strong favicon.</div>
+  </div>
+
+</div>
+
+</div>
+
+<script>
+function selectLogo(card) {
+  document.querySelectorAll('.logo-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+}
+</script>
+</body>
+</html>

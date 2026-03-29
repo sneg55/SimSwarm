@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SimSwarm — Report View</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; scrollbar-width: thin; scrollbar-color: #164E63 #0B1426; }
+  body {
+    background: #0B1426;
+    color: #CBD5E1;
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.7;
+  }
+
+  /* ---- NAVBAR ---- */
+  .navbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    padding: 10px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(11, 20, 38, 0.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(30, 41, 59, 0.8);
+  }
+  .nav-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 18px; font-weight: 800; color: #F1F5F9;
+    letter-spacing: -0.03em;
+  }
+
+  /* ---- TOOLBAR ---- */
+  .toolbar {
+    position: fixed; top: 52px; left: 0; right: 0; z-index: 40;
+    padding: 8px 24px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(11, 20, 38, 0.75);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+  }
+  .toolbar-left {
+    display: flex; align-items: center; gap: 12px;
+    font-size: 13px; color: #64748B;
+  }
+  .toolbar-left a { color: #64748B; text-decoration: none; transition: color 0.2s; }
+  .toolbar-left a:hover { color: #94A3B8; }
+  .toolbar-right { display: flex; align-items: center; gap: 8px; }
+
+  /* ---- BOTTOM ACTION BAR ---- */
+  .bottom-bar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+    padding: 12px 24px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: rgba(11, 20, 38, 0.75);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(30, 41, 59, 0.5);
+  }
+  .bottom-btn {
+    font-size: 13px; font-weight: 600; color: #94A3B8;
+    background: #0F2035; border: 1px solid #1E293B;
+    padding: 8px 18px; border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    font-family: 'Inter', sans-serif;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .bottom-btn:hover {
+    border-color: #164E63; color: #F1F5F9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .bottom-btn.primary {
+    background: linear-gradient(135deg, #0E7490, #0891B2);
+    color: white; border: none;
+    box-shadow: 0 0 16px rgba(14, 116, 144, 0.25);
+  }
+  .bottom-btn.primary:hover {
+    box-shadow: 0 0 28px rgba(14, 116, 144, 0.45);
+  }
+
+  .view-toggle {
+    display: flex; gap: 2px;
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    border-radius: 10px;
+    padding: 3px;
+  }
+  .view-btn {
+    font-size: 12px; font-weight: 500; color: #64748B;
+    padding: 5px 14px; border-radius: 8px;
+    border: none; background: transparent;
+    cursor: pointer; transition: all 0.25s;
+    font-family: 'Inter', sans-serif;
+  }
+  .view-btn:hover { color: #94A3B8; }
+  .view-btn.active { color: #F1F5F9; background: rgba(14, 116, 144, 0.2); }
+
+  .export-btn {
+    font-size: 12px; font-weight: 600; color: #94A3B8;
+    background: #0F2035; border: 1px solid #1E293B;
+    padding: 5px 14px; border-radius: 8px;
+    cursor: pointer; font-family: 'Inter', sans-serif;
+    display: flex; align-items: center; gap: 6px;
+    transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .export-btn:hover {
+    border-color: #164E63; color: #F1F5F9;
+    transform: translateY(-1px);
+  }
+
+  /* ---- CONTENT ---- */
+  .content {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 120px 32px 80px;
+    margin-left: 260px;
+  }
+  @media (max-width: 1200px) {
+    .content { margin-left: auto; }
+  }
+
+  /* ---- SIMULATION META CARD ---- */
+  .meta-card {
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 32px;
+  }
+  .meta-title {
+    font-size: 24px; font-weight: 800; color: #F1F5F9;
+    letter-spacing: -0.02em; line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  .meta-goal {
+    font-size: 15px; color: #94A3B8; margin-bottom: 16px;
+  }
+  .meta-stats {
+    display: flex; gap: 16px; flex-wrap: wrap;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: #64748B;
+  }
+  .meta-stat {
+    display: flex; align-items: center; gap: 5px;
+  }
+  .meta-stat .dot {
+    width: 5px; height: 5px; border-radius: 50%;
+  }
+
+  /* ---- REPORT PROSE ---- */
+  .report-body {
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    border-radius: 16px;
+    padding: 40px;
+    margin-bottom: 24px;
+  }
+  .report-body h1 {
+    font-size: 26px; font-weight: 800; color: #F1F5F9;
+    letter-spacing: -0.02em;
+    margin: 0 0 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #1E293B;
+  }
+  .report-body h2 {
+    font-size: 20px; font-weight: 700; color: #F1F5F9;
+    letter-spacing: -0.01em;
+    margin: 36px 0 14px;
+  }
+  .report-body h3 {
+    font-size: 16px; font-weight: 600; color: #CBD5E1;
+    margin: 28px 0 10px;
+  }
+  .report-body p {
+    font-size: 15px; color: #CBD5E1; line-height: 1.8;
+    margin-bottom: 16px;
+  }
+  .report-body strong { color: #F1F5F9; font-weight: 600; }
+  .report-body em { color: #94A3B8; font-style: italic; }
+  .report-body code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    background: rgba(34, 211, 238, 0.08);
+    color: #22D3EE;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .report-body ul, .report-body ol {
+    margin: 12px 0 16px 24px;
+  }
+  .report-body li {
+    font-size: 15px; color: #CBD5E1;
+    margin-bottom: 8px; line-height: 1.7;
+  }
+  .report-body li::marker { color: #0E7490; }
+  .report-body blockquote {
+    border-left: 3px solid #0E7490;
+    padding: 12px 20px;
+    margin: 16px 0;
+    background: rgba(14, 116, 144, 0.05);
+    border-radius: 0 10px 10px 0;
+    font-size: 15px; color: #94A3B8;
+    font-style: italic;
+  }
+  .report-body hr {
+    border: none;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #1E293B, transparent);
+    margin: 32px 0;
+  }
+
+  /* Data table */
+  .report-body table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0 24px;
+    font-size: 14px;
+  }
+  .report-body th {
+    text-align: left;
+    padding: 10px 14px;
+    font-weight: 600; color: #F1F5F9;
+    background: #0B1426;
+    border-bottom: 2px solid #1E293B;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .report-body td {
+    padding: 10px 14px;
+    border-bottom: 1px solid #1E293B;
+    color: #CBD5E1;
+  }
+  .report-body tr:hover td { background: rgba(14, 116, 144, 0.03); }
+
+  /* Metrics inline */
+  .metric-inline {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 500;
+  }
+  .metric-inline.positive { color: #6EE7B7; background: rgba(110, 231, 183, 0.08); }
+  .metric-inline.negative { color: #FF6B6B; background: rgba(255, 107, 107, 0.08); }
+  .metric-inline.neutral { color: #22D3EE; background: rgba(34, 211, 238, 0.08); }
+
+  /* ---- CHAT SECTION ---- */
+  .chat-section {
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .chat-header {
+    padding: 16px 24px;
+    border-bottom: 1px solid #1E293B;
+    display: flex; align-items: center; justify-content: space-between;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .chat-header:hover { background: rgba(14, 116, 144, 0.03); }
+  .chat-header-title {
+    font-size: 15px; font-weight: 600; color: #F1F5F9;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .chat-header .arrow {
+    font-size: 12px; color: #64748B;
+    transition: transform 0.3s;
+  }
+  .chat-header .arrow.open { transform: rotate(90deg); }
+  .chat-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: #64748B;
+    background: #0B1426;
+    padding: 2px 8px; border-radius: 10px;
+  }
+  .chat-body {
+    max-height: 500px; overflow-y: auto;
+    padding: 16px 24px;
+    scrollbar-width: thin;
+    scrollbar-color: #164E63 #0B1426;
+  }
+  .chat-msg {
+    padding: 10px 14px;
+    border-radius: 10px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    max-width: 85%;
+    line-height: 1.6;
+  }
+  .chat-msg.agent {
+    background: #0B1426;
+    border: 1px solid #1E293B;
+    color: #CBD5E1;
+  }
+  .chat-msg.system {
+    background: rgba(251, 191, 36, 0.05);
+    border: 1px solid rgba(251, 191, 36, 0.12);
+    color: #FBBF24;
+    font-size: 12px;
+    max-width: 100%;
+    text-align: center;
+    font-weight: 500;
+  }
+  .chat-agent-name {
+    font-size: 11px; font-weight: 600;
+    margin-bottom: 4px;
+    letter-spacing: 0.02em;
+  }
+  .chat-time {
+    font-size: 10px; color: #475569;
+    text-align: right; margin-top: 4px;
+  }
+
+  /* ---- TABLE OF CONTENTS (floating right) ---- */
+  .toc {
+    position: fixed; left: 32px; top: 120px;
+    width: 200px; z-index: 30;
+  }
+  .toc-title {
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748B;
+    margin-bottom: 12px;
+  }
+  .toc-item {
+    font-size: 12px; color: #64748B;
+    padding: 4px 0 4px 12px;
+    border-left: 2px solid #1E293B;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: block;
+    text-decoration: none;
+  }
+  .toc-item:hover { color: #94A3B8; border-left-color: #164E63; }
+  .toc-item.active { color: #22D3EE; border-left-color: #22D3EE; }
+  .toc-item.sub { padding-left: 24px; font-size: 11px; }
+
+  @media (max-width: 1200px) {
+    .toc { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
+      <circle cx="24" cy="24" r="16" stroke="#22D3EE" stroke-width="1.5" fill="none" opacity="0.15"/>
+      <circle cx="24" cy="24" r="10" stroke="#A78BFA" stroke-width="1.5" fill="none" opacity="0.2"/>
+      <circle cx="24" cy="24" r="5" fill="#0E7490"/><circle cx="24" cy="24" r="2.5" fill="#F1F5F9" opacity="0.85"/>
+    </svg>
+    SimSwarm
+  </div>
+  <div style="font-size: 13px; color: #64748B;">j.smith@acmecorp.com</div>
+</nav>
+
+<!-- TOOLBAR -->
+<div class="toolbar">
+  <div class="toolbar-left">
+    <a href="#">&larr; Dashboard</a>
+    <span>/</span>
+    <span style="color: #94A3B8;">Tesla Q1 Earnings</span>
+  </div>
+  <div class="toolbar-right">
+    <div class="view-toggle">
+      <button class="view-btn">Story</button>
+      <button class="view-btn">Graph</button>
+      <button class="view-btn active">Report</button>
+    </div>
+  </div>
+</div>
+
+<!-- TABLE OF CONTENTS -->
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <a class="toc-item active" href="#overview">Overview</a>
+  <a class="toc-item" href="#market-impact">Market Impact</a>
+  <a class="toc-item sub" href="#institutional">Institutional Response</a>
+  <a class="toc-item sub" href="#retail">Retail Response</a>
+  <a class="toc-item" href="#media">Media Analysis</a>
+  <a class="toc-item" href="#recovery">Recovery Dynamics</a>
+  <a class="toc-item" href="#risk">Risk Factors</a>
+  <a class="toc-item" href="#data">Data Summary</a>
+  <a class="toc-item" href="#chat">Agent Chat</a>
+</div>
+
+<!-- CONTENT -->
+<div class="content">
+
+  <!-- Meta card -->
+  <div class="meta-card">
+    <div class="meta-title">Tesla Q1 Earnings — Market Reaction Forecast</div>
+    <div class="meta-goal">How will institutional and retail investors react to the Q1 earnings miss across public sentiment, media narrative, and trading behavior?</div>
+    <div class="meta-stats">
+      <span class="meta-stat"><span class="dot" style="background: #A78BFA;"></span> Medium tier</span>
+      <span class="meta-stat">847 agents</span>
+      <span class="meta-stat">12 clusters</span>
+      <span class="meta-stat">3 rounds</span>
+      <span class="meta-stat">4m 32s</span>
+      <span class="meta-stat">Completed Mar 27, 2026</span>
+    </div>
+  </div>
+
+  <!-- Report body -->
+  <div class="report-body" id="overview">
+    <h1>Simulation Report</h1>
+
+    <p>This report presents the findings from a multi-agent simulation analyzing the projected market reaction to Tesla's Q1 2026 earnings miss. The simulation deployed <strong>847 autonomous agents</strong> across institutional investors, retail traders, financial media, specialist EV/tech media, supply-chain analysts, and regulatory observers over <strong>3 simulation rounds</strong>, each representing approximately 48 hours of real-world time.</p>
+
+    <blockquote>
+      Key insight: The simulation projects a sharp initial selloff (-34% institutional sentiment) followed by a partial recovery driven by retail "buy the dip" behavior and supply-chain analyst signals by day 5.
+    </blockquote>
+
+    <h2 id="market-impact">Market Impact Assessment</h2>
+
+    <p>The <strong>initial market reaction</strong> is projected to be sharply negative, with institutional sell-side pressure driving a <span class="metric-inline negative">-6% to -8%</span> price decline in the first 24 hours. However, the simulation reveals this initial reaction overshoots the fundamental impact of the earnings miss.</p>
+
+    <p>The earnings miss of <code>$0.12/share</code> below consensus was driven primarily by Shanghai port logistics delays rather than structural demand weakness — a distinction that only the supply-chain analyst cluster identified early.</p>
+
+    <h3 id="institutional">Institutional Response</h3>
+
+    <p>Institutional investor agents shifted from neutral to bearish within the first simulation round. <strong>Hedge fund agents</strong> led the sell-off narrative, initiating short positions and revising price targets down <span class="metric-inline negative">15%</span>. Long-only fund agents showed a delayed but deeper negative reaction, moving to underweight positions.</p>
+
+    <ul>
+      <li><strong>Goldman Sachs:</strong> Revised PT to $165, initiated sell rating</li>
+      <li><strong>Morgan Stanley:</strong> Maintained hold but lowered PT by 12%</li>
+      <li><strong>JP Morgan:</strong> Downgraded to underweight</li>
+      <li><strong>Citadel:</strong> Increased short exposure by 40%</li>
+    </ul>
+
+    <h3 id="retail">Retail Response</h3>
+
+    <p>By simulation round 2, retail investor agents on social media platforms began coordinating a counter-narrative. The <strong>"buy the dip" coalition</strong> grew organically, driven by agents representing younger demographic segments who view Tesla as a long-term hold regardless of quarterly performance.</p>
+
+    <p>Retail confidence showed a <span class="metric-inline positive">+28%</span> recovery between rounds 2 and 3, partially offsetting institutional selling pressure.</p>
+
+    <hr>
+
+    <h2 id="media">Media Narrative Analysis</h2>
+
+    <p>Financial media agents split into two distinct clusters, creating an <strong>asymmetric information environment</strong>:</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Media Cluster</th>
+          <th>Narrative</th>
+          <th>Sentiment</th>
+          <th>Reach</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Mainstream (CNBC, Bloomberg)</td>
+          <td>"Tesla crisis" — earnings miss as systemic issue</td>
+          <td><span class="metric-inline negative">-22%</span></td>
+          <td>High</td>
+        </tr>
+        <tr>
+          <td>Specialist (Electrek, InsideEVs)</td>
+          <td>Supply-chain context — temporary correction</td>
+          <td><span class="metric-inline positive">+8%</span></td>
+          <td>Medium</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>The <span class="metric-inline neutral">67%</span> narrative divergence between these clusters is unusually high and suggests the market may be processing conflicting signals, creating volatility beyond what fundamentals alone would predict.</p>
+
+    <hr>
+
+    <h2 id="recovery">Recovery Dynamics</h2>
+
+    <p>The simulation projects a <strong>partial recovery</strong> by day 5-7, recovering approximately <span class="metric-inline positive">60%</span> of the initial decline. This recovery is driven by the convergence of two independent signals:</p>
+
+    <ol>
+      <li><strong>Retail buying pressure:</strong> The "buy the dip" coalition begins accumulating within 12 hours of the initial drop, creating a price floor.</li>
+      <li><strong>Supply-chain recovery signals:</strong> By round 3, supply-chain analyst agents identified the earnings miss as driven by temporary logistics bottlenecks (Shanghai port delays) rather than demand weakness. This signal, while initially confined to specialist channels, begins influencing institutional sentiment by day 5.</li>
+    </ol>
+
+    <blockquote>
+      The convergence of retail sentiment recovery and supply-chain analyst signals creates a <strong>narrative inflection point</strong> around day 5, after which the dominant story shifts from "Tesla crisis" to "temporary correction with recovery."
+    </blockquote>
+
+    <hr>
+
+    <h2 id="risk">Risk Factors</h2>
+
+    <p>The simulation identified two key risk factors that could alter the projected outcome:</p>
+
+    <ul>
+      <li><strong>Downside risk:</strong> If additional negative earnings guidance accompanies the Q1 report, the institutional bear coalition strengthens significantly, potentially extending the selloff to <span class="metric-inline negative">-12% to -15%</span> before recovery.</li>
+      <li><strong>Contagion risk:</strong> If mainstream media narrative shifts to "systemic EV demand weakness" (affecting the broader sector), retail bull confidence could erode faster than projected, removing the price floor.</li>
+    </ul>
+
+    <hr>
+
+    <h2 id="data">Data Summary</h2>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Metric</th>
+          <th>Value</th>
+          <th>Confidence</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Overall simulation confidence</td>
+          <td><span class="metric-inline neutral">94.2%</span></td>
+          <td>High</td>
+        </tr>
+        <tr>
+          <td>Institutional sentiment shift</td>
+          <td><span class="metric-inline negative">-34%</span></td>
+          <td>87.6%</td>
+        </tr>
+        <tr>
+          <td>Retail sentiment recovery</td>
+          <td><span class="metric-inline positive">+28%</span></td>
+          <td>82.1%</td>
+        </tr>
+        <tr>
+          <td>Media narrative divergence</td>
+          <td><span class="metric-inline neutral">67%</span></td>
+          <td>91.0%</td>
+        </tr>
+        <tr>
+          <td>Projected price impact (24hr)</td>
+          <td><span class="metric-inline negative">-6% to -8%</span></td>
+          <td>78.4%</td>
+        </tr>
+        <tr>
+          <td>Projected recovery (day 7)</td>
+          <td><span class="metric-inline positive">~60%</span></td>
+          <td>73.2%</td>
+        </tr>
+        <tr>
+          <td>Coalition stability</td>
+          <td><span class="metric-inline neutral">91.0%</span></td>
+          <td>High</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p style="font-family: 'JetBrains Mono', monospace; font-size: 12px; color: #64748B; margin-top: 24px;">
+      simulation_id: sw_7f3a9b &middot; model: mirofish-v2.1 &middot; seed_hash: a4c8e1 &middot; completed: 2026-03-27T14:32:18Z
+    </p>
+  </div>
+
+  <!-- Chat replay -->
+  <div class="chat-section" id="chat">
+    <div class="chat-header" onclick="toggleChat()">
+      <div class="chat-header-title">
+        <span class="arrow" id="chatArrow">&#x25B6;</span>
+        Agent Chat Replay
+      </div>
+      <span class="chat-count">24 messages</span>
+    </div>
+    <div class="chat-body" id="chatBody" style="display: none;">
+      <div class="chat-msg system">Round 1 — Initial reactions to earnings report</div>
+      <div class="chat-msg agent">
+        <div class="chat-agent-name" style="color: #FF6B6B;">Hedge Fund Alpha</div>
+        Earnings miss of $0.12/share is worse than consensus. Revising price target down 15%. Initiating short position.
+        <div class="chat-time">14:02</div>
+      </div>
+      <div class="chat-msg agent">
+        <div class="chat-agent-name" style="color: #FF6B6B;">Institutional Long-Only</div>
+        Holding current position but moving to underweight. Need to see Q2 guidance before any accumulation.
+        <div class="chat-time">14:05</div>
+      </div>
+      <div class="chat-msg agent">
+        <div class="chat-agent-name" style="color: #A78BFA;">CNBC Analyst</div>
+        Breaking: Tesla misses Q1 estimates. Is this the beginning of the end for the EV premium? Full analysis at 6pm.
+        <div class="chat-time">14:08</div>
+      </div>
+      <div class="chat-msg agent">
+        <div class="chat-agent-name" style="color: #6EE7B7;">Reddit Retail Trader</div>
+        Dip alert! TSLA under $180 is a gift. Loading up. Diamond hands.
+        <div class="chat-time">14:12</div>
+      </div>
+      <div class="chat-msg system">Round 2 — Coalition formation begins</div>
+      <div class="chat-msg agent">
+        <div class="chat-agent-name" style="color: #FBBF24;">Supply Chain Analyst</div>
+        Looking at the miss breakdown — 80% is attributable to Shanghai port delays, not demand weakness. This is temporary.
+        <div class="chat-time">14:18</div>
+      </div>
+      <div class="chat-msg agent">
+        <div class="chat-agent-name" style="color: #22D3EE;">EV Specialist Reporter</div>
+        Important context the mainstream coverage is missing: Tesla's order backlog actually grew 12% in Q1. The miss is a production timing issue.
+        <div class="chat-time">14:22</div>
+      </div>
+      <div class="chat-msg system">Round 3 — Recovery signals emerge</div>
+      <div class="chat-msg agent">
+        <div class="chat-agent-name" style="color: #6EE7B7;">ARK Invest</div>
+        Adding to our position. Our models show the supply-chain disruption is a 1-2 quarter event. Long-term thesis unchanged.
+        <div class="chat-time">14:30</div>
+      </div>
+      <div class="chat-msg agent">
+        <div class="chat-agent-name" style="color: #F97316;">Goldman Sachs</div>
+        Maintaining sell rating but acknowledging supply-chain thesis has merit. Will revisit after Q2 logistics data.
+        <div class="chat-time">14:35</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- BOTTOM ACTION BAR -->
+<div class="bottom-bar">
+  <button class="bottom-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+    Export as PDF
+  </button>
+  <button class="bottom-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
+    Export as JSON
+  </button>
+  <button class="bottom-btn">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    Export as CSV
+  </button>
+  <button class="bottom-btn primary">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+    Share simulation
+  </button>
+</div>
+
+<script>
+  // TOC scroll tracking
+  const tocItems = document.querySelectorAll('.toc-item');
+  const sections = ['overview', 'market-impact', 'institutional', 'retail', 'media', 'recovery', 'risk', 'data', 'chat'];
+
+  window.addEventListener('scroll', () => {
+    let current = 0;
+    sections.forEach((id, i) => {
+      const el = document.getElementById(id);
+      if (el && el.getBoundingClientRect().top < 150) current = i;
+    });
+    tocItems.forEach((item, i) => item.classList.toggle('active', i === current));
+  });
+
+  // Chat toggle
+  function toggleChat() {
+    const body = document.getElementById('chatBody');
+    const arrow = document.getElementById('chatArrow');
+    const visible = body.style.display !== 'none';
+    body.style.display = visible ? 'none' : 'block';
+    arrow.classList.toggle('open', !visible);
+  }
+</script>
+
+</body>
+</html>

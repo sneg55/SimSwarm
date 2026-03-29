@@ -1,0 +1,1023 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SimSwarm — New Simulation Wizard</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0B1426;
+    color: #CBD5E1;
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* ---- NAVBAR ---- */
+  .navbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    padding: 10px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(11, 20, 38, 0.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(30, 41, 59, 0.8);
+  }
+  .nav-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 18px; font-weight: 800; color: #F1F5F9;
+    letter-spacing: -0.03em;
+  }
+  .nav-back {
+    font-size: 13px; color: #64748B; cursor: pointer;
+    transition: color 0.2s;
+  }
+  .nav-back:hover { color: #94A3B8; }
+
+  /* ---- WIZARD CONTAINER ---- */
+  .wizard {
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 100px 24px 60px;
+  }
+
+  /* ---- PROGRESS INDICATOR ---- */
+  .progress-bar {
+    display: flex; align-items: center; justify-content: center;
+    gap: 0;
+    margin-bottom: 48px;
+  }
+  .progress-step {
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    cursor: pointer;
+    position: relative;
+  }
+  .progress-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    border: 2px solid #1E293B;
+    background: transparent;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    z-index: 2;
+  }
+  .progress-dot.active {
+    border-color: #22D3EE;
+    background: #22D3EE;
+    box-shadow: 0 0 12px rgba(34, 211, 238, 0.4);
+  }
+  .progress-dot.done {
+    border-color: #10B981;
+    background: #10B981;
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.3);
+  }
+  .progress-label {
+    font-size: 11px; color: #64748B;
+    white-space: nowrap;
+    transition: color 0.3s;
+  }
+  .progress-dot.active + .progress-label,
+  .progress-step:has(.progress-dot.active) .progress-label { color: #22D3EE; }
+  .progress-dot.done + .progress-label,
+  .progress-step:has(.progress-dot.done) .progress-label { color: #10B981; }
+
+  .progress-line {
+    width: 80px; height: 2px;
+    background: #1E293B;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .progress-line.done {
+    background: #10B981;
+  }
+  .progress-line.active {
+    background: linear-gradient(90deg, #10B981, #22D3EE);
+  }
+  .progress-line.active::after {
+    content: '';
+    position: absolute; top: 0; left: -100%; width: 100%; height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+    animation: shimmer 2s infinite;
+  }
+  @keyframes shimmer {
+    to { left: 200%; }
+  }
+
+  /* ---- STEP HEADER ---- */
+  .step-header {
+    margin-bottom: 20px;
+  }
+  .step-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: #0E7490;
+    letter-spacing: 0.05em;
+    margin-bottom: 8px;
+  }
+  .step-title {
+    font-size: 28px; font-weight: 800; color: #F1F5F9;
+    letter-spacing: -0.02em; line-height: 1.2;
+  }
+  .step-subtitle {
+    font-size: 15px; color: #94A3B8;
+    margin-top: 8px;
+  }
+
+  /* ---- STEP 1: UPLOAD ---- */
+  .dropzone {
+    border: 2px dashed #164E63;
+    border-radius: 14px;
+    padding: 28px 24px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    background: rgba(15, 32, 53, 0.4);
+    margin-bottom: 0;
+  }
+  .dropzone:hover {
+    border-color: #0E7490;
+    background: rgba(14, 116, 144, 0.05);
+  }
+  .dropzone.drag-over {
+    border-color: #22D3EE;
+    background: rgba(34, 211, 238, 0.05);
+    transform: scale(1.01);
+    box-shadow: 0 0 30px rgba(34, 211, 238, 0.1) inset;
+  }
+  .dropzone-icon {
+    font-size: 28px; margin-bottom: 6px;
+    animation: float 4s ease-in-out infinite;
+  }
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
+  .dropzone-text {
+    font-size: 14px; font-weight: 500; color: #94A3B8;
+  }
+  .dropzone-hint {
+    font-size: 12px; color: #64748B; margin-top: 3px;
+  }
+  .browse-btn {
+    margin-top: 8px;
+    padding: 6px 20px;
+    border-radius: 8px;
+    border: 1px solid #164E63;
+    background: transparent;
+    color: #22D3EE;
+    font-size: 13px; font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .browse-btn:hover {
+    background: rgba(14, 116, 144, 0.15);
+    border-color: #0E7490;
+    transform: translateY(-1px);
+  }
+  .dropzone-formats {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: #475569; margin-top: 10px;
+    letter-spacing: 0.02em;
+  }
+  .file-tags {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    margin-top: 16px;
+  }
+  .file-tag {
+    font-size: 12px; color: #94A3B8;
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    padding: 6px 14px; border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .file-tag:hover {
+    background: rgba(14, 116, 144, 0.15);
+    border-color: #0E7490;
+    color: #22D3EE;
+    transform: translateY(-2px);
+  }
+
+  /* Input section labels */
+  .input-label {
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #0E7490;
+    margin-bottom: 8px;
+  }
+
+  /* URL input */
+  .url-input-row { margin-bottom: 0; }
+  .url-input-wrapper {
+    display: flex; align-items: center;
+    background: #0B1426;
+    border: 1px solid #1E293B;
+    border-radius: 12px;
+    padding: 4px 4px 4px 14px;
+    gap: 8px;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .url-input-wrapper:focus-within {
+    border-color: #0E7490;
+    box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.15);
+  }
+  .url-icon { color: #64748B; flex-shrink: 0; }
+  .url-input {
+    flex: 1;
+    background: transparent; border: none; outline: none;
+    font-size: 14px; color: #CBD5E1;
+    font-family: 'Inter', sans-serif;
+    padding: 8px 0;
+  }
+  .url-input::placeholder { color: #475569; }
+  .url-fetch-btn {
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 16px;
+    border-radius: 8px; border: none;
+    background: linear-gradient(135deg, #0E7490, #0891B2);
+    color: white; font-size: 13px; font-weight: 600;
+    font-family: 'Inter', sans-serif;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    white-space: nowrap;
+  }
+  .url-fetch-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 0 16px rgba(14, 116, 144, 0.35);
+  }
+  .url-status {
+    font-size: 12px; margin-top: 8px; min-height: 18px;
+  }
+  .url-status.loading { color: #22D3EE; }
+  .url-status.success { color: #6EE7B7; }
+  .url-status.error { color: #FF6B6B; }
+
+  /* Or divider */
+  .divider-or {
+    display: flex; align-items: center; gap: 16px;
+    margin: 14px 0;
+    font-size: 11px; color: #64748B;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .divider-or::before, .divider-or::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent, #1E293B, transparent);
+  }
+
+  .seed-textarea {
+    width: 100%;
+    background: #0B1426;
+    border: 1px solid #1E293B;
+    border-radius: 12px;
+    padding: 14px;
+    font-size: 14px; color: #CBD5E1;
+    font-family: 'Inter', sans-serif;
+    resize: vertical;
+    min-height: 90px;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .seed-textarea::placeholder { color: #475569; }
+  .seed-textarea:focus {
+    border-color: #0E7490;
+    box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.15);
+  }
+  .char-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: #64748B;
+    text-align: right; margin-top: 6px;
+  }
+
+  /* ---- SEED TIPS ---- */
+  .seed-tips {
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    border-radius: 12px;
+    overflow: hidden;
+    margin-top: 12px;
+    margin-bottom: 20px;
+  }
+  .seed-tips-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 12px 16px;
+    font-size: 13px; font-weight: 600; color: #94A3B8;
+    cursor: pointer;
+    transition: color 0.2s, background 0.2s;
+  }
+  .seed-tips-header:hover { color: #CBD5E1; background: rgba(14, 116, 144, 0.03); }
+  .tips-arrow {
+    margin-left: auto;
+    font-size: 10px; color: #64748B;
+    transition: transform 0.3s;
+  }
+  .tips-arrow.open { transform: rotate(90deg); }
+  .seed-tips-body {
+    padding: 4px 16px 16px;
+  }
+  .tip-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 8px 0;
+    font-size: 13px; color: #94A3B8; line-height: 1.55;
+  }
+  .tip-row strong { color: #CBD5E1; font-weight: 600; }
+  .tip-good { color: #6EE7B7; font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .tip-neutral { color: #FBBF24; font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+  .tip-avoid { color: #FF6B6B; font-size: 14px; flex-shrink: 0; margin-top: 1px; }
+
+  /* ---- STEP 2: GOAL ---- */
+  .goal-textarea {
+    width: 100%;
+    background: #0B1426;
+    border: 1px solid #1E293B;
+    border-radius: 12px;
+    padding: 20px;
+    font-size: 16px; color: #CBD5E1;
+    font-family: 'Inter', sans-serif;
+    resize: none;
+    min-height: 140px;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+    line-height: 1.6;
+  }
+  .goal-textarea::placeholder { color: #475569; }
+  .goal-textarea:focus {
+    border-color: #0E7490;
+    box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.15);
+  }
+
+  .suggestion-label {
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748B;
+    margin: 20px 0 10px;
+  }
+  .suggestions {
+    display: flex; flex-wrap: wrap; gap: 8px;
+  }
+  .suggestion {
+    font-size: 13px; color: #94A3B8;
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    padding: 8px 16px; border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .suggestion:hover {
+    background: rgba(14, 116, 144, 0.12);
+    border-color: #0E7490;
+    color: #22D3EE;
+    transform: translateY(-2px);
+  }
+
+  /* ---- STEP 3: TIER ---- */
+  .tier-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 12px; margin-bottom: 32px;
+  }
+  .tier-card {
+    background: #0F2035;
+    border: 2px solid #1E293B;
+    border-radius: 14px;
+    padding: 24px 16px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative;
+    overflow: hidden;
+  }
+  .tier-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 120%, var(--tier-glow), transparent 70%);
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+  .tier-card:hover::before { opacity: 1; }
+  .tier-card:hover {
+    border-color: var(--tier-border);
+    transform: translateY(-4px);
+  }
+  .tier-card.selected {
+    border-color: var(--tier-border);
+    background: #0B1426;
+    box-shadow: 0 0 24px var(--tier-glow);
+  }
+  .tier-card.selected::before { opacity: 1; }
+  .tier-name {
+    font-size: 16px; font-weight: 700; color: #F1F5F9;
+    margin-bottom: 4px;
+    position: relative;
+    transition: color 0.3s;
+  }
+  .tier-card:hover .tier-name,
+  .tier-card.selected .tier-name { color: var(--tier-accent); }
+  .tier-range {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: #64748B;
+    position: relative;
+  }
+  .tier-cost {
+    font-size: 24px; font-weight: 800;
+    margin-top: 14px;
+    position: relative;
+    transition: transform 0.3s;
+  }
+  .tier-card:hover .tier-cost { transform: scale(1.05); }
+  .tier-duration {
+    font-size: 11px; color: #64748B;
+    margin-top: 4px;
+    position: relative;
+  }
+  .tier-card.disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .tier-card.disabled:hover {
+    transform: none;
+    border-color: #1E293B;
+  }
+
+  /* Size explainer */
+  .size-explainer {
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 20px;
+  }
+  .size-explainer-title {
+    font-size: 12px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748B;
+    margin-bottom: 16px;
+    text-align: center;
+  }
+  .size-compare {
+    display: flex; align-items: center; justify-content: center; gap: 0;
+  }
+  .size-arrow {
+    flex-shrink: 0;
+    padding: 0 4px;
+    margin-bottom: 40px;
+  }
+  .size-col {
+    flex: 1; text-align: center;
+    max-width: 160px;
+  }
+  .size-viz {
+    height: 80px;
+    position: relative;
+    margin-bottom: 8px;
+  }
+  .size-dots {
+    position: absolute; inset: 0;
+  }
+  .sz-dot {
+    position: absolute;
+    border-radius: 50%;
+    opacity: 0.8;
+    box-shadow: 0 0 6px currentColor;
+  }
+  .sz-edge {
+    position: absolute;
+    height: 1px;
+    background: rgba(148, 163, 184, 0.12);
+    transform-origin: left center;
+  }
+  .size-label {
+    font-size: 13px; font-weight: 700; color: #22D3EE;
+    margin-bottom: 6px;
+  }
+  .size-traits {
+    display: flex; flex-direction: column; gap: 2px;
+    font-size: 11px; color: #64748B;
+  }
+
+  /* Cost summary */
+  .cost-summary {
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .cost-left {
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .cost-label {
+    font-size: 13px; color: #94A3B8;
+  }
+  .cost-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px; font-weight: 700; color: #22D3EE;
+  }
+  .cost-balance {
+    font-size: 12px; color: #64748B;
+    margin-top: 2px;
+  }
+  .cost-balance strong { color: #6EE7B7; font-weight: 600; }
+
+  /* Credit warning inline */
+  .credit-warn {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 16px;
+    background: rgba(249, 115, 22, 0.08);
+    border: 1px solid rgba(249, 115, 22, 0.2);
+    border-radius: 10px;
+    font-size: 13px; color: #F97316;
+    margin-top: 12px;
+  }
+
+  /* ---- NAVIGATION BUTTONS ---- */
+  .wizard-nav {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-top: 24px;
+    padding-top: 16px;
+    border-top: 1px solid #1E293B;
+  }
+  .btn-back {
+    font-size: 14px; font-weight: 500; color: #94A3B8;
+    background: transparent; border: none;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    transition: color 0.2s;
+    font-family: 'Inter', sans-serif;
+  }
+  .btn-back:hover { color: #F1F5F9; }
+  .btn-next {
+    font-size: 15px; font-weight: 700; color: white;
+    background: linear-gradient(135deg, #0E7490, #0891B2);
+    border: none; border-radius: 12px;
+    padding: 12px 32px;
+    cursor: pointer;
+    box-shadow: 0 0 20px rgba(14, 116, 144, 0.3);
+    transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+    font-family: 'Inter', sans-serif;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .btn-next:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 32px rgba(14, 116, 144, 0.5);
+  }
+  .btn-next.launch {
+    background: linear-gradient(135deg, #FF6B6B, #F97316);
+    box-shadow: 0 0 24px rgba(255, 107, 107, 0.25);
+  }
+  .btn-next.launch:hover {
+    box-shadow: 0 0 36px rgba(255, 107, 107, 0.4);
+  }
+  .btn-next:disabled {
+    opacity: 0.4; cursor: not-allowed;
+    transform: none;
+  }
+
+  /* ---- STEP TRANSITIONS ---- */
+  .step-content {
+    animation: fadeSlideIn 0.5s ease-out;
+  }
+  @keyframes fadeSlideIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ---- UPLOADED FILE CARD ---- */
+  .uploaded-file {
+    display: flex; align-items: center; gap: 12px;
+    background: #0F2035;
+    border: 1px solid #164E63;
+    border-radius: 12px;
+    padding: 14px 18px;
+    margin-bottom: 16px;
+  }
+  .uploaded-file .file-icon {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    background: rgba(14, 116, 144, 0.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+  .uploaded-file .file-info { flex: 1; }
+  .uploaded-file .file-name {
+    font-size: 14px; font-weight: 600; color: #F1F5F9;
+  }
+  .uploaded-file .file-size {
+    font-size: 12px; color: #64748B;
+  }
+  .uploaded-file .file-remove {
+    font-size: 18px; color: #64748B; cursor: pointer;
+    transition: color 0.2s;
+    background: none; border: none;
+  }
+  .uploaded-file .file-remove:hover { color: #FF6B6B; }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
+      <circle cx="24" cy="24" r="16" stroke="#22D3EE" stroke-width="1.5" fill="none" opacity="0.15"/>
+      <circle cx="24" cy="24" r="10" stroke="#A78BFA" stroke-width="1.5" fill="none" opacity="0.2"/>
+      <circle cx="24" cy="24" r="5" fill="#0E7490"/><circle cx="24" cy="24" r="2.5" fill="#F1F5F9" opacity="0.85"/>
+    </svg>
+    SimSwarm
+  </div>
+  <span class="nav-back" onclick="history.back()">&larr; Back to Dashboard</span>
+</nav>
+
+<!-- WIZARD -->
+<div class="wizard">
+
+  <!-- PROGRESS BAR -->
+  <div class="progress-bar">
+    <div class="progress-step" onclick="goToStep(1)">
+      <div class="progress-dot" id="dot1"></div>
+      <span class="progress-label">Seed</span>
+    </div>
+    <div class="progress-line" id="line1"></div>
+    <div class="progress-step" onclick="goToStep(2)">
+      <div class="progress-dot" id="dot2"></div>
+      <span class="progress-label">Goal</span>
+    </div>
+    <div class="progress-line" id="line2"></div>
+    <div class="progress-step" onclick="goToStep(3)">
+      <div class="progress-dot" id="dot3"></div>
+      <span class="progress-label">Launch</span>
+    </div>
+  </div>
+
+  <!-- ============ STEP 1: SEED ============ -->
+  <div id="step1" class="step-content">
+    <div class="step-header">
+      <div class="step-label">Step 1 of 3</div>
+      <div class="step-title">Let's seed the ecosystem</div>
+      <div class="step-subtitle">Upload a document or paste text to begin. The swarm will extract entities and build a knowledge graph.</div>
+    </div>
+
+    <!-- Seed tips (inline in header area) -->
+    <div class="seed-tips">
+      <div class="seed-tips-header" onclick="toggleTips()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        What makes a good seed?
+        <span class="tips-arrow" id="tipsArrow">&#x25B6;</span>
+      </div>
+      <div class="seed-tips-body" id="tipsBody" style="display: none;">
+        <div class="tip-row">
+          <span class="tip-good">&#x2713;</span>
+          <span><strong>Specific events</strong> — an earnings report, a policy announcement, a product launch press release.</span>
+        </div>
+        <div class="tip-row">
+          <span class="tip-good">&#x2713;</span>
+          <span><strong>Multiple stakeholders</strong> — documents mentioning companies, regulators, media, and public figures.</span>
+        </div>
+        <div class="tip-row">
+          <span class="tip-good">&#x2713;</span>
+          <span><strong>Recent context</strong> — news articles or analyst notes from the last few days.</span>
+        </div>
+        <div class="tip-row">
+          <span class="tip-neutral">&#x25CB;</span>
+          <span><strong>2,000–20,000 characters</strong> is the sweet spot. Too short = no context, too long = noise.</span>
+        </div>
+        <div class="tip-row">
+          <span class="tip-avoid">&#x2717;</span>
+          <span><strong>Avoid generic content</strong> — boilerplate pages or Wikipedia summaries won't produce interesting results.</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Upload area -->
+    <div class="input-label">Direct Upload</div>
+    <div class="dropzone" id="dropzone"
+      ondragover="event.preventDefault(); this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="event.preventDefault(); this.classList.remove('drag-over'); showUploadedFile()">
+      <div class="dropzone-icon">&#x1F30A;</div>
+      <div class="dropzone-text">Drop your document here</div>
+      <div class="dropzone-hint">or</div>
+      <button class="browse-btn" onclick="document.getElementById('fileInput').click()">Browse files</button>
+      <input type="file" id="fileInput" accept=".pdf,.docx,.txt,.md" style="display:none" onchange="showUploadedFile()" />
+      <div class="dropzone-formats">PDF, DOCX, TXT, Markdown — up to 50,000 characters</div>
+    </div>
+
+    <div class="input-label" style="margin-top: 24px;">Import from Source</div>
+    <div class="url-input-row">
+      <div class="url-input-wrapper">
+        <svg class="url-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        <input class="url-input" type="url" placeholder="https://example.com/press-release" id="urlInput" />
+        <button class="url-fetch-btn" onclick="fetchUrl()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Fetch
+        </button>
+      </div>
+      <div class="url-status" id="urlStatus"></div>
+    </div>
+
+    <div class="input-label" style="margin-top: 24px;">Raw Input</div>
+    <textarea class="seed-textarea" placeholder="Paste your document text here — news articles, reports, announcements, policy drafts..." oninput="updateCharCount()"></textarea>
+    <div class="char-count"><span id="charCount">0</span> / 50,000</div>
+
+    <div class="wizard-nav">
+      <div></div>
+      <button class="btn-next" onclick="goToStep(2)">
+        Continue
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ STEP 2: GOAL ============ -->
+  <div id="step2" class="step-content" style="display: none;">
+    <div class="step-header">
+      <div class="step-label">Step 2 of 3</div>
+      <div class="step-title">What do you want to know?</div>
+      <div class="step-subtitle">Describe your research question. The swarm will simulate how stakeholders, markets, and media react.</div>
+    </div>
+
+    <textarea class="goal-textarea" placeholder="e.g. How will the market react to our Q1 earnings miss? What public sentiment shifts should we expect?"></textarea>
+
+    <div class="suggestion-label">Try a prompt</div>
+    <div class="suggestions">
+      <span class="suggestion" onclick="fillGoal(this.textContent)">How will the market react to...</span>
+      <span class="suggestion" onclick="fillGoal(this.textContent)">What will public sentiment be if...</span>
+      <span class="suggestion" onclick="fillGoal(this.textContent)">How will stakeholders respond to...</span>
+      <span class="suggestion" onclick="fillGoal(this.textContent)">What narrative will form around...</span>
+      <span class="suggestion" onclick="fillGoal(this.textContent)">What coalitions will emerge after...</span>
+    </div>
+
+    <div class="wizard-nav">
+      <button class="btn-back" onclick="goToStep(1)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </button>
+      <button class="btn-next" onclick="goToStep(3)">
+        Continue
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ============ STEP 3: TIER + LAUNCH ============ -->
+  <div id="step3" class="step-content" style="display: none;">
+    <div class="step-header">
+      <div class="step-label">Step 3 of 3</div>
+      <div class="step-title">Choose your ecosystem size</div>
+      <div class="step-subtitle">Larger ecosystems produce richer simulations with more diverse agent interactions.</div>
+    </div>
+
+    <div class="tier-grid">
+      <div class="tier-card" onclick="selectTier(this, 'small')"
+        style="--tier-glow: rgba(34, 211, 238, 0.08); --tier-border: #0E7490; --tier-accent: #22D3EE;">
+        <div class="tier-name">Small</div>
+        <div class="tier-range">1–500 agents</div>
+        <div class="tier-cost" style="color: #22D3EE;">30 cr</div>
+        <div class="tier-duration">&lt; 30 min</div>
+      </div>
+      <div class="tier-card selected" onclick="selectTier(this, 'medium')"
+        style="--tier-glow: rgba(167, 139, 250, 0.08); --tier-border: #7C3AED; --tier-accent: #A78BFA;">
+        <div class="tier-name">Medium</div>
+        <div class="tier-range">501–2,000 agents</div>
+        <div class="tier-cost" style="color: #A78BFA;">90 cr</div>
+        <div class="tier-duration">&lt; 4 hours</div>
+      </div>
+      <div class="tier-card" onclick="selectTier(this, 'large')"
+        style="--tier-glow: rgba(251, 191, 36, 0.08); --tier-border: #D97706; --tier-accent: #FBBF24;">
+        <div class="tier-name">Large</div>
+        <div class="tier-range">2,001–10,000 agents</div>
+        <div class="tier-cost" style="color: #FBBF24;">300 cr</div>
+        <div class="tier-duration">&lt; 12 hours</div>
+      </div>
+    </div>
+
+    <!-- Visual explainer -->
+    <div class="size-explainer">
+      <div class="size-explainer-title">How size affects your simulation</div>
+      <div class="size-compare">
+        <div class="size-col" id="sizeSmall">
+          <div class="size-viz">
+            <div class="size-dots" style="--dot-count: 5;">
+              <span class="sz-dot" style="left:40%;top:35%;width:5px;height:5px;background:#22D3EE;"></span>
+              <span class="sz-dot" style="left:55%;top:50%;width:4px;height:4px;background:#A78BFA;"></span>
+              <span class="sz-dot" style="left:35%;top:60%;width:4px;height:4px;background:#6EE7B7;"></span>
+              <span class="sz-dot" style="left:60%;top:35%;width:3px;height:3px;background:#FF6B6B;"></span>
+              <span class="sz-dot" style="left:50%;top:65%;width:3px;height:3px;background:#FBBF24;"></span>
+              <span class="sz-edge" style="left:40%;top:35%;width:20%;transform:rotate(25deg);"></span>
+              <span class="sz-edge" style="left:35%;top:60%;width:22%;transform:rotate(-15deg);"></span>
+            </div>
+          </div>
+          <div class="size-label">Small</div>
+          <div class="size-traits">
+            <span>Fewer perspectives</span>
+            <span>Faster results</span>
+            <span>Key trends only</span>
+          </div>
+        </div>
+        <div class="size-arrow">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="1.5"><polyline points="9 6 15 12 9 18"/></svg>
+        </div>
+        <div class="size-col" id="sizeMedium">
+          <div class="size-viz">
+            <div class="size-dots">
+              <span class="sz-dot" style="left:30%;top:25%;width:5px;height:5px;background:#22D3EE;"></span>
+              <span class="sz-dot" style="left:55%;top:20%;width:4px;height:4px;background:#22D3EE;"></span>
+              <span class="sz-dot" style="left:65%;top:40%;width:6px;height:6px;background:#A78BFA;"></span>
+              <span class="sz-dot" style="left:40%;top:45%;width:5px;height:5px;background:#A78BFA;"></span>
+              <span class="sz-dot" style="left:25%;top:55%;width:4px;height:4px;background:#6EE7B7;"></span>
+              <span class="sz-dot" style="left:50%;top:65%;width:5px;height:5px;background:#6EE7B7;"></span>
+              <span class="sz-dot" style="left:70%;top:60%;width:4px;height:4px;background:#FF6B6B;"></span>
+              <span class="sz-dot" style="left:35%;top:70%;width:3px;height:3px;background:#FBBF24;"></span>
+              <span class="sz-dot" style="left:60%;top:75%;width:4px;height:4px;background:#FBBF24;"></span>
+              <span class="sz-dot" style="left:45%;top:30%;width:3px;height:3px;background:#FF6B6B;"></span>
+              <span class="sz-edge" style="left:30%;top:25%;width:25%;transform:rotate(5deg);"></span>
+              <span class="sz-edge" style="left:55%;top:20%;width:15%;transform:rotate(55deg);"></span>
+              <span class="sz-edge" style="left:40%;top:45%;width:28%;transform:rotate(10deg);"></span>
+              <span class="sz-edge" style="left:25%;top:55%;width:26%;transform:rotate(20deg);"></span>
+              <span class="sz-edge" style="left:50%;top:65%;width:22%;transform:rotate(-10deg);"></span>
+            </div>
+          </div>
+          <div class="size-label" style="color: #A78BFA;">Medium</div>
+          <div class="size-traits">
+            <span>Balanced depth</span>
+            <span>Coalition detection</span>
+            <span>Most popular choice</span>
+          </div>
+        </div>
+        <div class="size-arrow">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#334155" stroke-width="1.5"><polyline points="9 6 15 12 9 18"/></svg>
+        </div>
+        <div class="size-col" id="sizeLarge">
+          <div class="size-viz">
+            <div class="size-dots">
+              <span class="sz-dot" style="left:20%;top:15%;width:4px;height:4px;background:#22D3EE;"></span>
+              <span class="sz-dot" style="left:40%;top:12%;width:5px;height:5px;background:#22D3EE;"></span>
+              <span class="sz-dot" style="left:60%;top:18%;width:3px;height:3px;background:#22D3EE;"></span>
+              <span class="sz-dot" style="left:75%;top:25%;width:6px;height:6px;background:#A78BFA;"></span>
+              <span class="sz-dot" style="left:55%;top:30%;width:4px;height:4px;background:#A78BFA;"></span>
+              <span class="sz-dot" style="left:30%;top:35%;width:5px;height:5px;background:#A78BFA;"></span>
+              <span class="sz-dot" style="left:15%;top:45%;width:4px;height:4px;background:#6EE7B7;"></span>
+              <span class="sz-dot" style="left:45%;top:45%;width:6px;height:6px;background:#6EE7B7;"></span>
+              <span class="sz-dot" style="left:70%;top:50%;width:4px;height:4px;background:#6EE7B7;"></span>
+              <span class="sz-dot" style="left:25%;top:60%;width:5px;height:5px;background:#FF6B6B;"></span>
+              <span class="sz-dot" style="left:55%;top:58%;width:4px;height:4px;background:#FF6B6B;"></span>
+              <span class="sz-dot" style="left:80%;top:55%;width:3px;height:3px;background:#FF6B6B;"></span>
+              <span class="sz-dot" style="left:35%;top:72%;width:5px;height:5px;background:#FBBF24;"></span>
+              <span class="sz-dot" style="left:60%;top:70%;width:4px;height:4px;background:#FBBF24;"></span>
+              <span class="sz-dot" style="left:45%;top:80%;width:3px;height:3px;background:#FBBF24;"></span>
+              <span class="sz-dot" style="left:20%;top:78%;width:4px;height:4px;background:#22D3EE;"></span>
+              <span class="sz-dot" style="left:75%;top:72%;width:3px;height:3px;background:#A78BFA;"></span>
+              <span class="sz-edge" style="left:20%;top:15%;width:20%;transform:rotate(0deg);"></span>
+              <span class="sz-edge" style="left:40%;top:12%;width:20%;transform:rotate(15deg);"></span>
+              <span class="sz-edge" style="left:60%;top:18%;width:18%;transform:rotate(25deg);"></span>
+              <span class="sz-edge" style="left:30%;top:35%;width:16%;transform:rotate(25deg);"></span>
+              <span class="sz-edge" style="left:55%;top:30%;width:20%;transform:rotate(50deg);"></span>
+              <span class="sz-edge" style="left:15%;top:45%;width:30%;transform:rotate(0deg);"></span>
+              <span class="sz-edge" style="left:45%;top:45%;width:25%;transform:rotate(10deg);"></span>
+              <span class="sz-edge" style="left:25%;top:60%;width:30%;transform:rotate(-5deg);"></span>
+              <span class="sz-edge" style="left:55%;top:58%;width:18%;transform:rotate(40deg);"></span>
+              <span class="sz-edge" style="left:35%;top:72%;width:25%;transform:rotate(-5deg);"></span>
+            </div>
+          </div>
+          <div class="size-label" style="color: #FBBF24;">Large</div>
+          <div class="size-traits">
+            <span>Maximum diversity</span>
+            <span>Emergent coalitions</span>
+            <span>Deepest insights</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="cost-summary">
+      <div class="cost-left">
+        <div class="cost-label">Simulation cost</div>
+        <div class="cost-value" id="costValue">90 credits</div>
+        <div class="cost-balance">Balance after: <strong id="balanceAfter">252 credits</strong></div>
+      </div>
+      <div style="text-align: right;">
+        <div style="font-size: 12px; color: #64748B;">Current balance</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 16px; color: #6EE7B7; font-weight: 600;">342 credits</div>
+      </div>
+    </div>
+
+    <div class="wizard-nav">
+      <button class="btn-back" onclick="goToStep(2)">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back
+      </button>
+      <button class="btn-next launch">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+        Run Simulation
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let currentStep = 1;
+  const tierCosts = { small: 30, medium: 90, large: 300 };
+  let selectedTierName = 'medium';
+
+  function goToStep(step) {
+    // Hide all
+    document.getElementById('step1').style.display = 'none';
+    document.getElementById('step2').style.display = 'none';
+    document.getElementById('step3').style.display = 'none';
+
+    // Show target
+    document.getElementById('step' + step).style.display = 'block';
+    // Re-trigger animation
+    const el = document.getElementById('step' + step);
+    el.style.animation = 'none';
+    el.offsetHeight; // reflow
+    el.style.animation = '';
+
+    currentStep = step;
+    updateProgress();
+  }
+
+  function updateProgress() {
+    for (let i = 1; i <= 3; i++) {
+      const dot = document.getElementById('dot' + i);
+      dot.classList.remove('active', 'done');
+      if (i < currentStep) dot.classList.add('done');
+      else if (i === currentStep) dot.classList.add('active');
+    }
+    for (let i = 1; i <= 2; i++) {
+      const line = document.getElementById('line' + i);
+      line.classList.remove('done', 'active');
+      if (i < currentStep) line.classList.add('done');
+      else if (i === currentStep) line.classList.add('active');
+    }
+  }
+
+  function selectTier(el, tier) {
+    document.querySelectorAll('.tier-card').forEach(c => c.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedTierName = tier;
+    const cost = tierCosts[tier];
+    document.getElementById('costValue').textContent = cost + ' credits';
+    document.getElementById('balanceAfter').textContent = (342 - cost) + ' credits';
+  }
+
+  function updateCharCount() {
+    const ta = document.querySelector('.seed-textarea');
+    document.getElementById('charCount').textContent = ta.value.length;
+  }
+
+  function fillGoal(text) {
+    document.querySelector('.goal-textarea').value = text;
+    document.querySelector('.goal-textarea').focus();
+  }
+
+  function showUploadedFile() {
+    const dz = document.getElementById('dropzone');
+    dz.outerHTML = `
+      <div class="uploaded-file">
+        <div class="file-icon">&#x1F4C4;</div>
+        <div class="file-info">
+          <div class="file-name">Q1_Earnings_Report_2026.pdf</div>
+          <div class="file-size">2.4 MB · 12,340 characters extracted</div>
+        </div>
+        <button class="file-remove" onclick="location.reload()">&times;</button>
+      </div>
+    `;
+  }
+
+  function toggleTips() {
+    const body = document.getElementById('tipsBody');
+    const arrow = document.getElementById('tipsArrow');
+    const visible = body.style.display !== 'none';
+    body.style.display = visible ? 'none' : 'block';
+    arrow.classList.toggle('open', !visible);
+  }
+
+  function fetchUrl() {
+    const input = document.getElementById('urlInput');
+    const status = document.getElementById('urlStatus');
+    const url = input.value.trim();
+    if (!url) return;
+
+    status.className = 'url-status loading';
+    status.textContent = 'Fetching content...';
+
+    setTimeout(() => {
+      status.className = 'url-status success';
+      status.innerHTML = '&#x2713; Extracted 8,420 characters from <strong style="color: #CBD5E1;">' + new URL(url).hostname + '</strong>';
+
+      const ta = document.querySelector('.seed-textarea');
+      ta.value = 'Content extracted from ' + url + '\n\nTesla reported Q1 2026 earnings of $0.73 per share, missing analyst expectations of $0.85. Revenue came in at $21.3 billion, below the consensus estimate of $22.1 billion. The company cited ongoing supply chain disruptions at its Shanghai Gigafactory...';
+      document.getElementById('charCount').textContent = ta.value.length;
+    }, 1500);
+  }
+
+  updateProgress();
+</script>
+
+</body>
+</html>

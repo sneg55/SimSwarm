@@ -1,0 +1,1166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SimSwarm — Graph View</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #0B1426;
+    color: #CBD5E1;
+    font-family: 'Inter', -apple-system, sans-serif;
+    line-height: 1.6;
+    overflow: hidden;
+    height: 100vh;
+  }
+
+  /* ---- NAVBAR ---- */
+  .navbar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+    padding: 10px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(11, 20, 38, 0.92);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(30, 41, 59, 0.8);
+  }
+  .nav-brand {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 18px; font-weight: 800; color: #F1F5F9;
+    letter-spacing: -0.03em;
+  }
+
+  /* ---- TOOLBAR (single row below navbar) ---- */
+  .graph-toolbar {
+    position: fixed; top: 52px; left: 0; right: 0; z-index: 40;
+    padding: 8px 16px;
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+    background: rgba(11, 20, 38, 0.75);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(30, 41, 59, 0.5);
+    transition: opacity 0.25s ease;
+  }
+  .toolbar-spacer { flex: 1; }
+
+  /* ---- VIEW TOGGLE ---- */
+  .view-toggle {
+    display: flex; gap: 2px;
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    border-radius: 10px;
+    padding: 3px;
+  }
+  .view-btn {
+    font-size: 12px; font-weight: 500; color: #64748B;
+    padding: 5px 14px; border-radius: 8px;
+    border: none; background: transparent;
+    cursor: pointer; transition: all 0.25s;
+    font-family: 'Inter', sans-serif;
+  }
+  .view-btn:hover { color: #94A3B8; }
+  .view-btn.active { color: #F1F5F9; background: rgba(14, 116, 144, 0.2); }
+
+  /* ---- GRAPH CONTAINER ---- */
+  .graph-fullpage {
+    position: fixed;
+    top: 52px; left: 0; right: 0; bottom: 0;
+    background: #0B1426;
+  }
+
+  /* ---- SEARCH BAR (top-left) ---- */
+  .graph-search {
+    position: absolute; top: 16px; left: 16px; z-index: 20;
+  }
+  .search-input {
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    border-radius: 10px;
+    padding: 8px 12px 8px 36px;
+    font-size: 13px; color: #CBD5E1;
+    width: 240px;
+    font-family: 'Inter', sans-serif;
+    outline: none;
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .search-input::placeholder { color: #475569; }
+  .search-input:focus {
+    border-color: #0E7490;
+    box-shadow: 0 0 0 3px rgba(14, 116, 144, 0.15);
+  }
+  .search-icon {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: #64748B;
+  }
+  .search-dropdown {
+    position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  }
+  .search-result {
+    padding: 8px 12px;
+    font-size: 13px; color: #CBD5E1;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 8px;
+    transition: background 0.2s;
+  }
+  .search-result:hover { background: rgba(14, 116, 144, 0.1); }
+  .search-result .type-badge {
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+
+  /* ---- CONTROLS (inline in toolbar) ---- */
+  .graph-controls {
+    display: flex; gap: 6px; align-items: center;
+  }
+  .ctrl-btn {
+    width: 36px; height: 36px;
+    border-radius: 8px;
+    border: 1px solid #1E293B;
+    background: #0F2035;
+    color: #64748B;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .ctrl-btn:hover {
+    border-color: #164E63; color: #CBD5E1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  .ctrl-btn.active {
+    background: rgba(14, 116, 144, 0.15);
+    border-color: #0E7490;
+    color: #22D3EE;
+  }
+  .ctrl-divider {
+    width: 1px; height: 36px;
+    background: #1E293B;
+  }
+
+  /* Layout dropdown */
+  .layout-dropdown {
+    position: relative;
+  }
+  .layout-menu {
+    position: absolute; top: calc(100% + 6px); right: 0;
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    border-radius: 10px;
+    padding: 4px;
+    min-width: 160px;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    display: none;
+  }
+  .layout-menu.open { display: block; }
+  .layout-option {
+    padding: 7px 12px;
+    font-size: 12px; color: #94A3B8;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .layout-option:hover { background: rgba(14, 116, 144, 0.1); color: #F1F5F9; }
+  .layout-option.active { color: #22D3EE; }
+  .layout-option .check { opacity: 0; font-size: 14px; }
+  .layout-option.active .check { opacity: 1; }
+
+  .group-option {
+    padding: 7px 12px;
+    font-size: 12px; color: #94A3B8;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .group-option:hover { background: rgba(14, 116, 144, 0.1); color: #F1F5F9; }
+  .group-option.active { color: #22D3EE; }
+  .group-option .check { opacity: 0; font-size: 14px; }
+  .group-option.active .check { opacity: 1; }
+
+  /* ---- LEGEND (bottom-left) ---- */
+  .graph-legend {
+    position: absolute; bottom: 16px; left: 16px; z-index: 20;
+    background: #0F2035;
+    border: 1px solid #1E293B;
+    border-radius: 12px;
+    padding: 16px;
+    min-width: 200px;
+  }
+  .legend-title {
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748B;
+    margin-bottom: 10px;
+  }
+  .legend-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 0;
+    cursor: pointer;
+    transition: opacity 0.2s;
+  }
+  .legend-item.dimmed { opacity: 0.35; }
+  .legend-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .legend-label {
+    font-size: 12px; color: #CBD5E1; flex: 1;
+  }
+  .legend-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: #64748B;
+  }
+  .legend-actions {
+    display: flex; gap: 8px; margin-top: 10px;
+    padding-top: 8px;
+    border-top: 1px solid #1E293B;
+  }
+  .legend-action {
+    font-size: 11px; color: #0E7490; cursor: pointer;
+    transition: color 0.2s;
+  }
+  .legend-action:hover { color: #22D3EE; }
+  .node-count-banner {
+    font-size: 11px; color: #64748B;
+    margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid #1E293B;
+  }
+  .node-count-banner a { color: #0E7490; cursor: pointer; }
+  .node-count-banner a:hover { color: #22D3EE; }
+
+  /* ---- DETAIL PANEL (right slide-in) ---- */
+  .detail-panel {
+    position: absolute; top: 0; right: 0; bottom: 0;
+    width: 320px;
+    background: #0F2035;
+    border-left: 1px solid #1E293B;
+    z-index: 70;
+    transform: translateX(100%);
+    transition: transform 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    overflow-y: auto;
+    padding: 20px;
+  }
+  .detail-panel.open { transform: translateX(0); }
+  .detail-close {
+    position: absolute; top: 12px; right: 12px;
+    width: 32px; height: 32px;
+    border-radius: 8px; border: 1px solid #334155;
+    background: #1E293B; color: #94A3B8;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 18px; font-weight: 600;
+    transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .detail-close:hover { background: #334155; color: #F1F5F9; transform: scale(1.1); }
+  .detail-type-badge {
+    display: inline-block;
+    font-size: 10px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 3px 8px;
+    border-radius: 5px;
+    margin-bottom: 8px;
+  }
+  .detail-name {
+    font-size: 18px; font-weight: 700; color: #F1F5F9;
+    letter-spacing: -0.01em;
+    margin-bottom: 12px;
+  }
+  .detail-summary {
+    font-size: 14px; color: #94A3B8; line-height: 1.6;
+    margin-bottom: 20px;
+  }
+  .detail-section-title {
+    font-size: 11px; font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748B;
+    margin-bottom: 8px;
+  }
+  .detail-relationship {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-size: 13px; color: #CBD5E1;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-bottom: 4px;
+  }
+  .detail-relationship:hover { background: rgba(14, 116, 144, 0.1); }
+  .detail-relationship .arrow { color: #64748B; font-size: 11px; }
+  .detail-relationship .rel-type {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: #64748B;
+  }
+
+  /* ---- CANVAS (graph area) ---- */
+  .graph-canvas-area {
+    position: absolute; top: 0; left: 0; bottom: 0; right: 0;
+    transition: right 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  }
+  .graph-canvas-area.panel-open {
+    right: 320px;
+  }
+  .graph-canvas-area canvas {
+    width: 100%; height: 100%;
+    display: block;
+  }
+
+  /* ---- HOVER TOOLTIP ---- */
+  .node-tooltip {
+    position: absolute;
+    background: #1E293B;
+    border: 1px solid #334155;
+    border-radius: 8px;
+    padding: 6px 12px;
+    font-size: 12px; color: #F1F5F9;
+    pointer-events: none;
+    z-index: 30;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    white-space: nowrap;
+    transform: translate(-50%, -100%);
+    margin-top: -12px;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+  .node-tooltip.visible { opacity: 1; }
+  .node-tooltip .tt-type {
+    font-size: 10px; color: #64748B;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---- BOTTOM ACTION BAR ---- */
+  .bottom-bar {
+    position: absolute; bottom: 0; left: 0; right: 0; z-index: 20;
+    padding: 12px 24px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    background: rgba(11, 20, 38, 0.75);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(30, 41, 59, 0.5);
+  }
+  .bottom-btn {
+    font-size: 13px; font-weight: 600; color: #94A3B8;
+    background: #0F2035; border: 1px solid #1E293B;
+    padding: 8px 18px; border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    font-family: 'Inter', sans-serif;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .bottom-btn:hover {
+    border-color: #164E63; color: #F1F5F9;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  }
+  .bottom-btn.primary {
+    background: linear-gradient(135deg, #0E7490, #0891B2);
+    color: white; border: none;
+    box-shadow: 0 0 16px rgba(14, 116, 144, 0.25);
+  }
+  .bottom-btn.primary:hover {
+    box-shadow: 0 0 28px rgba(14, 116, 144, 0.45);
+  }
+
+  /* Node animation */
+  @keyframes node-breathe {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAVBAR -->
+<nav class="navbar">
+  <div class="nav-brand">
+    <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
+      <circle cx="24" cy="24" r="16" stroke="#22D3EE" stroke-width="1.5" fill="none" opacity="0.15"/>
+      <circle cx="24" cy="24" r="10" stroke="#A78BFA" stroke-width="1.5" fill="none" opacity="0.2"/>
+      <circle cx="24" cy="24" r="5" fill="#0E7490"/><circle cx="24" cy="24" r="2.5" fill="#F1F5F9" opacity="0.85"/>
+    </svg>
+    SimSwarm
+  </div>
+  <div style="display: flex; align-items: center; gap: 16px; font-size: 13px; color: #94A3B8;">
+    <span style="color: #64748B;">Tesla Q1 Earnings — Market Reaction</span>
+    <span style="font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #64748B;">847 agents &middot; 12 clusters</span>
+  </div>
+</nav>
+
+<!-- TOOLBAR (single row: search left, controls + toggle right) -->
+<div class="graph-toolbar" id="graphToolbar">
+  <!-- Search -->
+  <div class="graph-search" style="position: relative; top: auto; left: auto;">
+    <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+    <input class="search-input" type="text" placeholder="Search entities..." id="searchInput" />
+    <div class="search-dropdown" id="searchDropdown">
+      <div class="search-result" onclick="selectEntity('Tesla Inc')">
+        <span class="type-badge" style="background: rgba(34,211,238,0.1); color: #22D3EE;">ORG</span>
+        Tesla Inc
+      </div>
+      <div class="search-result" onclick="selectEntity('SEC')">
+        <span class="type-badge" style="background: rgba(255,107,107,0.1); color: #FF6B6B;">GOV</span>
+        SEC (Securities Commission)
+      </div>
+      <div class="search-result" onclick="selectEntity('Elon Musk')">
+        <span class="type-badge" style="background: rgba(167,139,250,0.1); color: #A78BFA;">PERSON</span>
+        Elon Musk
+      </div>
+    </div>
+  </div>
+
+  <div class="toolbar-spacer"></div>
+
+  <!-- Controls -->
+  <div class="graph-controls">
+    <button class="ctrl-btn" title="Zoom to fit" onclick="zoomFit()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+    </button>
+    <button class="ctrl-btn" title="Reset layout">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+    </button>
+    <div class="ctrl-divider"></div>
+    <!-- Group by toggle (Type / Sentiment) -->
+    <div class="view-toggle" style="margin: 0;">
+      <button class="view-btn active" id="groupTypeBtn" onclick="setGroupBy('type')">Type</button>
+      <button class="view-btn" id="groupSentBtn" onclick="setGroupBy('sentiment')">Sentiment</button>
+    </div>
+    <div class="ctrl-divider"></div>
+    <button class="ctrl-btn" id="edgeToggle" title="Toggle edge labels" onclick="toggleEdges()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </button>
+    <div class="layout-dropdown">
+      <button class="ctrl-btn" title="Layout" onclick="toggleLayoutMenu()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+      </button>
+      <div class="layout-menu" id="layoutMenu">
+        <div class="layout-option active" onclick="setLayout('force')"><span class="check">&#x2713;</span> Force-directed</div>
+        <div class="layout-option" onclick="setLayout('circle')"><span class="check">&#x2713;</span> Circle</div>
+        <div class="layout-option" onclick="setLayout('hierarchy')"><span class="check">&#x2713;</span> Hierarchical</div>
+        <div class="layout-option" onclick="setLayout('grid')"><span class="check">&#x2713;</span> Grid</div>
+      </div>
+    </div>
+    <div class="ctrl-divider"></div>
+    <button class="ctrl-btn" title="Export PNG">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    </button>
+    <button class="ctrl-btn" title="Fullscreen">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+    </button>
+  </div>
+
+  <div class="ctrl-divider" style="height: 24px;"></div>
+
+  <!-- View toggle -->
+  <div class="view-toggle" id="viewToggle" style="margin: 0;">
+    <button class="view-btn">Story</button>
+    <button class="view-btn active">Graph</button>
+    <button class="view-btn">Report</button>
+  </div>
+</div>
+<!-- END TOOLBAR -->
+
+<!-- FULL PAGE GRAPH -->
+<div class="graph-fullpage" style="top: 92px;">
+
+  <!-- Canvas -->
+  <div class="graph-canvas-area">
+    <canvas id="graphCanvas"></canvas>
+  </div>
+
+  <!-- Legend -->
+  <div class="graph-legend">
+    <div class="legend-title">Entity Types</div>
+    <div class="legend-item" onclick="toggleType(this)">
+      <span class="legend-dot" style="background: #22D3EE; box-shadow: 0 0 6px rgba(34,211,238,0.4);"></span>
+      <span class="legend-label">Organization</span>
+      <span class="legend-count">8</span>
+    </div>
+    <div class="legend-item" onclick="toggleType(this)">
+      <span class="legend-dot" style="background: #A78BFA; box-shadow: 0 0 6px rgba(167,139,250,0.4);"></span>
+      <span class="legend-label">Person</span>
+      <span class="legend-count">14</span>
+    </div>
+    <div class="legend-item" onclick="toggleType(this)">
+      <span class="legend-dot" style="background: #6EE7B7; box-shadow: 0 0 6px rgba(110,231,183,0.4);"></span>
+      <span class="legend-label">Media Outlet</span>
+      <span class="legend-count">6</span>
+    </div>
+    <div class="legend-item" onclick="toggleType(this)">
+      <span class="legend-dot" style="background: #FF6B6B; box-shadow: 0 0 6px rgba(255,107,107,0.4);"></span>
+      <span class="legend-label">Government</span>
+      <span class="legend-count">3</span>
+    </div>
+    <div class="legend-item" onclick="toggleType(this)">
+      <span class="legend-dot" style="background: #FBBF24; box-shadow: 0 0 6px rgba(251,191,36,0.4);"></span>
+      <span class="legend-label">Opinion Leader</span>
+      <span class="legend-count">11</span>
+    </div>
+    <div class="legend-item" onclick="toggleType(this)">
+      <span class="legend-dot" style="background: #F97316; box-shadow: 0 0 6px rgba(249,115,22,0.4);"></span>
+      <span class="legend-label">Financial</span>
+      <span class="legend-count">8</span>
+    </div>
+    <div class="legend-actions">
+      <span class="legend-action" onclick="showAll()">All</span>
+      <span class="legend-action" onclick="hideAll()">None</span>
+    </div>
+    <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #1E293B;">
+      <div class="legend-title" style="margin-bottom: 6px;">Sentiment</div>
+      <div class="legend-item" onclick="toggleSentiment('positive', this)">
+        <span class="legend-dot" style="background: transparent; border: 2px solid #6EE7B7; box-shadow: 0 0 6px rgba(110,231,183,0.4);"></span>
+        <span class="legend-label" style="color: #6EE7B7;">Positive</span>
+        <span class="legend-count" id="countPositive"></span>
+      </div>
+      <div class="legend-item" onclick="toggleSentiment('negative', this)">
+        <span class="legend-dot" style="background: transparent; border: 2px solid #FF6B6B; box-shadow: 0 0 6px rgba(255,107,107,0.4);"></span>
+        <span class="legend-label" style="color: #FF6B6B;">Negative</span>
+        <span class="legend-count" id="countNegative"></span>
+      </div>
+      <div class="legend-item" onclick="toggleSentiment('neutral', this)">
+        <span class="legend-dot" style="background: transparent; border: 2px solid #94A3B8; box-shadow: none;"></span>
+        <span class="legend-label" style="color: #94A3B8;">Neutral</span>
+        <span class="legend-count" id="countNeutral"></span>
+      </div>
+    </div>
+    <div class="node-count-banner">
+      Showing <strong style="color: #CBD5E1;">50</strong> of 847 nodes &middot; <a onclick="showAllNodes()">Show all</a>
+    </div>
+  </div>
+
+  <!-- Detail Panel (slide-in from right) -->
+  <div class="detail-panel" id="detailPanel">
+    <button class="detail-close" onclick="closeDetail()">&times;</button>
+    <div class="detail-type-badge" style="background: rgba(34,211,238,0.1); color: #22D3EE;">Organization</div>
+    <div class="detail-name">Tesla Inc</div>
+    <div class="detail-summary">
+      Major electric vehicle manufacturer and energy company. Central entity in the earnings simulation with connections to 23 other agents across institutional, media, and retail clusters.
+    </div>
+
+    <div class="detail-section-title">Relationships (12)</div>
+    <div class="detail-relationship" onclick="selectEntity('Elon Musk')">
+      <span class="arrow">&rarr;</span>
+      <span>Elon Musk</span>
+      <span class="rel-type">CEO_OF</span>
+    </div>
+    <div class="detail-relationship" onclick="selectEntity('SEC')">
+      <span class="arrow">&larr;</span>
+      <span>SEC</span>
+      <span class="rel-type">REGULATES</span>
+    </div>
+    <div class="detail-relationship">
+      <span class="arrow">&rarr;</span>
+      <span>Goldman Sachs</span>
+      <span class="rel-type">ANALYZED_BY</span>
+    </div>
+    <div class="detail-relationship">
+      <span class="arrow">&rarr;</span>
+      <span>Morgan Stanley</span>
+      <span class="rel-type">ANALYZED_BY</span>
+    </div>
+    <div class="detail-relationship">
+      <span class="arrow">&larr;</span>
+      <span>CNBC</span>
+      <span class="rel-type">COVERS</span>
+    </div>
+    <div class="detail-relationship">
+      <span class="arrow">&rarr;</span>
+      <span>Shanghai Gigafactory</span>
+      <span class="rel-type">OPERATES</span>
+    </div>
+    <div class="detail-relationship">
+      <span class="arrow">&larr;</span>
+      <span>r/wallstreetbets</span>
+      <span class="rel-type">DISCUSSES</span>
+    </div>
+    <div class="detail-relationship">
+      <span class="arrow">&rarr;</span>
+      <span>BYD</span>
+      <span class="rel-type">COMPETES_WITH</span>
+    </div>
+  </div>
+
+  <!-- Hover tooltip -->
+  <div class="node-tooltip" id="tooltip">
+    <div class="tt-type" id="ttType">Organization</div>
+    <div id="ttName">Tesla Inc</div>
+    <div id="ttSentiment" style="font-family: 'JetBrains Mono', monospace; font-size: 11px; margin-top: 3px;"></div>
+  </div>
+
+  <!-- Bottom action bar -->
+  <div class="bottom-bar">
+    <button class="bottom-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      Export as PNG
+    </button>
+    <button class="bottom-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      Export as PDF
+    </button>
+    <button class="bottom-btn primary">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
+      Share simulation
+    </button>
+  </div>
+
+</div>
+
+<script>
+  // ---- Interactive graph with Canvas ----
+  const canvas = document.getElementById('graphCanvas');
+  const ctx = canvas.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+
+  // Sentiment: -1 (bearish/negative) to +1 (bullish/positive), 0 = neutral
+  const SENTIMENT_COLORS = {
+    negative: { r: 255, g: 107, b: 107 },  // coral
+    positive: { r: 110, g: 231, b: 183 },  // seafoam
+    neutral:  { r: 148, g: 163, b: 184 },   // slate
+  };
+
+  const entityTypes = [
+    { type: 'Organization', color: { r: 34, g: 211, b: 238 },
+      names:     ['Tesla Inc',  'SpaceX', 'BYD',   'Rivian', 'Lucid Motors', 'NIO', 'Shanghai Gigafactory', 'Panasonic'],
+      sentiment: [-0.3,          0.1,      0.4,     -0.1,     -0.2,           0.3,   -0.6,                   0.0] },
+    { type: 'Person', color: { r: 167, g: 139, b: 250 },
+      names:     ['Elon Musk', 'Jim Cramer', 'Cathie Wood', 'Dan Ives', 'Gary Black', 'Adam Jonas', 'Ross Gerber', 'Gene Munster', 'Sawyer Merritt', 'Alexandra Merz', 'Jerome Powell', 'Gary Gensler', 'Janet Yellen', 'Mary Barra'],
+      sentiment: [0.2,          -0.8,         0.7,           0.3,        0.5,          -0.4,         0.6,           0.4,            0.8,              -0.1,              0.0,             0.0,            0.0,           -0.5] },
+    { type: 'Media', color: { r: 110, g: 231, b: 183 },
+      names:     ['CNBC',  'Bloomberg', 'Reuters', 'Electrek', 'InsideEVs', 'CleanTechnica'],
+      sentiment: [-0.6,    -0.3,        0.0,       0.5,        0.4,         0.7] },
+    { type: 'Government', color: { r: 255, g: 107, b: 107 },
+      names:     ['SEC',  'NHTSA', 'DOE'],
+      sentiment: [0.0,    0.0,     0.1] },
+    { type: 'Opinion Leader', color: { r: 251, g: 191, b: 36 },
+      names:     ['r/wallstreetbets', 'FinTwit Bulls', 'Tesla Bears Club', 'EV Investor Hub', 'TikTok Finance', 'Seeking Alpha', 'Motley Fool', 'Barrons Weekly', 'WSJ Editorial', 'Yahoo Finance', 'MarketWatch'],
+      sentiment: [0.7,                 0.9,             -0.9,               0.5,               0.3,              -0.2,            0.1,           -0.4,             -0.3,            -0.1,            -0.5] },
+    { type: 'Financial', color: { r: 249, g: 115, b: 22 },
+      names:     ['Goldman Sachs', 'Morgan Stanley', 'JP Morgan', 'Citadel', 'Bridgewater', 'ARK Invest', 'Vanguard', 'BlackRock'],
+      sentiment: [-0.6,            -0.4,              -0.7,        -0.8,      -0.3,           0.8,          -0.2,       -0.5] },
+  ];
+
+  let nodes = [];
+  let edges = [];
+  let hoveredNode = null;
+  let selectedNode = null;
+
+  // Cluster centers for the force-directed layout feel
+  const clusters = [
+    { x: 0.25, y: 0.35 }, // org
+    { x: 0.55, y: 0.25 }, // person
+    { x: 0.75, y: 0.55 }, // media
+    { x: 0.15, y: 0.7 },  // gov
+    { x: 0.5, y: 0.7 },   // opinion
+    { x: 0.8, y: 0.3 },   // financial
+  ];
+
+  function resize() {
+    const w = canvas.parentElement.clientWidth;
+    const h = canvas.parentElement.clientHeight;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    canvas.style.width = w + 'px';
+    canvas.style.height = h + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function initGraph() {
+    const W = canvas.parentElement.clientWidth;
+    const H = canvas.parentElement.clientHeight;
+    nodes = [];
+    let id = 0;
+
+    entityTypes.forEach((et, typeIdx) => {
+      const cc = clusters[typeIdx];
+      const count = et.names.length;
+      for (let i = 0; i < count; i++) {
+        const size = 3 + Math.random() * 6 + (i === 0 ? 5 : 0);
+        const angle = (i / count) * Math.PI * 2 + Math.random() * 0.5;
+        const radius = 0.06 + Math.random() * 0.08;
+        const sent = et.sentiment[i];
+        nodes.push({
+          id: id++,
+          x: (cc.x + Math.cos(angle) * radius) * W,
+          y: (cc.y + Math.sin(angle) * radius) * H,
+          vx: 0, vy: 0,
+          size,
+          color: et.color,
+          type: et.type,
+          homeX: cc.x + Math.cos(angle) * radius * 0.5,
+          homeY: cc.y + Math.sin(angle) * radius * 0.5,
+          phase: Math.random() * Math.PI * 2,
+          name: et.names[i],
+          sentiment: sent,
+          sentimentColor: sent > 0.2 ? SENTIMENT_COLORS.positive
+            : sent < -0.2 ? SENTIMENT_COLORS.negative
+            : SENTIMENT_COLORS.neutral,
+        });
+      }
+    });
+
+    // Create edges between same-cluster nodes and some cross-cluster
+    edges = [];
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const a = nodes[i], b = nodes[j];
+        const sameType = a.type === b.type;
+        const prob = sameType ? 0.4 : 0.03;
+        if (Math.random() < prob) {
+          edges.push({ from: i, to: j });
+        }
+      }
+    }
+  }
+
+  resize();
+  initGraph();
+  window.addEventListener('resize', () => { resize(); initGraph(); });
+
+  // Mouse tracking
+  let mouseX = -1, mouseY = -1;
+  canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouseX = e.clientX - rect.left;
+    mouseY = e.clientY - rect.top;
+
+    // Check hover (skip hidden types and sentiments)
+    hoveredNode = null;
+    for (const n of nodes) {
+      if (hiddenTypes.has(n.type) || hiddenSentiments.has(getSentimentBucket(n.sentiment))) continue;
+      const dx = n.x - mouseX, dy = n.y - mouseY;
+      if (Math.sqrt(dx*dx + dy*dy) < n.size + 6) {
+        hoveredNode = n;
+        break;
+      }
+    }
+
+    const tt = document.getElementById('tooltip');
+    if (hoveredNode) {
+      tt.style.left = hoveredNode.x + 'px';
+      tt.style.top = hoveredNode.y + 'px';
+      tt.classList.add('visible');
+      document.getElementById('ttType').textContent = hoveredNode.type;
+      document.getElementById('ttName').textContent = hoveredNode.name;
+      const sv = hoveredNode.sentiment;
+      const sentEl = document.getElementById('ttSentiment');
+      if (Math.abs(sv) > 0.15) {
+        const label = sv > 0.2 ? 'Positive' : sv < -0.2 ? 'Negative' : 'Neutral';
+        const pct = Math.round(Math.abs(sv) * 100);
+        const col = sv > 0.2 ? '#6EE7B7' : sv < -0.2 ? '#FF6B6B' : '#94A3B8';
+        sentEl.innerHTML = `<span style="color:${col}">${label} ${pct}%</span>`;
+        sentEl.style.display = 'block';
+      } else {
+        sentEl.style.display = 'none';
+      }
+      canvas.style.cursor = 'pointer';
+    } else {
+      tt.classList.remove('visible');
+      canvas.style.cursor = 'default';
+    }
+  });
+
+  canvas.addEventListener('click', () => {
+    if (hoveredNode) {
+      selectedNode = hoveredNode;
+      // Find all connected node IDs
+      connectedIds.clear();
+      connectedIds.add(hoveredNode.id);
+      for (const e of edges) {
+        if (e.from === hoveredNode.id) connectedIds.add(e.to);
+        if (e.to === hoveredNode.id) connectedIds.add(e.from);
+      }
+      document.getElementById('detailPanel').classList.add('open');
+    } else {
+      closeDetail();
+    }
+  });
+
+  // Track which nodes are connected to the selected node
+  const connectedIds = new Set();
+  let highlightedNodeId = null;
+  let highlightStartTime = 0;
+  let regroupTimer = 0;
+
+  let lastTime = performance.now() * 0.001;
+
+  function animate(timestamp) {
+    const W = canvas.parentElement.clientWidth;
+    const H = canvas.parentElement.clientHeight;
+    const time = timestamp * 0.001;
+    const dt = Math.min(time - lastTime, 0.05);
+    lastTime = time;
+    ctx.clearRect(0, 0, W, H);
+
+    // Gentle physics
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      // Home pull — stronger during regrouping transition
+      const homePull = regroupTimer > 0 ? 0.001 : 0.00006;
+      n.vx += (n.homeX * W - n.x) * homePull;
+      n.vy += (n.homeY * H - n.y) * homePull;
+      // Organic drift
+      n.vx += Math.sin(time * 0.3 + n.phase) * 0.008;
+      n.vy += Math.cos(time * 0.25 + n.phase * 1.3) * 0.008;
+
+      // Repulsion between nearby nodes (prevents clumping)
+      for (let j = i + 1; j < nodes.length; j++) {
+        const m = nodes[j];
+        const dx = m.x - n.x, dy = m.y - n.y;
+        const d = Math.sqrt(dx * dx + dy * dy);
+        const minDist = (n.size + m.size) * 2.5;
+        if (d < minDist && d > 0.5) {
+          const force = 0.15 * (1 - d / minDist);
+          n.vx -= (dx / d) * force;
+          n.vy -= (dy / d) * force;
+          m.vx += (dx / d) * force;
+          m.vy += (dy / d) * force;
+        }
+      }
+
+      n.vx *= 0.985;
+      n.vy *= 0.985;
+      n.x += n.vx;
+      n.y += n.vy;
+
+      // Keep in bounds
+      if (n.x < 40) n.vx += 0.1;
+      if (n.x > W - 40) n.vx -= 0.1;
+      if (n.y < 40) n.vy += 0.1;
+      if (n.y > H - 40) n.vy -= 0.1;
+    }
+
+    // Decay regroup timer
+    if (regroupTimer > 0) regroupTimer = Math.max(0, regroupTimer - dt);
+
+    // Draw sentiment zone backgrounds (soft gradient blobs)
+    // Aggregate node positions by sentiment
+    const sentGroups = { positive: [], negative: [] };
+    for (const n of nodes) {
+      if (hiddenTypes.has(n.type)) continue;
+      if (n.sentiment > 0.2) sentGroups.positive.push(n);
+      else if (n.sentiment < -0.2) sentGroups.negative.push(n);
+    }
+    for (const [key, group] of Object.entries(sentGroups)) {
+      if (group.length < 2) continue;
+      // Find centroid
+      let cx = 0, cy = 0;
+      for (const n of group) { cx += n.x; cy += n.y; }
+      cx /= group.length; cy /= group.length;
+      // Find max radius from centroid
+      let maxR = 0;
+      for (const n of group) {
+        const d = Math.sqrt((n.x - cx) ** 2 + (n.y - cy) ** 2);
+        if (d > maxR) maxR = d;
+      }
+      const sc = key === 'positive' ? SENTIMENT_COLORS.positive : SENTIMENT_COLORS.negative;
+      const zoneR = maxR + 60;
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, zoneR);
+      grad.addColorStop(0, `rgba(${sc.r},${sc.g},${sc.b},0.04)`);
+      grad.addColorStop(0.7, `rgba(${sc.r},${sc.g},${sc.b},0.015)`);
+      grad.addColorStop(1, `rgba(${sc.r},${sc.g},${sc.b},0)`);
+      ctx.beginPath();
+      ctx.arc(cx, cy, zoneR, 0, Math.PI * 2);
+      ctx.fillStyle = grad;
+      ctx.fill();
+    }
+
+    // Draw edges (skip if either node's type is hidden)
+    ctx.lineWidth = 0.5;
+    for (const e of edges) {
+      const a = nodes[e.from], b = nodes[e.to];
+      const aBucket = getSentimentBucket(a.sentiment);
+      const bBucket = getSentimentBucket(b.sentiment);
+      if (hiddenTypes.has(a.type) || hiddenTypes.has(b.type) || hiddenSentiments.has(aBucket) || hiddenSentiments.has(bBucket)) continue;
+      const isHighlighted = (selectedNode && (a === selectedNode || b === selectedNode));
+      const isPingedEdge = (highlightedNodeId !== null && (a.id === highlightedNodeId || b.id === highlightedNodeId));
+      const edgeActive = isHighlighted || isPingedEdge;
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(b.x, b.y);
+      const mr = (a.color.r + b.color.r) >> 1;
+      const mg = (a.color.g + b.color.g) >> 1;
+      const mb = (a.color.b + b.color.b) >> 1;
+      ctx.strokeStyle = `rgba(${mr},${mg},${mb},${edgeActive ? 0.5 : 0.1})`;
+      ctx.lineWidth = isPingedEdge ? 2 : isHighlighted ? 1.5 : 0.5;
+      ctx.stroke();
+    }
+
+    // Draw nodes (fade hidden types or hidden sentiments)
+    for (const n of nodes) {
+      const sentBucket = getSentimentBucket(n.sentiment);
+      const isHidden = hiddenTypes.has(n.type) || hiddenSentiments.has(sentBucket);
+      const isSelected = n === selectedNode;
+      const isHovered = n === hoveredNode;
+      const pulse = 1 + Math.sin(time * 1.5 + n.phase) * 0.08;
+      // Stronger sentiment = larger node (up to 40% bigger)
+      const sentScale = 1 + Math.abs(n.sentiment) * 0.4;
+      const s = n.size * pulse * sentScale * (isHovered ? 1.3 : 1) * (isSelected ? 1.2 : 1);
+      const fadeMul = isHidden ? 0.08 : 1;
+
+      // Glow
+      const isConnected2 = connectedIds.has(n.id);
+      const isPinged = n.id === highlightedNodeId;
+      if (!isHidden) {
+        const glowAlpha = isPinged ? 0.5 : isSelected ? 0.4 : isConnected2 ? 0.3 : isHovered ? 0.25 : 0.12;
+        const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, s * 4);
+        grad.addColorStop(0, `rgba(${n.color.r},${n.color.g},${n.color.b},${glowAlpha})`);
+        grad.addColorStop(1, `rgba(${n.color.r},${n.color.g},${n.color.b},0)`);
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, s * 4, 0, Math.PI * 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+      }
+
+      // Core — dim non-connected nodes when a selection is active
+      ctx.beginPath();
+      ctx.arc(n.x, n.y, s, 0, Math.PI * 2);
+      let coreAlpha;
+      if (selectedNode && !isConnected2 && !isSelected && !isPinged) {
+        coreAlpha = 0.15 * fadeMul; // dim unrelated nodes
+      } else {
+        coreAlpha = (isSelected || isHovered ? 1 : 0.8) * fadeMul;
+      }
+      ctx.fillStyle = `rgba(${n.color.r},${n.color.g},${n.color.b},${coreAlpha})`;
+      ctx.fill();
+
+      // Sentiment ring — thickness and glow scale with intensity
+      if (!isHidden && Math.abs(n.sentiment) > 0.15) {
+        const sc = n.sentimentColor;
+        const intensity = Math.abs(n.sentiment);
+        const ringWidth = 1 + intensity * 3; // 1px at weak, 4px at max
+        const ringGap = 2 + ringWidth;
+        const ringAlpha = (0.25 + intensity * 0.55) * fadeMul;
+
+        // Outer glow for strong sentiment
+        if (intensity > 0.5) {
+          const glowR = s + ringGap + ringWidth + 4;
+          const sentGlow = ctx.createRadialGradient(n.x, n.y, s + ringGap, n.x, n.y, glowR);
+          sentGlow.addColorStop(0, `rgba(${sc.r},${sc.g},${sc.b},${intensity * 0.15 * fadeMul})`);
+          sentGlow.addColorStop(1, `rgba(${sc.r},${sc.g},${sc.b},0)`);
+          ctx.beginPath();
+          ctx.arc(n.x, n.y, glowR, 0, Math.PI * 2);
+          ctx.fillStyle = sentGlow;
+          ctx.fill();
+        }
+
+        // Ring
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, s + ringGap, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(${sc.r},${sc.g},${sc.b},${ringAlpha})`;
+        ctx.lineWidth = ringWidth;
+        ctx.stroke();
+      }
+
+      // Bright center
+      if (s > 5 && !isHidden) {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, s * 0.3, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255,255,255,${isSelected ? 0.5 : 0.25})`;
+        ctx.fill();
+      }
+
+      // Ping effect for highlighted node (clicked from relationship panel)
+      if (n.id === highlightedNodeId && !isHidden) {
+        const elapsed = time - highlightStartTime;
+        // Repeating ping rings
+        for (let ring = 0; ring < 3; ring++) {
+          const ringTime = (elapsed - ring * 0.4) % 2;
+          if (ringTime > 0 && ringTime < 1.5) {
+            const progress = ringTime / 1.5;
+            const ringR = s + 8 + progress * 30;
+            const ringAlpha = (1 - progress) * 0.5;
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, ringR, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(${n.color.r},${n.color.g},${n.color.b},${ringAlpha})`;
+            ctx.lineWidth = 2 * (1 - progress);
+            ctx.stroke();
+          }
+        }
+      }
+
+      // Show label: selected, hovered, connected, pinged, or primary nodes when idle
+      const isConnected = connectedIds.has(n.id);
+      const showLabel = (isSelected || isHovered || isConnected || isPinged || (!selectedNode && s > 8)) && !isHidden;
+      if (showLabel && n.name) {
+        ctx.font = isSelected ? 'bold 12px Inter' : '11px Inter';
+        const labelAlpha = isSelected ? 1 : isConnected ? 0.85 : isHovered ? 0.9 : 0.45;
+        ctx.fillStyle = `rgba(241,245,249,${labelAlpha})`;
+        ctx.textAlign = 'center';
+        ctx.fillText(n.name, n.x, n.y + s + 14);
+      }
+    }
+
+    requestAnimationFrame(animate);
+  }
+  requestAnimationFrame(animate);
+
+  // ---- UI Interactions ----
+  function closeDetail() {
+    document.getElementById('detailPanel').classList.remove('open');
+    selectedNode = null;
+    connectedIds.clear();
+  }
+
+  // React to detail panel open/close
+  const panelEl = document.getElementById('detailPanel');
+  const canvasArea = document.querySelector('.graph-canvas-area');
+  const panelObserver = new MutationObserver(() => {
+    const isOpen = panelEl.classList.contains('open');
+    // No need to hide toolbar when panel opens — panel is z-index 70
+    canvasArea.classList.toggle('panel-open', isOpen);
+    // Resize canvas after transition
+    setTimeout(resize, 400);
+  });
+  panelObserver.observe(panelEl, { attributes: true, attributeFilter: ['class'] });
+
+  // Track hidden entity types
+  const hiddenTypes = new Set();
+  const typeNames = ['Organization', 'Person', 'Media', 'Government', 'Opinion Leader', 'Financial'];
+
+  function toggleType(el) {
+    el.classList.toggle('dimmed');
+    const label = el.querySelector('.legend-label').textContent.trim();
+    // Map legend labels to node types
+    const typeMap = { 'Media Outlet': 'Media' };
+    const type = typeMap[label] || label;
+    if (hiddenTypes.has(type)) {
+      hiddenTypes.delete(type);
+    } else {
+      hiddenTypes.add(type);
+    }
+  }
+  function showAll() {
+    document.querySelectorAll('.legend-item').forEach(i => i.classList.remove('dimmed'));
+    hiddenTypes.clear();
+  }
+  function hideAll() {
+    document.querySelectorAll('.legend-item').forEach(i => i.classList.add('dimmed'));
+    typeNames.forEach(t => hiddenTypes.add(t));
+  }
+
+  // Sentiment filtering
+  const hiddenSentiments = new Set();
+
+  function toggleSentiment(sent, el) {
+    el.classList.toggle('dimmed');
+    if (hiddenSentiments.has(sent)) {
+      hiddenSentiments.delete(sent);
+    } else {
+      hiddenSentiments.add(sent);
+    }
+  }
+
+  function getSentimentBucket(s) {
+    if (s > 0.2) return 'positive';
+    if (s < -0.2) return 'negative';
+    return 'neutral';
+  }
+
+  // Update sentiment counts after graph init
+  function updateSentimentCounts() {
+    let bull = 0, bear = 0, neut = 0;
+    for (const n of nodes) {
+      const b = getSentimentBucket(n.sentiment);
+      if (b === 'positive') bull++;
+      else if (b === 'negative') bear++;
+      else neut++;
+    }
+    document.getElementById('countPositive').textContent = bull;
+    document.getElementById('countNegative').textContent = bear;
+    document.getElementById('countNeutral').textContent = neut;
+  }
+  setTimeout(updateSentimentCounts, 100);
+
+  // Group by mode
+  let groupBy = 'type'; // 'type' or 'sentiment'
+
+
+
+  function setGroupBy(mode) {
+    try {
+      groupBy = mode;
+      document.getElementById('groupTypeBtn').classList.toggle('active', mode === 'type');
+      document.getElementById('groupSentBtn').classList.toggle('active', mode === 'sentiment');
+      regroupTimer = 3;
+
+      const canvasArea = document.querySelector('.graph-canvas-area');
+      const W = canvasArea.clientWidth || window.innerWidth;
+      const H = canvasArea.clientHeight || window.innerHeight;
+
+      const sentCenters = {
+        positive: { x: 0.25, y: 0.45 },
+        negative: { x: 0.75, y: 0.45 },
+        neutral:  { x: 0.50, y: 0.50 },
+      };
+
+      for (const n of nodes) {
+        if (mode === 'sentiment') {
+          const bucket = getSentimentBucket(n.sentiment);
+          const cc = sentCenters[bucket];
+          const typeIdx = entityTypes.findIndex(et => et.type === n.type);
+          const subAngle = (typeIdx / entityTypes.length) * Math.PI * 2 + n.phase * 0.3;
+          const subR = 0.05 + Math.abs(n.sentiment) * 0.1;
+          n.homeX = cc.x + Math.cos(subAngle) * subR;
+          n.homeY = cc.y + Math.sin(subAngle) * subR;
+        } else {
+          const typeIdx = entityTypes.findIndex(et => et.type === n.type);
+          const cc = clusters[typeIdx];
+          const sameType = nodes.filter(m => m.type === n.type);
+          const nodeIdx = sameType.indexOf(n);
+          const count = sameType.length;
+          const angle = (nodeIdx / count) * Math.PI * 2 + n.phase * 0.3;
+          const radius = 0.06 + Math.random() * 0.04;
+          n.homeX = cc.x + Math.cos(angle) * radius;
+          n.homeY = cc.y + Math.sin(angle) * radius;
+        }
+      }
+    } catch (err) {
+      console.error('setGroupBy error:', err);
+    }
+  }
+
+  function toggleLayoutMenu() {
+    document.getElementById('layoutMenu').classList.toggle('open');
+  }
+  function setLayout(name) {
+    document.querySelectorAll('#layoutMenu .layout-option').forEach(o => o.classList.remove('active'));
+    event.target.closest('.layout-option').classList.add('active');
+    document.getElementById('layoutMenu').classList.remove('open');
+  }
+
+  function toggleEdges() {
+    document.getElementById('edgeToggle').classList.toggle('active');
+  }
+
+  // Search
+  const searchInput = document.getElementById('searchInput');
+  const searchDropdown = document.getElementById('searchDropdown');
+  searchInput.addEventListener('focus', () => searchDropdown.style.display = 'block');
+  searchInput.addEventListener('blur', () => setTimeout(() => searchDropdown.style.display = 'none', 200));
+  searchDropdown.style.display = 'none';
+
+  function selectEntity(name) {
+    // Find the node by name and highlight it
+    const node = nodes.find(n => n.name === name);
+    if (node) {
+      highlightedNodeId = node.id;
+      highlightStartTime = performance.now() * 0.001;
+      // Auto-clear after 3 seconds
+      setTimeout(() => { if (highlightedNodeId === node.id) highlightedNodeId = null; }, 3000);
+    }
+  }
+  function showAllNodes() {}
+  function zoomFit() {}
+</script>
+
+</body>
+</html>
