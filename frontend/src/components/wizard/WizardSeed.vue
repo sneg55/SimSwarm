@@ -161,12 +161,20 @@ async function fetchUrl() {
   fetchingUrl.value = true
   urlStatus.value = ''
   urlError.value = false
-  // TODO: wire to backend URL fetch endpoint
-  // For now, show that it would work
-  setTimeout(() => {
-    urlStatus.value = 'URL fetching requires a backend endpoint (not yet implemented)'
+  try {
+    const { default: api } = await import('../../api/index.js')
+    const resp = await api.post('/fetch', { url: url.value.trim() })
+    const text = resp.data.text
+    seedText.value = text
+    charCount.value = text.length
+    emit('update:seedText', text)
+    urlStatus.value = `Extracted ${resp.data.char_count.toLocaleString()} characters`
+    urlError.value = false
+  } catch (err) {
+    urlStatus.value = err.response?.data?.detail || 'Failed to fetch URL'
     urlError.value = true
+  } finally {
     fetchingUrl.value = false
-  }, 1000)
+  }
 }
 </script>
