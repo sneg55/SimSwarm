@@ -67,10 +67,13 @@
           :show-edge-labels="showEdgeLabels"
           :layout-name="layoutName"
           :is-fullscreen="isFullscreen"
+          :group-by="groupBy"
           @refresh="onRefresh"
+          @zoom-fit="onZoomFit"
           @toggle-fullscreen="toggleFullscreen"
           @toggle-edge-labels="showEdgeLabels = !showEdgeLabels"
           @change-layout="layoutName = $event"
+          @set-group-by="groupBy = $event"
           @export="onExport"
         />
       </div>
@@ -136,6 +139,7 @@ const wrapperRef = ref(null)
 const showEdgeLabels = ref(false)
 const layoutName = ref('cose-bilkent')
 const isFullscreen = ref(false)
+const groupBy = ref('type')
 const hiddenTypes = ref(new Set())
 const selectedNode = ref(null)
 const hoveredNode = ref(null)
@@ -218,6 +222,11 @@ function onSearchSelect(uuid) {
 
 function onRefresh() {
   if (canvasRef.value) canvasRef.value.runLayout()
+}
+
+function onZoomFit() {
+  const cy = canvasRef.value?.getCy?.()
+  if (cy) cy.fit(undefined, 30)
 }
 
 function toggleFullscreen() {

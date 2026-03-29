@@ -236,10 +236,10 @@ function initCytoscape() {
     wheelSensitivity: 0.3,
   })
 
-  // Re-fit after layout completes — handles case where container
-  // dimensions aren't final when the initial layout runs
+  // Re-fit after layout completes and start ambient glow animation
   cy.on('layoutstop', () => {
     cy.fit(undefined, 30)
+    startAmbientGlow()
   })
 
   cy.on('tap', 'node', (evt) => {
@@ -285,6 +285,20 @@ function initCytoscape() {
   })
 
   emit('ready')
+}
+
+let glowInterval = null
+function startAmbientGlow() {
+  if (glowInterval) clearInterval(glowInterval)
+  glowInterval = setInterval(() => {
+    if (!cy) return
+    cy.nodes().forEach((node, i) => {
+      const phase = (Date.now() / 2000 + i * 0.7) % (Math.PI * 2)
+      const blur = 20 + Math.sin(phase) * 10
+      const opacity = 0.5 + Math.sin(phase) * 0.2
+      node.style({ 'shadow-blur': blur, 'shadow-opacity': opacity })
+    })
+  }, 100)
 }
 
 function runLayout(name) {
@@ -356,6 +370,7 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
+  if (glowInterval) clearInterval(glowInterval)
   if (cy) {
     cy.destroy()
     cy = null

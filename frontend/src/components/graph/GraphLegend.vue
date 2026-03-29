@@ -32,6 +32,25 @@
       </button>
     </div>
 
+    <!-- Sentiment section -->
+    <div class="mt-3 pt-3 border-t border-mist-depth">
+      <div class="text-[10px] font-bold tracking-wider text-mist-slate uppercase mb-2">Sentiment</div>
+      <div class="flex flex-wrap gap-1.5">
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs">
+          <span class="w-2 h-2 rounded-full" style="background: #6EE7B7;"></span>
+          <span class="text-[#6EE7B7]">Positive</span>
+        </span>
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs">
+          <span class="w-2 h-2 rounded-full" style="background: #FF6B6B;"></span>
+          <span class="text-[#FF6B6B]">Negative</span>
+        </span>
+        <span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs">
+          <span class="w-2 h-2 rounded-full" style="background: #94A3B8;"></span>
+          <span class="text-[#94A3B8]">Neutral</span>
+        </span>
+      </div>
+    </div>
+
     <div v-if="filterBanner" class="mt-2 pt-2 border-t border-mist-depth">
       <div class="flex items-center justify-between">
         <span class="text-xs text-mist-slate">{{ filterBanner }}</span>
