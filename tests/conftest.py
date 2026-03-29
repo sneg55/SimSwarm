@@ -8,6 +8,7 @@ from saas.models import CreditEntry  # noqa: F401 — registers table in metadat
 from saas.models import User  # noqa: F401 — registers table in metadata
 from saas.models.model_routing import ModelRouting  # noqa: F401 — registers table in metadata
 from saas.models.job import SimulationJob  # noqa: F401 — registers table in metadata
+from saas.models.credit_pack import CreditPack  # noqa: F401 — registers table in metadata
 from saas.database import get_session
 
 

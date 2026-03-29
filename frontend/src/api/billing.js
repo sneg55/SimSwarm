@@ -1,5 +1,10 @@
 import api from './index.js'
 
+export async function getPacks() {
+  const response = await api.get('/billing/packs')
+  return response.data
+}
+
 export async function getBalance() {
   const response = await api.get('/billing/balance')
   return response.data

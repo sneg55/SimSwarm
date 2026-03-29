@@ -188,7 +188,7 @@ import CreditBadge from '../components/CreditBadge.vue'
 import SkeletonCard from '../components/SkeletonCard.vue'
 import { useCreditsStore } from '../stores/credits.js'
 import { useAuthStore } from '../stores/auth.js'
-import { getBalance, purchaseCredits, getHistory } from '../api/billing.js'
+import { getPacks, getBalance, purchaseCredits, getHistory } from '../api/billing.js'
 import { changePassword, deleteAccount } from '../api/profile.js'
 
 const route = useRoute()
@@ -217,17 +217,27 @@ const deleteConfirmInput = ref('')
 const deleteLoading = ref(false)
 const deleteError = ref('')
 
-const creditPacks = [
-  { id: 'starter', credits: 100, price: '$19' },
-  { id: 'pro', credits: 500, price: '$79' },
-  { id: 'heavy', credits: 2000, price: '$249' },
-]
+const creditPacks = ref([])
+
+function formatPrice(priceCents) {
+  return '$' + (priceCents / 100).toFixed(0)
+}
 
 onMounted(async () => {
   try {
-    const [balanceData, historyData] = await Promise.all([getBalance(), getHistory()])
+    const [balanceData, historyData, packsData] = await Promise.all([
+      getBalance(),
+      getHistory(),
+      getPacks(),
+    ])
     creditsStore.setBalance(balanceData.balance ?? balanceData)
     history.value = historyData.transactions || historyData
+    creditPacks.value = packsData.map(p => ({
+      id: p.slug,
+      credits: p.credits,
+      price: formatPrice(p.price_cents),
+      description: p.description,
+    }))
   } catch (err) {
     console.error('Failed to load account data:', err)
   } finally {

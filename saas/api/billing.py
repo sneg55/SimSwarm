@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from saas.database import get_session
@@ -30,6 +31,26 @@ def _get_stripe_service(request: Request) -> StripeService:
     )
 
 
+@router.get("/packs")
+async def list_packs(session: AsyncSession = Depends(get_session)):
+    from saas.models.credit_pack import CreditPack as CreditPackModel
+    result = await session.execute(
+        select(CreditPackModel)
+        .where(CreditPackModel.active == True)  # noqa: E712
+        .order_by(CreditPackModel.sort_order)
+    )
+    return [
+        {
+            "slug": p.slug,
+            "name": p.name,
+            "credits": p.credits,
+            "price_cents": p.price_cents,
+            "description": p.description,
+        }
+        for p in result.scalars()
+    ]
+
+
 @router.get("/balance", response_model=BalanceResponse)
 async def get_balance(
     current_user: dict = Depends(get_current_user),
@@ -48,20 +69,36 @@ async def purchase_credits(
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    if body.pack_id not in CREDIT_PACKS:
+    from saas.models.credit_pack import CreditPack as CreditPackModel
+    result = await session.execute(
+        select(CreditPackModel).where(
+            CreditPackModel.slug == body.pack_id,
+            CreditPackModel.active == True,  # noqa: E712
+        )
+    )
+    db_pack = result.scalar_one_or_none()
+
+    if db_pack is not None:
+        credits = db_pack.credits
+        price_cents = db_pack.price_cents
+    elif body.pack_id in CREDIT_PACKS:
+        # Fallback to hardcoded packs if DB has no matching active entry
+        fallback = get_pack(body.pack_id)
+        credits = fallback.credits
+        price_cents = fallback.price_cents
+    else:
         raise HTTPException(status_code=400, detail=f"Unknown pack_id: {body.pack_id}")
 
     user_id = current_user["user_id"]
-    pack = get_pack(body.pack_id)
     stripe_service = _get_stripe_service(request)
 
-    result = stripe_service.create_checkout_session(
+    checkout_result = stripe_service.create_checkout_session(
         pack_id=body.pack_id,
         user_id=user_id,
-        credits=pack.credits,
-        price_cents=pack.price_cents,
+        credits=credits,
+        price_cents=price_cents,
     )
-    return PurchaseResponse(**result)
+    return PurchaseResponse(**checkout_result)
 
 
 @router.post("/webhook", status_code=200)
@@ -88,10 +125,20 @@ async def stripe_webhook(
             logger.warning("Webhook missing user_id or pack_id in metadata: session=%s", stripe_session_id)
             return {"status": "ok"}
 
-        # Validate pack_id against known packs
-        try:
-            pack = get_pack(pack_id)
-        except KeyError:
+        # Validate pack_id and resolve credits from DB (primary) or hardcoded fallback
+        from saas.models.credit_pack import CreditPack as CreditPackModel
+        pack_result = await session.execute(
+            select(CreditPackModel).where(
+                CreditPackModel.slug == pack_id,
+                CreditPackModel.active == True,  # noqa: E712
+            )
+        )
+        db_pack = pack_result.scalar_one_or_none()
+        if db_pack is not None:
+            pack_credits = db_pack.credits
+        elif pack_id in CREDIT_PACKS:
+            pack_credits = CREDIT_PACKS[pack_id].credits
+        else:
             logger.warning("Unknown pack_id %r in webhook: session=%s", pack_id, stripe_session_id)
             return {"status": "ok"}
 
@@ -102,7 +149,7 @@ async def stripe_webhook(
             logger.info("Duplicate webhook for session %s — skipping", stripe_session_id)
             return {"status": "ok"}
 
-        credits = pack.credits  # trust pack definition, not metadata
+        credits = pack_credits  # trust pack definition, not metadata
         payment_intent_id = getattr(stripe_session, "payment_intent", None)
         await ledger.credit(
             user_id=user_id,
