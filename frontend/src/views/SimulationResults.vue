@@ -147,6 +147,7 @@ import SentimentBars from '../components/results/SentimentBars.vue'
 import CoalitionCard from '../components/results/CoalitionCard.vue'
 import ConfidenceGrid from '../components/results/ConfidenceGrid.vue'
 import { useScrollReveal } from '../composables/useScrollReveal.js'
+import { useSimulationData } from '../composables/useSimulationData.js'
 import { getJob, getJobGraph, createShareLink } from '../api/jobs.js'
 
 const route = useRoute()
@@ -170,35 +171,7 @@ const isSmallScreen = ref(window.innerWidth < 768)
 
 // ── Computed ──────────────────────────────────────────────────────────────────
 
-const chatLog = computed(() => {
-  if (!job.value) return []
-  try {
-    const raw = job.value.result_chat_log || job.value.chat_log || '[]'
-    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
-    return Array.isArray(parsed) ? parsed : []
-  } catch { return [] }
-})
-
-const chatMessages = computed(() => {
-  if (!job.value) return []
-  try {
-    const raw = job.value.result_chat_log || job.value.chat_log || '[]'
-    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
-    if (!Array.isArray(parsed)) return []
-    // Transform MiroFish chat log format to ChatReplay format
-    return parsed.map(entry => {
-      // If already in ChatReplay format (has content + role), pass through
-      if (entry.content && entry.role) return entry
-      // MiroFish format: { agent_name, action_type, action_args: { content }, timestamp }
-      return {
-        role: 'assistant',
-        agent: entry.agent_name || entry.agent || 'Agent',
-        content: entry.action_args?.content || entry.content || JSON.stringify(entry.action_args || {}),
-        timestamp: entry.timestamp || null,
-      }
-    }).filter(m => m.content)
-  } catch { return [] }
-})
+const { chatLog, chatMessages, structured, sentimentBars, buildNodeRelationships } = useSimulationData(job)
 
 const storySections = computed(() => {
   const sections = [
@@ -216,54 +189,6 @@ const tocItems = computed(() => {
   if (chatMessages.value.length > 0) items.push({ id: 'report-chat', label: 'Conversation' })
   return items
 })
-
-const structured = computed(() => {
-  if (!job.value?.result_structured) return null
-  try {
-    return typeof job.value.result_structured === 'string'
-      ? JSON.parse(job.value.result_structured)
-      : job.value.result_structured
-  } catch { return null }
-})
-
-const sentimentBars = computed(() => {
-  if (!structured.value?.sentiment) return []
-  return structured.value.sentiment.map(s => ({
-    label: s.label,
-    width: s.value,
-    value: `${s.value}%`,
-    gradient: s.direction === 'positive'
-      ? 'linear-gradient(90deg, #22D3EE, #6EE7B7)'
-      : 'linear-gradient(90deg, #FF6B6B, #F97316)',
-    valueColor: s.direction === 'positive' ? '#6EE7B7' : '#FF6B6B',
-  }))
-})
-
-// ── Graph helpers ─────────────────────────────────────────────────────────────
-
-function buildNodeRelationships(nodes, edges) {
-  const nameMap = Object.fromEntries(nodes.map(n => [n.uuid, n.name || n.uuid]))
-  const relMap = {}
-  for (const edge of edges) {
-    if (!relMap[edge.source_node_uuid]) relMap[edge.source_node_uuid] = []
-    relMap[edge.source_node_uuid].push({
-      direction: 'outgoing',
-      type: edge.name || edge.fact || '',
-      target_uuid: edge.target_node_uuid,
-      targetName: edge.target_node_name || nameMap[edge.target_node_uuid] || edge.target_node_uuid,
-      fact: edge.fact || '',
-    })
-    if (!relMap[edge.target_node_uuid]) relMap[edge.target_node_uuid] = []
-    relMap[edge.target_node_uuid].push({
-      direction: 'incoming',
-      type: edge.name || edge.fact || '',
-      source_uuid: edge.source_node_uuid,
-      sourceName: edge.source_node_name || nameMap[edge.source_node_uuid] || edge.source_node_uuid,
-      fact: edge.fact || '',
-    })
-  }
-  return nodes.map(n => ({ ...n, relationships: relMap[n.uuid] || [] }))
-}
 
 // ── Data fetching ─────────────────────────────────────────────────────────────
 

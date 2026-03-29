@@ -136,6 +136,7 @@ import SentimentBars from '../components/results/SentimentBars.vue'
 import CoalitionCard from '../components/results/CoalitionCard.vue'
 import ConfidenceGrid from '../components/results/ConfidenceGrid.vue'
 import { useScrollReveal } from '../composables/useScrollReveal.js'
+import { useSimulationData } from '../composables/useSimulationData.js'
 
 const route = useRoute()
 const token = route.params.token
@@ -146,6 +147,8 @@ const result = ref(null)
 const loading = ref(true)
 const error = ref(null)
 const viewMode = ref('story')
+
+const { chatMessages, structured, sentimentBars, buildNodeRelationships } = useSimulationData(result)
 
 // ── Story sections for timeline ──────────────────────────────────────────────
 
@@ -163,79 +166,12 @@ const tocItems = computed(() => {
   let match
   while ((match = headingRegex.exec(report)) !== null) {
     const text = match[1].replace(/\*\*/g, '')
-    const id = text.toLowerCase().replace(/[^a-z0-9]+/g, '-')
     items.push({ id: `report-content`, label: text })
   }
   return items.length > 0 ? items : [{ id: 'report-content', label: 'Full Report' }]
 })
 
-// ── Chat messages ────────────────────────────────────────────────────────────
-
-const chatMessages = computed(() => {
-  if (!result.value?.chat_log) return []
-  try {
-    const raw = result.value.chat_log
-    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
-    if (!Array.isArray(parsed)) return []
-    return parsed.map(entry => {
-      if (entry.content && entry.role) return entry
-      return {
-        role: 'assistant',
-        agent: entry.agent_name || entry.agent || 'Agent',
-        content: entry.action_args?.content || entry.content || JSON.stringify(entry.action_args || {}),
-        timestamp: entry.timestamp || null,
-      }
-    }).filter(m => m.content)
-  } catch { return [] }
-})
-
-// ── Structured data ──────────────────────────────────────────────────────────
-
-const structured = computed(() => {
-  if (!result.value?.structured) return null
-  try {
-    return typeof result.value.structured === 'string'
-      ? JSON.parse(result.value.structured)
-      : result.value.structured
-  } catch { return null }
-})
-
-const sentimentBars = computed(() => {
-  if (!structured.value?.sentiment) return []
-  return structured.value.sentiment.map(s => ({
-    label: s.label,
-    width: s.value,
-    value: `${s.value}%`,
-    gradient: s.direction === 'positive'
-      ? 'linear-gradient(90deg, #22D3EE, #6EE7B7)'
-      : 'linear-gradient(90deg, #FF6B6B, #F97316)',
-    valueColor: s.direction === 'positive' ? '#6EE7B7' : '#FF6B6B',
-  }))
-})
-
 // ── Graph helpers ────────────────────────────────────────────────────────────
-
-function buildNodeRelationships(nodes, edges) {
-  const nameMap = Object.fromEntries(nodes.map(n => [n.uuid, n.name || n.uuid]))
-  const relMap = {}
-  for (const edge of edges) {
-    if (!relMap[edge.source_node_uuid]) relMap[edge.source_node_uuid] = []
-    relMap[edge.source_node_uuid].push({
-      direction: 'outgoing',
-      type: edge.name || edge.fact || '',
-      target_uuid: edge.target_node_uuid,
-      targetName: edge.target_node_name || nameMap[edge.target_node_uuid] || edge.target_node_uuid,
-    })
-    if (!relMap[edge.target_node_uuid]) relMap[edge.target_node_uuid] = []
-    relMap[edge.target_node_uuid].push({
-      direction: 'incoming',
-      type: edge.name || edge.fact || '',
-      source_uuid: edge.source_node_uuid,
-      sourceName: edge.source_node_name || nameMap[edge.source_node_uuid] || edge.source_node_uuid,
-    })
-  }
-  return nodes.map(n => ({ ...n, relationships: relMap[n.uuid] || [] }))
-}
 
 const graphNodes = computed(() => {
   const graph = result.value?.graph
