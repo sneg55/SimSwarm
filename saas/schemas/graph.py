@@ -10,6 +10,7 @@ class GraphNode(BaseModel):
     labels: list[str] = []
     summary: str = ""
     connection_count: int = 0
+    sentiment: float = 0.0
 
 
 class GraphEdge(BaseModel):
