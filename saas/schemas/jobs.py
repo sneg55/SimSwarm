@@ -18,6 +18,7 @@ class JobCreate(BaseModel):
     seed_text: str
     goal: str
     tier: TierEnum
+    enrich_web: bool = True
 
     @field_validator("seed_text")
     @classmethod
@@ -41,6 +42,9 @@ class JobResponse(BaseModel):
     error_message: str | None
     key_insight: str | None = None
     result_structured: str | None = None
+    enriched_seed: str | None = None
+    enrichment_citations: str | None = None
+    enrich_web: bool = True
     created_at: datetime
     completed_at: datetime | None
 
@@ -56,6 +60,8 @@ class JobSummary(BaseModel):
     pipeline_stage: int | None = None
     key_insight: str | None = None
     error_message: str | None = None
+    enrich_web: bool = True
+    enriched_seed: str | None = None
     created_at: datetime
     completed_at: datetime | None = None
 

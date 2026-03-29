@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     STRIPE_SUCCESS_URL: str = "http://localhost:3000/billing?success=1"
     STRIPE_CANCEL_URL: str = "http://localhost:3000/billing?cancel=1"
 
+    # xAI enrichment
+    XAI_API_KEY: str = ""
+
     # Logging
     LOG_FORMAT: str = "json"  # "json" or "text"
 
