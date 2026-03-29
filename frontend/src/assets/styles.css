@@ -51,6 +51,8 @@
     opacity: 0;
     transform: translateY(28px);
     transition: opacity 0.7s ease, transform 0.7s ease;
+    /* Keep element in layout flow so IntersectionObserver can detect it */
+    will-change: opacity, transform;
   }
   [data-reveal].revealed {
     opacity: 1;
