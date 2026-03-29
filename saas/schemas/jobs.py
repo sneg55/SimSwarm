@@ -5,18 +5,13 @@ from enum import Enum
 
 from pydantic import BaseModel, field_validator
 
+from saas.tiers import TIER_CREDITS
+
 
 class TierEnum(str, Enum):
     SMALL = "small"
     MEDIUM = "medium"
     LARGE = "large"
-
-
-TIER_CREDITS = {
-    TierEnum.SMALL: 30,
-    TierEnum.MEDIUM: 90,
-    TierEnum.LARGE: 300,
-}
 
 
 class JobCreate(BaseModel):

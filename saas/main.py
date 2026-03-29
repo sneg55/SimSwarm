@@ -10,15 +10,9 @@ from saas.database import init_db
 from saas.limiter import limiter
 from saas.logging import setup_logging
 
-# Module-level reference updated each time create_app is called
-_app_settings: Settings | None = None
-
-
 def create_app(settings: Settings | None = None) -> FastAPI:
-    global _app_settings
     if settings is None:
         settings = Settings()
-    _app_settings = settings
 
     log_format = os.getenv("LOG_FORMAT", "json")
     setup_logging(json_output=(log_format == "json"))

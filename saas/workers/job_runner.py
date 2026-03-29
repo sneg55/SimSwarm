@@ -9,14 +9,9 @@ from dataclasses import dataclass
 import httpx
 
 from saas.gpu.provider import GPUProvider, GPUProviderConfig
+from saas.tiers import TIER_TIMEOUTS, TIER_MAX_COST_USD
 
 logger = logging.getLogger(__name__)
-
-TIER_TIMEOUTS: dict[str, int] = {
-    "small": 2700,
-    "medium": 18000,
-    "large": 43200,
-}
 
 HEARTBEAT_INTERVAL_S = 60  # how often to update last_heartbeat during polling
 
@@ -32,12 +27,6 @@ def get_worker_image() -> str:
     """
     tag = os.getenv("WORKER_IMAGE_TAG", WORKER_IMAGE_DEFAULT_TAG)
     return f"{WORKER_IMAGE_REPO}:{tag}"
-
-TIER_MAX_COST_USD: dict[str, float] = {
-    "small": 1.50,
-    "medium": 4.00,
-    "large": 8.00,
-}
 
 
 @dataclass

@@ -1,7 +1,7 @@
-import json
 import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,8 +9,6 @@ from saas.database import get_session
 from saas.models.job import SimulationJob, JobStatus
 from saas.models.model_routing import ModelRouting
 from saas.schemas.jobs import JobCreate, JobResponse, TIER_CREDITS
-from saas.schemas.graph import GraphResponse
-from saas.utils.sentiment import score_entity_sentiment, needs_sentiment_backfill
 from saas.billing.ledger import CreditLedger, InsufficientCreditsError
 from saas.auth.dependencies import get_current_user
 import os
@@ -152,12 +150,14 @@ async def retry_job(
     return await create_job(request, body, current_user, session)
 
 
-@router.get("/{job_id}/graph", response_model=GraphResponse)
+@router.get("/{job_id}/graph")
 async def get_job_graph(
     job_id: int,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
+    import json
+
     job = await session.get(SimulationJob, job_id)
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -166,17 +166,10 @@ async def get_job_graph(
     if not job.result_graph:
         raise HTTPException(status_code=404, detail="Graph data not available for this job")
     try:
-        graph_data = json.loads(job.result_graph)
+        json.loads(job.result_graph)
     except (json.JSONDecodeError, TypeError):
         raise HTTPException(status_code=500, detail="Invalid graph data stored for this job")
-
-    if needs_sentiment_backfill(graph_data):
-        chat_log = json.loads(job.result_chat_log) if job.result_chat_log else []
-        score_entity_sentiment(graph_data, chat_log)
-        job.result_graph = json.dumps(graph_data)
-        await session.commit()
-
-    return graph_data
+    return Response(content=job.result_graph, media_type="application/json")
 
 
 @router.get("", response_model=list[JobResponse])

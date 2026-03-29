@@ -20,13 +20,13 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/billing", tags=["billing"])
 
 
-def _get_stripe_service() -> StripeService:
-    from saas.main import _app_settings  # lazy import to avoid circular
+def _get_stripe_service(request: Request) -> StripeService:
+    settings = request.app.state.settings
     return StripeService(
-        secret_key=_app_settings.STRIPE_SECRET_KEY,
-        webhook_secret=_app_settings.STRIPE_WEBHOOK_SECRET,
-        success_url=_app_settings.STRIPE_SUCCESS_URL,
-        cancel_url=_app_settings.STRIPE_CANCEL_URL,
+        secret_key=settings.STRIPE_SECRET_KEY,
+        webhook_secret=settings.STRIPE_WEBHOOK_SECRET,
+        success_url=settings.STRIPE_SUCCESS_URL,
+        cancel_url=settings.STRIPE_CANCEL_URL,
     )
 
 
@@ -44,6 +44,7 @@ async def get_balance(
 @router.post("/purchase", response_model=PurchaseResponse)
 async def purchase_credits(
     body: PurchaseRequest,
+    request: Request,
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
@@ -52,7 +53,7 @@ async def purchase_credits(
 
     user_id = current_user["user_id"]
     pack = get_pack(body.pack_id)
-    stripe_service = _get_stripe_service()
+    stripe_service = _get_stripe_service(request)
 
     result = stripe_service.create_checkout_session(
         pack_id=body.pack_id,
@@ -70,7 +71,7 @@ async def stripe_webhook(
 ):
     payload = await request.body()
     sig_header = request.headers.get("stripe-signature", "")
-    stripe_service = _get_stripe_service()
+    stripe_service = _get_stripe_service(request)
 
     try:
         event = stripe_service.verify_webhook(payload=payload, sig_header=sig_header)

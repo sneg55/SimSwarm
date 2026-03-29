@@ -96,7 +96,7 @@ def recover_stale_jobs() -> dict:
             return {"stale_jobs": 0, "recovered": 0}
 
         # Tier timeout + 10 min buffer
-        from saas.workers.job_runner import TIER_TIMEOUTS
+        from saas.tiers import TIER_TIMEOUTS
         now = datetime.now(timezone.utc)
         recovered = []
         resumed = []

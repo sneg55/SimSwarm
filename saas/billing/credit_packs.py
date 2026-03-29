@@ -1,5 +1,7 @@
 from dataclasses import dataclass
 
+from saas.tiers import TIER_CREDITS
+
 
 @dataclass(frozen=True)
 class CreditPack:
@@ -14,8 +16,6 @@ CREDIT_PACKS: dict[str, CreditPack] = {
     "pro": CreditPack(name="Pro", credits=500, price_cents=7900, description="15-20 medium simulations"),
     "heavy": CreditPack(name="Heavy", credits=2000, price_cents=24900, description="Large-scale or frequent use"),
 }
-
-TIER_CREDITS: dict[str, int] = {"small": 30, "medium": 90, "large": 300}
 
 
 def get_pack(pack_id: str) -> CreditPack:

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
@@ -7,7 +7,6 @@ import html as html_mod
 
 from saas.database import get_session
 from saas.models.job import SimulationJob, JobStatus
-from saas.utils.sentiment import score_entity_sentiment, needs_sentiment_backfill
 
 router = APIRouter(prefix="/share", tags=["share"])
 
@@ -61,11 +60,6 @@ async def get_shared_result(
 
     chat_log = json.loads(job.result_chat_log) if job.result_chat_log else []
     graph_data = json.loads(job.result_graph) if job.result_graph else None
-
-    if graph_data and needs_sentiment_backfill(graph_data):
-        score_entity_sentiment(graph_data, chat_log)
-        job.result_graph = json.dumps(graph_data)
-        await session.commit()
 
     return {
         "id": job.id,
@@ -149,14 +143,7 @@ async def get_shared_graph(
     if not job.result_graph:
         raise HTTPException(status_code=404, detail="Graph data not available")
     try:
-        graph_data = json.loads(job.result_graph)
+        json.loads(job.result_graph)
     except (json.JSONDecodeError, TypeError):
         raise HTTPException(status_code=500, detail="Invalid graph data")
-
-    if needs_sentiment_backfill(graph_data):
-        chat_log = json.loads(job.result_chat_log) if job.result_chat_log else []
-        score_entity_sentiment(graph_data, chat_log)
-        job.result_graph = json.dumps(graph_data)
-        await session.commit()
-
-    return graph_data
+    return Response(content=job.result_graph, media_type="application/json")
