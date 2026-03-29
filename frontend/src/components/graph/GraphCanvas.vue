@@ -242,6 +242,18 @@ function getStylesheet() {
         'shadow-opacity': 0.8,
       },
     },
+    {
+      selector: '.selected-edge',
+      style: {
+        label: 'data(label)',
+        width: 3,
+        'line-color': '#22D3EE',
+        'line-opacity': 0.85,
+        'target-arrow-color': '#22D3EE',
+        color: '#E2E8F0',
+        'font-size': 10,
+      },
+    },
   ]
 }
 
@@ -268,6 +280,14 @@ function initCytoscape() {
   cy.on('tap', 'node', (evt) => {
     const node = evt.target
     const data = node.data()
+    // Clear previous selection
+    cy.elements().removeClass('selected-node selected-edge dimmed')
+    // Highlight selected node + connected edges, dim the rest
+    const neighborhood = node.neighborhood().add(node)
+    cy.elements().addClass('dimmed')
+    neighborhood.removeClass('dimmed')
+    node.addClass('selected-node').removeClass('dimmed')
+    node.connectedEdges().addClass('selected-edge').removeClass('dimmed')
     emit('node-click', {
       id: data.id,
       name: data.label,
@@ -282,6 +302,7 @@ function initCytoscape() {
 
   cy.on('tap', (evt) => {
     if (evt.target === cy) {
+      cy.elements().removeClass('selected-node selected-edge dimmed')
       emit('node-click', null)
     }
   })

@@ -2,95 +2,72 @@
   <transition name="slide">
     <div
       v-if="node"
-      class="absolute top-0 right-0 h-full w-80 bg-ocean-deep border-l border-mist-depth shadow-[0_8px_32px_rgba(0,0,0,0.4)] overflow-y-auto z-30"
+      class="absolute top-0 right-0 h-full w-80 bg-ocean-deep/95 backdrop-blur-lg border-l border-mist-depth shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-y-auto z-30"
     >
-      <div class="p-4">
-        <!-- Header -->
-        <div class="flex items-start justify-between mb-3">
-          <div class="flex items-center gap-2 min-w-0">
-            <span
-              class="w-3 h-3 rounded-full flex-shrink-0"
-              :style="{ backgroundColor: nodeColor }"
-            ></span>
-            <h3 class="text-sm font-semibold text-mist-foam truncate">{{ node.name }}</h3>
-          </div>
+      <div class="p-5">
+        <!-- Close button -->
+        <div class="flex justify-end mb-3">
           <button
             @click="$emit('close')"
-            class="p-1 text-mist-slate hover:text-mist-drift flex-shrink-0"
+            class="w-7 h-7 flex items-center justify-center rounded-full bg-ocean-abyss/60 border border-mist-depth text-mist-slate hover:text-mist-foam hover:border-ocean-teal transition-all"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
         <!-- Type badge -->
         <span
-          class="inline-block text-xs font-medium px-2 py-0.5 rounded-full mb-3"
-          :style="{ backgroundColor: nodeColor + '20', color: nodeColor }"
+          class="inline-block text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded-md mb-3"
+          :style="{ backgroundColor: nodeColor + '20', color: nodeColor, border: `1px solid ${nodeColor}40` }"
         >{{ node.entityType }}</span>
 
-        <!-- Summary -->
-        <div v-if="node.summary" class="mb-4">
-          <p class="text-xs text-mist-drift leading-relaxed">{{ node.summary }}</p>
-        </div>
+        <!-- Entity name -->
+        <h3 class="text-xl font-bold text-mist-foam mb-3 leading-tight">{{ node.name }}</h3>
 
-        <!-- Properties -->
-        <div class="mb-4">
-          <h4 class="text-[10px] font-bold tracking-wider text-mist-slate uppercase mb-2">Properties</h4>
-          <div class="flex justify-between text-xs py-0.5">
-            <span class="text-mist-slate">type</span>
-            <span class="text-mist-drift">{{ node.entityType }}</span>
-          </div>
-          <div v-if="node.labels" class="flex justify-between text-xs py-0.5">
-            <span class="text-mist-slate">labels</span>
-            <span class="text-mist-drift">{{ node.labels }}</span>
-          </div>
-          <div class="flex justify-between text-xs py-0.5">
-            <span class="text-mist-slate">connections</span>
-            <span class="text-mist-drift">{{ node.connectionCount }}</span>
-          </div>
-          <div v-if="node.sentiment !== undefined && node.sentiment !== 0" class="flex justify-between text-xs py-0.5">
-            <span class="text-mist-slate">sentiment</span>
-            <span
-              class="font-mono"
-              :style="{ color: node.sentiment > 0.2 ? '#6EE7B7' : node.sentiment < -0.2 ? '#FF6B6B' : '#94A3B8' }"
-            >{{ node.sentiment > 0 ? '+' : '' }}{{ node.sentiment.toFixed(2) }}</span>
-          </div>
-        </div>
+        <!-- Summary -->
+        <p v-if="node.summary" class="text-sm text-mist-drift leading-relaxed mb-6">{{ node.summary }}</p>
 
         <!-- Relationships -->
         <div v-if="relationships.length > 0">
-          <h4 class="text-[10px] font-bold tracking-wider text-mist-slate uppercase mb-2">Relationships</h4>
+          <h4 class="text-[10px] font-bold tracking-widest text-mist-slate uppercase mb-3">
+            Relationships ({{ relationships.length }})
+          </h4>
 
-          <!-- Outgoing -->
-          <div v-if="outgoing.length > 0" class="mb-3">
-            <p class="text-[10px] text-mist-slate mb-1">Outgoing</p>
+          <div class="space-y-0.5">
             <button
-              v-for="rel in outgoing"
-              :key="rel.target_uuid || rel.targetName"
-              @click="$emit('navigate-to', rel.target_uuid)"
-              class="w-full flex items-center gap-1.5 px-2 py-1.5 text-left rounded hover:bg-ocean-teal/10 transition-colors group"
+              v-for="rel in relationships"
+              :key="rel.target_uuid || rel.source_uuid || rel.targetName || rel.sourceName"
+              @click="$emit('navigate-to', rel.direction === 'outgoing' ? rel.target_uuid : rel.source_uuid)"
+              class="w-full flex items-center gap-2 px-2 py-2 text-left rounded-lg hover:bg-ocean-teal/10 transition-colors group"
             >
-              <span class="text-xs text-mist-slate group-hover:text-ocean-glow">&#8594;</span>
-              <span class="text-xs text-mist truncate flex-1">{{ rel.targetName || rel.target_uuid }}</span>
-              <span class="text-[10px] text-mist-slate">{{ rel.type }}</span>
+              <span class="text-xs text-mist-slate/60 group-hover:text-ocean-glow flex-shrink-0">
+                {{ rel.direction === 'outgoing' ? '&rarr;' : '&larr;' }}
+              </span>
+              <span class="text-sm font-medium text-mist-foam truncate">
+                {{ rel.direction === 'outgoing' ? (rel.targetName || rel.target_uuid) : (rel.sourceName || rel.source_uuid) }}
+              </span>
+              <span class="text-[10px] font-mono tracking-wide text-mist-slate/60 uppercase flex-shrink-0">
+                {{ rel.type }}
+              </span>
             </button>
           </div>
+        </div>
 
-          <!-- Incoming -->
-          <div v-if="incoming.length > 0">
-            <p class="text-[10px] text-mist-slate mb-1">Incoming</p>
-            <button
-              v-for="rel in incoming"
-              :key="rel.source_uuid || rel.sourceName"
-              @click="$emit('navigate-to', rel.source_uuid)"
-              class="w-full flex items-center gap-1.5 px-2 py-1.5 text-left rounded hover:bg-ocean-teal/10 transition-colors group"
-            >
-              <span class="text-xs text-mist-slate group-hover:text-ocean-glow">&#8592;</span>
-              <span class="text-xs text-mist truncate flex-1">{{ rel.sourceName || rel.source_uuid }}</span>
-              <span class="text-[10px] text-mist-slate">{{ rel.type }}</span>
-            </button>
+        <!-- Properties (collapsed, subtle) -->
+        <div v-if="node.connectionCount || node.sentiment" class="mt-6 pt-4 border-t border-mist-depth/50">
+          <div class="grid grid-cols-2 gap-3">
+            <div v-if="node.connectionCount" class="text-center">
+              <div class="font-mono text-lg font-bold" :style="{ color: nodeColor }">{{ node.connectionCount }}</div>
+              <div class="text-[10px] text-mist-slate uppercase">Connections</div>
+            </div>
+            <div v-if="node.sentiment !== undefined && node.sentiment !== 0" class="text-center">
+              <div class="font-mono text-lg font-bold"
+                :style="{ color: node.sentiment > 0.2 ? '#6EE7B7' : node.sentiment < -0.2 ? '#FF6B6B' : '#94A3B8' }"
+              >{{ node.sentiment > 0 ? '+' : '' }}{{ node.sentiment.toFixed(1) }}</div>
+              <div class="text-[10px] text-mist-slate uppercase">Sentiment</div>
+            </div>
           </div>
         </div>
       </div>
@@ -117,23 +94,17 @@ const relationships = computed(() => {
   if (!props.node || !props.node.relationships) return []
   return props.node.relationships
 })
-
-const outgoing = computed(() =>
-  relationships.value.filter((r) => r.direction === 'outgoing' || r.source_uuid === props.node?.id)
-)
-
-const incoming = computed(() =>
-  relationships.value.filter((r) => r.direction === 'incoming' || r.target_uuid === props.node?.id)
-)
 </script>
 
 <style scoped>
 .slide-enter-active,
 .slide-leave-active {
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              opacity 0.3s ease;
 }
 .slide-enter-from,
 .slide-leave-to {
   transform: translateX(100%);
+  opacity: 0;
 }
 </style>
