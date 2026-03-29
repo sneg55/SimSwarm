@@ -50,9 +50,9 @@ const routes = [
     meta: { requiresAuth: true },
   },
   {
-    path: '/demo/:slug',
-    name: 'DemoResult',
-    component: () => import('../views/DemoResult.vue'),
+    path: '/s/:token',
+    name: 'SharedResult',
+    component: () => import('../views/SharedResult.vue'),
   },
 ]
 

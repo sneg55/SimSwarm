@@ -1,0 +1,221 @@
+<template>
+  <div class="min-h-screen bg-ocean-abyss">
+    <!-- Loading -->
+    <div v-if="loading" class="flex items-center justify-center h-screen">
+      <p class="text-mist-slate">Loading shared results...</p>
+    </div>
+
+    <!-- Error -->
+    <div v-else-if="error" class="flex items-center justify-center h-screen">
+      <div class="text-center">
+        <h2 class="text-xl text-mist-foam mb-2">Result not found</h2>
+        <p class="text-mist-slate">{{ error }}</p>
+        <router-link to="/" class="text-ocean-cyan mt-4 inline-block">Back to home</router-link>
+      </div>
+    </div>
+
+    <!-- Results -->
+    <div v-else class="max-w-6xl mx-auto px-4 py-8">
+      <!-- Header -->
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold text-mist-foam mb-2">{{ result.title }}</h1>
+        <p class="text-sm text-mist-slate capitalize">
+          {{ result.tier }} tier
+          <span v-if="result.created_at"> &bull; {{ formatDate(result.created_at) }}</span>
+        </p>
+      </div>
+
+      <!-- View mode toggle -->
+      <div class="mb-6">
+        <ViewModeToggle v-model="viewMode" />
+      </div>
+
+      <!-- Story View -->
+      <div v-if="viewMode === 'story'">
+        <div class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
+          <template v-if="structured">
+            <div v-if="structured.brief" class="mb-8">
+              <h2 class="text-lg font-bold text-mist-foam mb-3">Executive Brief</h2>
+              <p class="text-sm text-mist-drift leading-relaxed">{{ structured.brief }}</p>
+            </div>
+            <ConfidenceGrid v-if="structured.confidence?.length" :items="structured.confidence" class="mb-8" />
+            <div v-if="structured.findings?.length" class="mb-8">
+              <h2 class="text-lg font-bold text-mist-foam mb-4">Key Findings</h2>
+              <div class="grid gap-4">
+                <FindingCard v-for="(f, i) in structured.findings" :key="i"
+                  :label="f.label" :title="f.title" :description="f.description"
+                  :metric="f.metric" :accent-color="f.accentColor" />
+              </div>
+            </div>
+            <SentimentBars v-if="sentimentBars.length" :bars="sentimentBars" class="mb-8" />
+            <div v-if="structured.coalitions?.length" class="mb-8">
+              <h2 class="text-lg font-bold text-mist-foam mb-4">Agent Coalitions</h2>
+              <div class="grid gap-4 md:grid-cols-2">
+                <CoalitionCard v-for="(c, i) in structured.coalitions" :key="i"
+                  :name="c.name" :description="c.description" :agents="c.agents"
+                  :strength="c.strength" :color="c.color" />
+              </div>
+            </div>
+            <ReportViewer :content="result.report || ''" />
+          </template>
+          <template v-else>
+            <ReportViewer :content="result.report || 'No report available.'" />
+          </template>
+        </div>
+      </div>
+
+      <!-- Graph View -->
+      <div v-if="viewMode === 'graph'" style="height: calc(100vh - 220px)">
+        <GraphVisualization
+          :nodes="graphNodes"
+          :edges="graphEdges"
+          :metadata="graphMetadata"
+        />
+      </div>
+
+      <!-- Report View -->
+      <div v-if="viewMode === 'report'">
+        <div class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
+          <ReportViewer :content="result.report || 'No report available.'" />
+        </div>
+        <ChatReplay v-if="chatMessages.length" :messages="chatMessages" class="mt-8" />
+      </div>
+
+      <!-- CTA Banner -->
+      <div class="mt-12 bg-ocean-deep border border-mist-depth rounded-xl p-8 text-center">
+        <h3 class="text-lg font-bold text-mist-foam mb-2">Run your own simulation</h3>
+        <p class="text-sm text-mist-slate mb-4">Create AI-powered predictions on any topic</p>
+        <router-link to="/register" class="inline-block px-6 py-2 bg-ocean-cyan text-ocean-abyss font-semibold rounded-lg hover:bg-ocean-glow transition-colors">
+          Get Started
+        </router-link>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted } from 'vue'
+import { useRoute } from 'vue-router'
+import ReportViewer from '../components/ReportViewer.vue'
+import ChatReplay from '../components/ChatReplay.vue'
+import GraphVisualization from '../components/graph/GraphVisualization.vue'
+import ViewModeToggle from '../components/ViewModeToggle.vue'
+import FindingCard from '../components/results/FindingCard.vue'
+import SentimentBars from '../components/results/SentimentBars.vue'
+import CoalitionCard from '../components/results/CoalitionCard.vue'
+import ConfidenceGrid from '../components/results/ConfidenceGrid.vue'
+
+const route = useRoute()
+const token = route.params.token
+
+const result = ref(null)
+const loading = ref(true)
+const error = ref(null)
+const viewMode = ref('story')
+
+// ── Computed ──────────────────────────────────────────────────────────────────
+
+const chatMessages = computed(() => {
+  if (!result.value?.chat_log) return []
+  try {
+    const raw = result.value.chat_log
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+    if (!Array.isArray(parsed)) return []
+    return parsed.map(entry => {
+      if (entry.content && entry.role) return entry
+      return {
+        role: 'assistant',
+        agent: entry.agent_name || entry.agent || 'Agent',
+        content: entry.action_args?.content || entry.content || JSON.stringify(entry.action_args || {}),
+        timestamp: entry.timestamp || null,
+      }
+    }).filter(m => m.content)
+  } catch { return [] }
+})
+
+const structured = computed(() => {
+  if (!result.value?.structured) return null
+  try {
+    return typeof result.value.structured === 'string'
+      ? JSON.parse(result.value.structured)
+      : result.value.structured
+  } catch { return null }
+})
+
+const sentimentBars = computed(() => {
+  if (!structured.value?.sentiment) return []
+  return structured.value.sentiment.map(s => ({
+    label: s.label,
+    width: s.value,
+    value: `${s.value}%`,
+    gradient: s.direction === 'positive'
+      ? 'linear-gradient(90deg, #22D3EE, #6EE7B7)'
+      : 'linear-gradient(90deg, #FF6B6B, #F97316)',
+    valueColor: s.direction === 'positive' ? '#6EE7B7' : '#FF6B6B',
+  }))
+})
+
+// ── Graph helpers ─────────────────────────────────────────────────────────────
+
+function buildNodeRelationships(nodes, edges) {
+  const relMap = {}
+  for (const edge of edges) {
+    if (!relMap[edge.source_node_uuid]) relMap[edge.source_node_uuid] = []
+    relMap[edge.source_node_uuid].push({
+      direction: 'outgoing',
+      type: edge.name || edge.fact || '',
+      target_uuid: edge.target_node_uuid,
+      targetName: edge.target_node_name || '',
+      fact: edge.fact || '',
+    })
+    if (!relMap[edge.target_node_uuid]) relMap[edge.target_node_uuid] = []
+    relMap[edge.target_node_uuid].push({
+      direction: 'incoming',
+      type: edge.name || edge.fact || '',
+      source_uuid: edge.source_node_uuid,
+      sourceName: edge.source_node_name || '',
+      fact: edge.fact || '',
+    })
+  }
+  return nodes.map(n => ({ ...n, relationships: relMap[n.uuid] || [] }))
+}
+
+const graphNodes = computed(() => {
+  const graph = result.value?.graph
+  if (!graph?.nodes?.length) return []
+  if (graph.edges?.length) {
+    return buildNodeRelationships(graph.nodes, graph.edges)
+  }
+  return graph.nodes
+})
+
+const graphEdges = computed(() => result.value?.graph?.edges || [])
+
+const graphMetadata = computed(() => result.value?.graph?.metadata || {})
+
+// ── Data fetching ─────────────────────────────────────────────────────────────
+
+onMounted(async () => {
+  try {
+    const resp = await fetch(`/api/share/${token}`)
+    if (!resp.ok) {
+      const body = await resp.json().catch(() => ({}))
+      throw new Error(body.detail || `Not found (${resp.status})`)
+    }
+    result.value = await resp.json()
+  } catch (err) {
+    error.value = err.message || 'Failed to load shared result.'
+  } finally {
+    loading.value = false
+  }
+})
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function formatDate(dateStr) {
+  if (!dateStr) return ''
+  return new Date(dateStr).toLocaleDateString('en-US', {
+    month: 'long', day: 'numeric', year: 'numeric',
+  })
+}
+</script>

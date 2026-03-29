@@ -141,12 +141,14 @@
           Explore real simulations
         </h2>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+      <div v-if="demosLoading" class="text-center text-mist-slate text-sm py-8">Loading demos...</div>
+      <div v-else-if="demos.length" class="grid grid-cols-1 md:grid-cols-3 gap-5">
         <DemoCard
-          v-for="demo in demos" :key="demo.slug"
-          :slug="demo.slug" :title="demo.title" :description="demo.description"
+          v-for="demo in demos" :key="demo.share_token"
+          :share-url="demo.share_url" :title="demo.title" :description="`${demo.tier} tier`"
         />
       </div>
+      <div v-else class="text-center text-mist-slate text-sm py-8">No demos available yet.</div>
     </section>
 
     <div class="max-w-[1100px] mx-auto h-px bg-gradient-to-r from-transparent via-mist-depth to-transparent" />
@@ -234,14 +236,21 @@ import PricingCard from '../components/PricingCard.vue'
 import ProofCard from '../components/ProofCard.vue'
 import LogoWavePulse from '../components/LogoWavePulse.vue'
 import DemoCard from '../components/DemoCard.vue'
+import { listDemos } from '../api/demos.js'
+import { ref, onMounted } from 'vue'
 
-const demos = [
-  { slug: 'iran-war-us-china', title: 'US vs China: Iran Escalation', description: 'Simulating 1,000 agents across US and Chinese social media on Iran nuclear escalation.' },
-  { slug: 'tesla-earnings', title: 'Tesla Q1 Earnings Sentiment', description: 'How retail and institutional investors react to a major earnings miss.' },
-  { slug: 'dream-red-chamber', title: 'Lost Ending: Red Chamber', description: 'Literary agents reconstruct the lost ending of an 18th-century Chinese masterpiece.' },
-  { slug: 'eu-ai-act', title: 'EU AI Act Enforcement', description: 'Industry compliance behavior in the first 90 days of EU AI Act enforcement.' },
-  { slug: 'bitcoin-halving', title: 'Bitcoin Halving Sentiment', description: 'Crypto community narrative evolution in the 60 days post-halving.' },
-]
+const demos = ref([])
+const demosLoading = ref(true)
+
+onMounted(async () => {
+  try {
+    demos.value = await listDemos()
+  } catch (err) {
+    console.error('Failed to load demos:', err)
+  } finally {
+    demosLoading.value = false
+  }
+})
 
 const insights = [
   { label: 'Key Finding', color: '#FF6B6B', text: 'Public sentiment shifts negative within 48 hours of announcement, driven by regulatory agent cluster.' },

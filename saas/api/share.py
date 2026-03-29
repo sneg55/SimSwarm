@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
 
@@ -7,6 +7,41 @@ from saas.database import get_session
 from saas.models.job import SimulationJob
 
 router = APIRouter(prefix="/share", tags=["share"])
+
+DEMO_USER_EMAIL = "demo@fishcloud.internal"
+
+
+@router.get("/demos")
+async def list_demos(session: AsyncSession = Depends(get_session)):
+    """Return all shared demo results for the landing page."""
+    user_result = await session.execute(
+        text("SELECT id FROM users WHERE email = :email"),
+        {"email": DEMO_USER_EMAIL},
+    )
+    user_row = user_result.first()
+    if not user_row:
+        return []
+
+    result = await session.execute(
+        select(SimulationJob).where(
+            SimulationJob.user_id == str(user_row[0]),
+            SimulationJob.share_token.is_not(None),
+            SimulationJob.status == "COMPLETED",
+        ).order_by(SimulationJob.created_at.desc())
+    )
+    jobs = result.scalars().all()
+
+    return [
+        {
+            "title": job.goal,
+            "tier": job.tier,
+            "share_token": job.share_token,
+            "share_url": f"/s/{job.share_token}",
+            "report_length": len(job.result_report or ""),
+            "created_at": job.created_at.isoformat() if job.created_at else None,
+        }
+        for job in jobs
+    ]
 
 
 @router.get("/{token}")
