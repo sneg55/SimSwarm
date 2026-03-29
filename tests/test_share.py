@@ -47,3 +47,56 @@ async def test_revoke_share_link(client, auth_headers, db_session):
 async def test_invalid_share_token_returns_404(client):
     resp = await client.get("/api/share/nonexistent-token")
     assert resp.status_code == 404
+
+
+async def test_shared_result_includes_structured_data(client, auth_headers, db_session):
+    """Shared result includes structured data when present."""
+    import json
+    from saas.models.job import SimulationJob, JobStatus
+    structured = json.dumps({"brief": "Test brief", "findings": []})
+    job = SimulationJob(
+        user_id=auth_headers["_user_id"],
+        seed_text="test", goal="Test Goal", tier="small",
+        credits_charged=30, status=JobStatus.COMPLETED,
+        result_report="# Report", result_chat_log="[]",
+        result_structured=structured,
+    )
+    db_session.add(job)
+    await db_session.commit()
+    await db_session.refresh(job)
+
+    # Create share link
+    share_resp = await client.post(f"/api/jobs/{job.id}/share", headers=auth_headers)
+    token = share_resp.json()["share_token"]
+
+    # Access shared result
+    resp = await client.get(f"/api/share/{token}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["title"] == "Test Goal"
+    assert data["structured"]["brief"] == "Test brief"
+    assert data["graph"] is None  # No graph data set
+
+
+async def test_shared_graph_endpoint(client, auth_headers, db_session):
+    """Shared graph endpoint returns graph data."""
+    import json
+    from saas.models.job import SimulationJob, JobStatus
+    graph = json.dumps({"nodes": [{"uuid": "n1", "name": "A"}], "edges": [], "metadata": {"total_nodes": 1, "total_edges": 0}})
+    job = SimulationJob(
+        user_id=auth_headers["_user_id"],
+        seed_text="test", goal="test", tier="small",
+        credits_charged=30, status=JobStatus.COMPLETED,
+        result_report="# Report", result_chat_log="[]",
+        result_graph=graph,
+    )
+    db_session.add(job)
+    await db_session.commit()
+    await db_session.refresh(job)
+
+    share_resp = await client.post(f"/api/jobs/{job.id}/share", headers=auth_headers)
+    token = share_resp.json()["share_token"]
+
+    resp = await client.get(f"/api/share/{token}/graph")
+    assert resp.status_code == 200
+    assert resp.json()["metadata"]["total_nodes"] == 1

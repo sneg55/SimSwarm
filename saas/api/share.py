@@ -22,10 +22,33 @@ async def get_shared_result(
         raise HTTPException(status_code=404, detail="Shared result not found")
 
     return {
+        "id": job.id,
         "goal": job.goal,
         "tier": job.tier,
+        "title": job.goal,  # Use goal as title
         "report": job.result_report,
         "chat_log": json.loads(job.result_chat_log) if job.result_chat_log else [],
         "graph": json.loads(job.result_graph) if job.result_graph else None,
+        "structured": json.loads(job.result_structured) if job.result_structured else None,
         "created_at": job.created_at.isoformat() if job.created_at else None,
+        "completed_at": job.completed_at.isoformat() if job.completed_at else None,
     }
+
+
+@router.get("/{token}/graph")
+async def get_shared_graph(
+    token: str,
+    session: AsyncSession = Depends(get_session),
+):
+    result = await session.execute(
+        select(SimulationJob).where(SimulationJob.share_token == token)
+    )
+    job = result.scalar_one_or_none()
+    if not job:
+        raise HTTPException(status_code=404, detail="Shared result not found")
+    if not job.result_graph:
+        raise HTTPException(status_code=404, detail="Graph data not available")
+    try:
+        return json.loads(job.result_graph)
+    except (json.JSONDecodeError, TypeError):
+        raise HTTPException(status_code=500, detail="Invalid graph data")
