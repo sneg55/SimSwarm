@@ -103,7 +103,6 @@ async def get_shared_og_page(
     if not description:
         description = html_mod.escape(f"AI swarm simulation: {job.goal or ''}"[:200])
 
-    tier = html_mod.escape((job.tier or "").capitalize())
     canonical = f"https://simswarm.com/s/{token}"
 
     return f"""<!DOCTYPE html>

@@ -5,8 +5,6 @@ from enum import Enum
 
 from pydantic import BaseModel, field_validator
 
-from saas.tiers import TIER_CREDITS
-
 
 class TierEnum(str, Enum):
     SMALL = "small"
