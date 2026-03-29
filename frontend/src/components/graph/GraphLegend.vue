@@ -27,21 +27,33 @@
     <div class="mt-3 pt-3 border-t border-mist-depth">
       <div class="text-[10px] font-bold tracking-wider text-mist-slate uppercase mb-2">Sentiment</div>
       <div class="space-y-0.5">
-        <div class="flex items-center gap-2 py-1 px-1 text-xs">
-          <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 border-2 border-[#6EE7B7] bg-transparent" />
-          <span class="text-[#6EE7B7] flex-1">Positive</span>
+        <button
+          @click="$emit('toggle-sentiment', 'positive')"
+          class="w-full flex items-center gap-2 py-1 px-1 rounded text-xs transition-opacity cursor-pointer hover:bg-ocean-teal/10"
+          :class="hiddenSentiments.has('positive') ? 'opacity-30' : 'opacity-100'"
+        >
+          <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 border-2 border-[#6EE7B7] bg-transparent" style="box-shadow: 0 0 6px rgba(110,231,183,0.4);" />
+          <span class="text-[#6EE7B7] flex-1 text-left">Positive</span>
           <span class="text-mist-slate font-mono text-[10px]">{{ sentimentCounts.positive }}</span>
-        </div>
-        <div class="flex items-center gap-2 py-1 px-1 text-xs">
-          <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 border-2 border-[#FF6B6B] bg-transparent" />
-          <span class="text-[#FF6B6B] flex-1">Negative</span>
+        </button>
+        <button
+          @click="$emit('toggle-sentiment', 'negative')"
+          class="w-full flex items-center gap-2 py-1 px-1 rounded text-xs transition-opacity cursor-pointer hover:bg-ocean-teal/10"
+          :class="hiddenSentiments.has('negative') ? 'opacity-30' : 'opacity-100'"
+        >
+          <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 border-2 border-[#FF6B6B] bg-transparent" style="box-shadow: 0 0 6px rgba(255,107,107,0.4);" />
+          <span class="text-[#FF6B6B] flex-1 text-left">Negative</span>
           <span class="text-mist-slate font-mono text-[10px]">{{ sentimentCounts.negative }}</span>
-        </div>
-        <div class="flex items-center gap-2 py-1 px-1 text-xs">
+        </button>
+        <button
+          @click="$emit('toggle-sentiment', 'neutral')"
+          class="w-full flex items-center gap-2 py-1 px-1 rounded text-xs transition-opacity cursor-pointer hover:bg-ocean-teal/10"
+          :class="hiddenSentiments.has('neutral') ? 'opacity-30' : 'opacity-100'"
+        >
           <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 border-2 border-[#94A3B8] bg-transparent" />
-          <span class="text-[#94A3B8] flex-1">Neutral</span>
+          <span class="text-[#94A3B8] flex-1 text-left">Neutral</span>
           <span class="text-mist-slate font-mono text-[10px]">{{ sentimentCounts.neutral }}</span>
-        </div>
+        </button>
       </div>
     </div>
 
@@ -61,11 +73,12 @@ import { computed } from 'vue'
 const props = defineProps({
   entityTypes: { type: Array, default: () => [] },
   hiddenTypes: { type: Set, default: () => new Set() },
+  hiddenSentiments: { type: Set, default: () => new Set() },
   filterBanner: { type: String, default: '' },
   nodes: { type: Array, default: () => [] },
 })
 
-defineEmits(['toggle-type', 'show-all', 'hide-all', 'show-all-nodes'])
+defineEmits(['toggle-type', 'toggle-sentiment', 'show-all', 'hide-all', 'show-all-nodes'])
 
 const sentimentCounts = computed(() => {
   let positive = 0, negative = 0, neutral = 0

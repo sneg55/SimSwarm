@@ -44,6 +44,7 @@
         :nodes="visibleNodes"
         :edges="edges"
         :hidden-types="hiddenTypes"
+        :hidden-sentiments="hiddenSentiments"
         :show-edge-labels="showEdgeLabels"
         :layout-name="layoutName"
         :selected-node-id="selectedNode?.id || null"
@@ -81,9 +82,11 @@
         <GraphLegend
           :entity-types="entityTypeSummary"
           :hidden-types="hiddenTypes"
+          :hidden-sentiments="hiddenSentiments"
           :filter-banner="filterBanner"
           :nodes="allNodes"
           @toggle-type="toggleType"
+          @toggle-sentiment="toggleSentiment"
           @show-all="showAllTypes"
           @hide-all="hideAllTypes"
           @show-all-nodes="showAllNodes"
@@ -153,6 +156,7 @@ const layoutName = ref('cose-bilkent')
 const isFullscreen = ref(false)
 const groupBy = ref('type')
 const hiddenTypes = ref(new Set())
+const hiddenSentiments = ref(new Set())
 const selectedNode = ref(null)
 const hoveredNode = ref(null)
 const showAll = ref(false)
@@ -257,6 +261,13 @@ function toggleType(name) {
   if (next.has(name)) next.delete(name)
   else next.add(name)
   hiddenTypes.value = next
+}
+
+function toggleSentiment(bucket) {
+  const next = new Set(hiddenSentiments.value)
+  if (next.has(bucket)) next.delete(bucket)
+  else next.add(bucket)
+  hiddenSentiments.value = next
 }
 
 function showAllTypes() {

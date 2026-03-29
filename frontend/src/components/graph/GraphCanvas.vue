@@ -14,6 +14,7 @@ const props = defineProps({
   nodes: { type: Array, default: () => [] },
   edges: { type: Array, default: () => [] },
   hiddenTypes: { type: Set, default: () => new Set() },
+  hiddenSentiments: { type: Set, default: () => new Set() },
   showEdgeLabels: { type: Boolean, default: false },
   layoutName: { type: String, default: 'force' },
   selectedNodeId: { type: String, default: null },
@@ -56,6 +57,12 @@ function getSentimentColor(s) {
   if (s > 0.2) return SENTIMENT_COLORS.positive
   if (s < -0.2) return SENTIMENT_COLORS.negative
   return SENTIMENT_COLORS.neutral
+}
+
+function getSentimentBucket(s) {
+  if (s > 0.2) return 'positive'
+  if (s < -0.2) return 'negative'
+  return 'neutral'
 }
 
 function resize() {
@@ -124,6 +131,7 @@ function buildGraph() {
         name: node.name || node.uuid,
         sentiment,
         sentimentColor: getSentimentColor(sentiment),
+        sentimentBucket: getSentimentBucket(sentiment),
         phase: Math.random() * Math.PI * 2,
         connectionCount: connCount,
         summary: node.summary || '',
@@ -152,6 +160,10 @@ function buildGraph() {
   }
 }
 
+function isNodeHidden(n) {
+  return props.hiddenTypes.has(n.type) || props.hiddenSentiments.has(n.sentimentBucket)
+}
+
 // Mouse tracking
 let mouseX = -1, mouseY = -1
 
@@ -163,7 +175,7 @@ function onMouseMove(e) {
   const prev = hoveredNode
   hoveredNode = null
   for (const n of graphNodes) {
-    if (props.hiddenTypes.has(n.type)) continue
+    if (isNodeHidden(n)) continue
     const dx = n.x - mouseX, dy = n.y - mouseY
     if (Math.sqrt(dx * dx + dy * dy) < n.size * 1.5 + 8) {
       hoveredNode = n
@@ -223,7 +235,7 @@ function animate(timestamp) {
   // Physics
   for (let i = 0; i < graphNodes.length; i++) {
     const n = graphNodes[i]
-    if (props.hiddenTypes.has(n.type)) continue
+    if (isNodeHidden(n)) continue
 
     // Home pull
     n.vx += (n.homeX * W - n.x) * 0.00008
@@ -235,7 +247,7 @@ function animate(timestamp) {
     // Repulsion
     for (let j = i + 1; j < graphNodes.length; j++) {
       const m = graphNodes[j]
-      if (props.hiddenTypes.has(m.type)) continue
+      if (isNodeHidden(m)) continue
       const dx = m.x - n.x, dy = m.y - n.y
       const d = Math.sqrt(dx * dx + dy * dy)
       const minDist = (n.size + m.size) * 3
@@ -264,7 +276,7 @@ function animate(timestamp) {
   // Draw edges
   for (const e of graphEdges) {
     const a = graphNodes[e.from], b = graphNodes[e.to]
-    if (props.hiddenTypes.has(a.type) || props.hiddenTypes.has(b.type)) continue
+    if (isNodeHidden(a) || isNodeHidden(b)) continue
     const isHighlighted = selectedNode && (a === selectedNode || b === selectedNode)
     const isPinged = highlightedNodeId !== null && (a.id === highlightedNodeId || b.id === highlightedNodeId)
     const active = isHighlighted || isPinged
@@ -291,7 +303,7 @@ function animate(timestamp) {
 
   // Draw nodes
   for (const n of graphNodes) {
-    const isHidden = props.hiddenTypes.has(n.type)
+    const isHidden = isNodeHidden(n)
     const isSelected = n === selectedNode
     const isHovered = n === hoveredNode
     const isConnected = connectedIds.has(n.id)
@@ -403,7 +415,7 @@ function fitToVisibleArea() {
 
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity
   for (const n of graphNodes) {
-    if (props.hiddenTypes.has(n.type)) continue
+    if (isNodeHidden(n)) continue
     minX = Math.min(minX, n.x)
     maxX = Math.max(maxX, n.x)
     minY = Math.min(minY, n.y)
