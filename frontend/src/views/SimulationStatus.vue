@@ -105,6 +105,35 @@
         We'll email you when your simulation is ready. You can close this page.
       </div>
 
+      <!-- Web research card -->
+      <div v-if="job.enriched_seed" class="bg-ocean-deep border border-mist-depth rounded-2xl overflow-hidden">
+        <button @click="researchOpen = !researchOpen"
+          class="w-full flex items-center justify-between px-5 py-3 text-left hover:bg-ocean-teal/5 transition-colors">
+          <span class="text-sm font-semibold text-ocean-glow flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Web Research
+          </span>
+          <svg class="w-4 h-4 text-mist-slate transition-transform" :class="{ 'rotate-180': researchOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </button>
+        <div v-show="researchOpen" class="px-5 pb-4 text-sm text-mist-drift leading-relaxed whitespace-pre-line">
+          {{ job.enriched_seed }}
+          <div v-if="citations.length" class="mt-3 pt-3 border-t border-mist-depth/30 space-y-1">
+            <a v-for="(c, i) in citations" :key="i" :href="c.url" target="_blank" rel="noopener"
+               class="block text-xs text-ocean-glow/70 hover:text-ocean-glow truncate">{{ c.title || c.url }}</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Web research unavailable notice -->
+      <div v-else-if="job.enrich_web && !job.enriched_seed && (isActive || job.status === 'PENDING')"
+           class="flex items-center gap-3 px-5 py-3 rounded-xl bg-organic-violet/5 border border-organic-violet/15 text-sm text-mist-drift">
+        Web research unavailable — running with your original seed
+        <button @click="retryEnrich" :disabled="enrichRetrying"
+          class="text-ocean-glow hover:underline text-xs ml-auto disabled:opacity-50">
+          {{ enrichRetrying ? 'Retrying...' : 'Retry' }}
+        </button>
+      </div>
+
       <!-- Completed CTA -->
       <div v-if="job.status === 'COMPLETED'" class="text-center py-4">
         <router-link
@@ -144,12 +173,12 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PipelineProgress from '../components/PipelineProgress.vue'
 import ChatReplay from '../components/ChatReplay.vue'
 import SkeletonCard from '../components/SkeletonCard.vue'
-import { getJob, retryJob } from '../api/jobs.js'
+import { getJob, retryJob, retryEnrichment } from '../api/jobs.js'
 
 const STAGE_NAMES = ['Seeding', 'Researching', 'Simulating', 'Analyzing', 'Generating report']
 const STAGE_STEP_IDS = ['seed', 'research', 'simulate', 'analyze', 'report']
@@ -169,8 +198,23 @@ const job = ref(null)
 const loading = ref(true)
 const retrying = ref(false)
 const now = ref(Date.now())
+const researchOpen = ref(false)
+const enrichRetrying = ref(false)
 let pollInterval = null
 let tickInterval = null
+
+const citations = computed(() => {
+  if (!job.value?.enrichment_citations) return []
+  try { return JSON.parse(job.value.enrichment_citations) } catch { return [] }
+})
+
+async function retryEnrich() {
+  enrichRetrying.value = true
+  try {
+    await retryEnrichment(jobId)
+  } catch { /* ignore */ }
+  enrichRetrying.value = false
+}
 
 const isActive = computed(() =>
   job.value && ['RUNNING', 'PROVISIONING'].includes(job.value.status)

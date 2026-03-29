@@ -5,8 +5,14 @@ export async function createJob(payload) {
     seed_text: payload.seed_text,
     goal: payload.goal,
     tier: payload.tier,
+    enrich_web: payload.enrich_web ?? true,
   }
   const response = await api.post('/jobs', body)
+  return response.data
+}
+
+export async function retryEnrichment(jobId) {
+  const response = await api.post(`/jobs/${jobId}/enrich-retry`)
   return response.data
 }
 

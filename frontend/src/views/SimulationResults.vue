@@ -69,6 +69,19 @@
             </template>
           </div>
 
+          <!-- Sources & Background -->
+          <div v-if="job.enriched_seed" id="story-sources" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
+            <h2 class="text-lg font-bold text-mist-foam mb-4">Sources & Background</h2>
+            <p class="text-sm text-mist-drift leading-relaxed whitespace-pre-line">{{ job.enriched_seed }}</p>
+            <div v-if="enrichmentCitations.length" class="mt-4 pt-4 border-t border-mist-depth/30 space-y-1.5">
+              <a v-for="(c, i) in enrichmentCitations" :key="i" :href="c.url" target="_blank" rel="noopener"
+                 class="flex items-center gap-2 text-sm text-ocean-glow/70 hover:text-ocean-glow transition-colors">
+                <svg class="w-3 h-3 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                {{ c.title || c.url }}
+              </a>
+            </div>
+          </div>
+
           <!-- Chat replay -->
           <!-- Chat replay only in Report view, not Story -->
         </div>
@@ -173,11 +186,17 @@ const isSmallScreen = ref(window.innerWidth < 768)
 
 const { chatLog, chatMessages, structured, sentimentBars, buildNodeRelationships } = useSimulationData(job)
 
+const enrichmentCitations = computed(() => {
+  if (!job.value?.enrichment_citations) return []
+  try { return JSON.parse(job.value.enrichment_citations) } catch { return [] }
+})
+
 const storySections = computed(() => {
   const sections = [
     { id: 'story-header', label: 'Overview' },
     { id: 'story-report', label: 'Report' },
   ]
+  if (job.value?.enriched_seed) sections.push({ id: 'story-sources', label: 'Sources' })
   return sections
 })
 
