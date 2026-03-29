@@ -127,6 +127,18 @@ class TestScoreClamped:
         assert -1.0 <= graph["nodes"][0]["sentiment"] <= 1.0
 
 
+class TestPunctuatedContent:
+    def test_punctuation_does_not_block_matching(self, score_fn):
+        """Words with trailing punctuation (commas, periods) still match the lexicon."""
+        graph = _graph("Tesla")
+        chat_log = [
+            _entry("Analyst", "Tesla shows great progress, and strong growth. Investors praise the company's success!"),
+        ]
+        score_fn(graph, chat_log)
+        # "progress", "growth", "praise", "success" should all match despite punctuation
+        assert graph["nodes"][0]["sentiment"] > 0
+
+
 class TestEmptyChatLog:
     def test_empty_chat_log_gives_zero(self, score_fn):
         """Empty chat_log results in 0.0 sentiment for all entities."""

@@ -25,6 +25,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 import requests
@@ -326,7 +327,6 @@ def extract_graph_data(graph_id: str) -> dict:
     """
     try:
         from app.services.zep_tools import ZepToolsService  # noqa: PLC0415
-        import os
 
         api_key = os.environ.get("ZEP_API_KEY", "")
         print(f"[run_job] Extracting graph data for graph_id={graph_id}, ZEP_API_KEY={'set' if api_key else 'MISSING'}", flush=True)
@@ -373,14 +373,14 @@ def extract_graph_data(graph_id: str) -> dict:
             return getattr(obj, key, None) or (obj.get(key, "") if isinstance(obj, dict) else "")
 
         # Build uuid→name lookup from nodes for backfilling edge names
-        node_name_map = {str(n.get("uuid", "") if isinstance(n, dict) else getattr(n, "uuid", "")): n.get("name", "") if isinstance(n, dict) else getattr(n, "name", "") for n in nodes}
+        node_name_map = {n["uuid"]: n["name"] for n in nodes}
 
         edges = []
         for e in raw_edges:
             src_uuid = str(_attr(e, "source_node_uuid"))
             tgt_uuid = str(_attr(e, "target_node_uuid"))
-            src_name = str(_attr(e, "source_node_name")) or node_name_map.get(src_uuid, "")
-            tgt_name = str(_attr(e, "target_node_name")) or node_name_map.get(tgt_uuid, "")
+            src_name = (_attr(e, "source_node_name") or "") or node_name_map.get(src_uuid, "")
+            tgt_name = (_attr(e, "target_node_name") or "") or node_name_map.get(tgt_uuid, "")
             edges.append({
                 "uuid": str(_attr(e, "uuid")),
                 "name": str(_attr(e, "name")),
@@ -465,8 +465,8 @@ def score_entity_sentiment(graph_data: dict, chat_log: list[dict]) -> None:
         content_lower = content.lower()
         agent_name = (entry.get("agent_name") or "").strip().lower()
 
-        # Count positive/negative words in this entry
-        words = set(content_lower.split())
+        # Count positive/negative words in this entry (strip punctuation)
+        words = set(re.findall(r'\b[a-z]+\b', content_lower))
         pos = len(words & POSITIVE_WORDS)
         neg = len(words & NEGATIVE_WORDS)
 
