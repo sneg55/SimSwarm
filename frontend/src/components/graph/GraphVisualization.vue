@@ -81,6 +81,7 @@
           :entity-types="entityTypeSummary"
           :hidden-types="hiddenTypes"
           :filter-banner="filterBanner"
+          :nodes="allNodes"
           @toggle-type="toggleType"
           @show-all="showAllTypes"
           @hide-all="hideAllTypes"
