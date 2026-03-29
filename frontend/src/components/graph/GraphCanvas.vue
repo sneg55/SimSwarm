@@ -64,6 +64,12 @@ const LAYOUT_OPTIONS = {
   },
 }
 
+function getSentimentColor(sentiment) {
+  if (sentiment > 0.2) return '#6EE7B7'   // positive — green
+  if (sentiment < -0.2) return '#FF6B6B'  // negative — red
+  return '#94A3B8'                         // neutral — gray
+}
+
 function buildElements() {
   const elements = []
   const visibleNodeIds = new Set()
@@ -73,15 +79,21 @@ function buildElements() {
     if (props.hiddenTypes.has(entityType)) continue
     visibleNodeIds.add(node.uuid)
     const connCount = node.connection_count || 0
-    const size = Math.min(65, Math.max(28, 28 + Math.sqrt(connCount) * 8))
+    const sentiment = node.sentiment ?? 0
+    // Size scales with connections + sentiment intensity
+    const sentScale = 1 + Math.abs(sentiment) * 0.3
+    const size = Math.min(70, Math.max(28, (28 + Math.sqrt(connCount) * 8) * sentScale))
     elements.push({
       group: 'nodes',
       data: {
         id: node.uuid,
         label: node.name || node.uuid,
         color: getEntityColor(entityType),
+        sentimentColor: getSentimentColor(sentiment),
+        sentiment,
         size,
         entityType,
+        labels: (node.labels || []).join(', '),
         summary: node.summary || '',
         connectionCount: connCount,
         relationships: node.relationships || [],
@@ -111,7 +123,7 @@ function getStylesheet() {
     {
       selector: 'node',
       style: {
-        // Concentric ring effect: dark fill + colored wide border + glow
+        // Concentric ring: dark center + entity-colored inner ring + sentiment outer glow
         'background-color': '#0B1120',
         'background-opacity': 0.7,
         width: 'data(size)',
@@ -128,31 +140,24 @@ function getStylesheet() {
         'text-outline-width': 2.5,
         'text-max-width': 130,
         'text-wrap': 'ellipsis',
-        // Thick colored ring border
+        // Inner entity-colored ring
         'border-width': 4,
         'border-color': 'data(color)',
         'border-opacity': 0.9,
         'overlay-padding': 6,
-        // Bioluminescent glow
+        // Outer glow uses sentiment color (falls back to entity color if no sentiment)
         'shadow-blur': 25,
-        'shadow-color': 'data(color)',
-        'shadow-opacity': 0.6,
+        'shadow-color': 'data(sentimentColor)',
+        'shadow-opacity': 0.5,
         'shadow-offset-x': 0,
         'shadow-offset-y': 0,
-        'transition-property': 'opacity, border-width, border-color, shadow-blur, shadow-opacity',
-        'transition-duration': '300ms',
-      },
-    },
-    {
-      // Inner dot via :active pseudo-style workaround — use a second style for nodes
-      // Cytoscape doesn't support pseudo-elements, so we use pie-chart background
-      // to simulate the inner dot
-      selector: 'node',
-      style: {
+        // Inner dot via pie chart
         'pie-size': '40%',
         'pie-1-background-color': 'data(color)',
         'pie-1-background-size': 100,
         'pie-1-background-opacity': 0.9,
+        'transition-property': 'opacity, border-width, border-color, shadow-blur, shadow-opacity',
+        'transition-duration': '300ms',
       },
     },
     {
@@ -165,6 +170,7 @@ function getStylesheet() {
         'target-arrow-shape': 'triangle',
         'arrow-scale': 0.8,
         'curve-style': 'bezier',
+        // Labels hidden by default, shown on hover via class
         label: props.showEdgeLabels ? 'data(label)' : '',
         'font-size': 9,
         color: '#94A3B8',
@@ -177,6 +183,19 @@ function getStylesheet() {
       },
     },
     {
+      // Hovered edge — show label + highlight
+      selector: 'edge.hover-edge',
+      style: {
+        label: 'data(label)',
+        width: 3,
+        'line-color': '#64748B',
+        'line-opacity': 0.8,
+        'target-arrow-color': '#94A3B8',
+        color: '#E2E8F0',
+        'font-size': 10,
+      },
+    },
+    {
       selector: '.highlighted',
       style: {
         'border-width': 5,
@@ -186,12 +205,16 @@ function getStylesheet() {
       },
     },
     {
+      // Edges connected to highlighted node — show labels
       selector: '.highlighted-edge',
       style: {
+        label: 'data(label)',
         width: 3,
         'line-color': '#22D3EE',
         'line-opacity': 0.9,
         'target-arrow-color': '#22D3EE',
+        color: '#E2E8F0',
+        'font-size': 10,
       },
     },
     {
@@ -249,6 +272,8 @@ function initCytoscape() {
       id: data.id,
       name: data.label,
       entityType: data.entityType,
+      labels: data.labels,
+      sentiment: data.sentiment,
       summary: data.summary,
       connectionCount: data.connectionCount,
       relationships: data.relationships,
@@ -268,20 +293,30 @@ function initCytoscape() {
     emit('node-hover', {
       name: data.label,
       entityType: data.entityType,
+      sentiment: data.sentiment,
       x: pos.x,
       y: pos.y,
     })
 
-    // Dim non-neighbors
+    // Dim non-neighbors, highlight connected edges with labels
     const neighborhood = node.neighborhood().add(node)
     cy.elements().addClass('dimmed')
     neighborhood.removeClass('dimmed').addClass('neighbor')
+    node.connectedEdges().addClass('highlighted-edge').removeClass('dimmed')
     node.addClass('highlighted')
   })
 
   cy.on('mouseout', 'node', () => {
     emit('node-unhover')
-    cy.elements().removeClass('dimmed neighbor highlighted')
+    cy.elements().removeClass('dimmed neighbor highlighted highlighted-edge')
+  })
+
+  // Edge hover — show label on individual edge
+  cy.on('mouseover', 'edge', (evt) => {
+    evt.target.addClass('hover-edge')
+  })
+  cy.on('mouseout', 'edge', (evt) => {
+    evt.target.removeClass('hover-edge')
   })
 
   emit('ready')

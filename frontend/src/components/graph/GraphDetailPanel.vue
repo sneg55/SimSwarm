@@ -42,9 +42,20 @@
             <span class="text-mist-slate">type</span>
             <span class="text-mist-drift">{{ node.entityType }}</span>
           </div>
+          <div v-if="node.labels" class="flex justify-between text-xs py-0.5">
+            <span class="text-mist-slate">labels</span>
+            <span class="text-mist-drift">{{ node.labels }}</span>
+          </div>
           <div class="flex justify-between text-xs py-0.5">
             <span class="text-mist-slate">connections</span>
             <span class="text-mist-drift">{{ node.connectionCount }}</span>
+          </div>
+          <div v-if="node.sentiment !== undefined && node.sentiment !== 0" class="flex justify-between text-xs py-0.5">
+            <span class="text-mist-slate">sentiment</span>
+            <span
+              class="font-mono"
+              :style="{ color: node.sentiment > 0.2 ? '#6EE7B7' : node.sentiment < -0.2 ? '#FF6B6B' : '#94A3B8' }"
+            >{{ node.sentiment > 0 ? '+' : '' }}{{ node.sentiment.toFixed(2) }}</span>
           </div>
         </div>
 

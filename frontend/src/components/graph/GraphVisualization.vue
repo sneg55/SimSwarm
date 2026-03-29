@@ -101,11 +101,24 @@
       <!-- Hover tooltip -->
       <div
         v-if="hoveredNode"
-        class="absolute pointer-events-none z-20 bg-mist-depth text-mist-foam text-xs rounded-lg px-2.5 py-1.5 border border-ocean-teal/30 shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+        class="absolute pointer-events-none z-20 bg-ocean-deep/95 backdrop-blur text-mist-foam text-xs rounded-lg px-3 py-2 border border-ocean-teal/30 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
         :style="{ left: hoveredNode.x + 12 + 'px', top: hoveredNode.y - 8 + 'px' }"
       >
-        <span class="font-medium">{{ hoveredNode.name }}</span>
-        <span class="text-mist-slate ml-1">{{ hoveredNode.entityType }}</span>
+        <div class="font-semibold">{{ hoveredNode.name }}</div>
+        <div class="text-mist-slate mt-0.5">
+          <span
+            class="inline-block w-1.5 h-1.5 rounded-full mr-1"
+            :style="{ backgroundColor: getEntityColor(hoveredNode.entityType) }"
+          />{{ hoveredNode.entityType }}
+        </div>
+        <div
+          v-if="hoveredNode.sentiment !== undefined && hoveredNode.sentiment !== 0"
+          class="mt-1 font-mono text-[11px]"
+          :style="{ color: hoveredNode.sentiment > 0.2 ? '#6EE7B7' : hoveredNode.sentiment < -0.2 ? '#FF6B6B' : '#94A3B8' }"
+        >
+          {{ hoveredNode.sentiment > 0.2 ? 'Positive' : hoveredNode.sentiment < -0.2 ? 'Negative' : 'Neutral' }}
+          {{ hoveredNode.sentiment > 0 ? '+' : '' }}{{ hoveredNode.sentiment.toFixed(2) }}
+        </div>
       </div>
     </template>
   </div>
@@ -212,6 +225,8 @@ function onSearchSelect(uuid) {
       id: node.uuid,
       name: node.name || node.uuid,
       entityType,
+      labels: (node.labels || []).join(', '),
+      sentiment: node.sentiment ?? 0,
       summary: node.summary || '',
       connectionCount: node.connection_count || 0,
       relationships: node.relationships || [],
@@ -269,6 +284,8 @@ function navigateToNode(nodeId) {
       id: node.uuid,
       name: node.name || node.uuid,
       entityType,
+      labels: (node.labels || []).join(', '),
+      sentiment: node.sentiment ?? 0,
       summary: node.summary || '',
       connectionCount: node.connection_count || 0,
       relationships: node.relationships || [],
