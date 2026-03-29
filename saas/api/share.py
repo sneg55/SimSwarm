@@ -4,7 +4,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import json
 
 from saas.database import get_session
-from saas.models.job import SimulationJob
+from saas.models.job import SimulationJob, JobStatus
+from saas.utils.sentiment import score_entity_sentiment, needs_sentiment_backfill
 
 router = APIRouter(prefix="/share", tags=["share"])
 
@@ -26,7 +27,7 @@ async def list_demos(session: AsyncSession = Depends(get_session)):
         select(SimulationJob).where(
             SimulationJob.user_id == str(user_row[0]),
             SimulationJob.share_token.is_not(None),
-            SimulationJob.status == "COMPLETED",
+            SimulationJob.status == JobStatus.COMPLETED,
         ).order_by(SimulationJob.created_at.desc())
     )
     jobs = result.scalars().all()
@@ -56,14 +57,22 @@ async def get_shared_result(
     if not job:
         raise HTTPException(status_code=404, detail="Shared result not found")
 
+    chat_log = json.loads(job.result_chat_log) if job.result_chat_log else []
+    graph_data = json.loads(job.result_graph) if job.result_graph else None
+
+    if graph_data and needs_sentiment_backfill(graph_data):
+        score_entity_sentiment(graph_data, chat_log)
+        job.result_graph = json.dumps(graph_data)
+        await session.commit()
+
     return {
         "id": job.id,
         "goal": job.goal,
         "tier": job.tier,
         "title": job.goal,  # Use goal as title
         "report": job.result_report,
-        "chat_log": json.loads(job.result_chat_log) if job.result_chat_log else [],
-        "graph": json.loads(job.result_graph) if job.result_graph else None,
+        "chat_log": chat_log,
+        "graph": graph_data,
         "structured": json.loads(job.result_structured) if job.result_structured else None,
         "created_at": job.created_at.isoformat() if job.created_at else None,
         "completed_at": job.completed_at.isoformat() if job.completed_at else None,
@@ -84,6 +93,14 @@ async def get_shared_graph(
     if not job.result_graph:
         raise HTTPException(status_code=404, detail="Graph data not available")
     try:
-        return json.loads(job.result_graph)
+        graph_data = json.loads(job.result_graph)
     except (json.JSONDecodeError, TypeError):
         raise HTTPException(status_code=500, detail="Invalid graph data")
+
+    if needs_sentiment_backfill(graph_data):
+        chat_log = json.loads(job.result_chat_log) if job.result_chat_log else []
+        score_entity_sentiment(graph_data, chat_log)
+        job.result_graph = json.dumps(graph_data)
+        await session.commit()
+
+    return graph_data

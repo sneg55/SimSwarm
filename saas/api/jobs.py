@@ -10,6 +10,7 @@ from saas.models.job import SimulationJob, JobStatus
 from saas.models.model_routing import ModelRouting
 from saas.schemas.jobs import JobCreate, JobResponse, TIER_CREDITS
 from saas.schemas.graph import GraphResponse
+from saas.utils.sentiment import score_entity_sentiment, needs_sentiment_backfill
 from saas.billing.ledger import CreditLedger, InsufficientCreditsError
 from saas.auth.dependencies import get_current_user
 import os
@@ -147,6 +148,13 @@ async def get_job_graph(
         graph_data = json.loads(job.result_graph)
     except (json.JSONDecodeError, TypeError):
         raise HTTPException(status_code=500, detail="Invalid graph data stored for this job")
+
+    if needs_sentiment_backfill(graph_data):
+        chat_log = json.loads(job.result_chat_log) if job.result_chat_log else []
+        score_entity_sentiment(graph_data, chat_log)
+        job.result_graph = json.dumps(graph_data)
+        await session.commit()
+
     return graph_data
 
 
