@@ -192,6 +192,12 @@ function initCytoscape() {
     wheelSensitivity: 0.3,
   })
 
+  // Re-fit after layout completes — handles case where container
+  // dimensions aren't final when the initial layout runs
+  cy.on('layoutstop', () => {
+    cy.fit(undefined, 30)
+  })
+
   cy.on('tap', 'node', (evt) => {
     const node = evt.target
     const data = node.data()
