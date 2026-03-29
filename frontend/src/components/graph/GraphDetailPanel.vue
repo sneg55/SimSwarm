@@ -2,7 +2,7 @@
   <transition name="slide">
     <div
       v-if="node"
-      class="absolute top-0 right-0 h-full w-80 bg-ocean-deep/95 backdrop-blur-lg border-l border-mist-depth shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-y-auto z-30"
+      class="absolute top-10 right-0 bottom-0 w-80 bg-ocean-deep/95 backdrop-blur-lg border-l border-mist-depth shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-y-auto z-30"
     >
       <div class="p-5">
         <!-- Close button -->
