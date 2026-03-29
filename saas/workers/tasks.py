@@ -13,6 +13,7 @@ from saas.workers.persistence import (
     _extract_key_insight,
     _mark_job_failed,
     _save_job_results,
+    _update_enrichment,
     _update_job_metadata,
     _update_job_retry,
 )
@@ -44,6 +45,7 @@ def run_simulation_task(
     llm_api_key: str,
     zep_api_key: str,
     credits_charged: int = 0,
+    enrich_web: bool = True,
 ) -> dict:
     """
     Celery task that:
@@ -57,10 +59,20 @@ def run_simulation_task(
       VASTAI_API_KEY   — Vast.ai API key (fallback provider)
       DATABASE_URL     — Async SQLAlchemy URL for result persistence
     """
+    # Enrich seed text if enabled
+    enriched_seed_text = seed_text
+    if enrich_web:
+        from saas.workers.enrichment import enrich_seed
+        import json as _json
+        enrichment = enrich_seed(seed_text, goal)
+        if enrichment:
+            _update_enrichment(job_id, enrichment.summary, _json.dumps(enrichment.citations))
+            enriched_seed_text = seed_text + "\n\n--- Background Research ---\n" + enrichment.summary
+
     config = JobConfig(
         job_id=job_id,
         user_id=user_id,
-        seed_text=seed_text,
+        seed_text=enriched_seed_text,  # Use enriched version
         goal=goal,
         tier=tier,
         model_id=model_id,
@@ -210,6 +222,19 @@ def resume_simulation_task(
             pass
 
         raise
+
+
+@celery_app.task(name="fishcloud.enrich_retry")
+def enrich_retry_task(job_id: int, seed_text: str, goal: str) -> dict:
+    """Retry enrichment for a job that failed enrichment initially."""
+    from saas.workers.enrichment import enrich_seed
+    import json as _json
+
+    enrichment = enrich_seed(seed_text, goal)
+    if enrichment:
+        _update_enrichment(job_id, enrichment.summary, _json.dumps(enrichment.citations))
+        return {"status": "enriched", "summary_length": len(enrichment.summary)}
+    return {"status": "failed"}
 
 
 @celery_app.task(name="fishcloud.cleanup_orphaned_pods")

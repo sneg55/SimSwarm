@@ -68,6 +68,7 @@ async def create_job(
         tier=body.tier.value,
         credits_charged=credits,
         status=JobStatus.PENDING,
+        enrich_web=body.enrich_web,
     )
     session.add(job)
     await session.flush()  # get job.id without committing
@@ -87,6 +88,7 @@ async def create_job(
             llm_api_key=os.getenv("LLM_API_KEY", "not-needed"),
             zep_api_key=os.getenv("ZEP_API_KEY", ""),
             credits_charged=credits,
+            enrich_web=body.enrich_web,
         )
     except Exception:
         await session.rollback()
@@ -148,6 +150,24 @@ async def retry_job(
     from saas.schemas.jobs import TierEnum
     body = JobCreate(seed_text=original.seed_text, goal=original.goal, tier=TierEnum(original.tier))
     return await create_job(request, body, current_user, session)
+
+
+@router.post("/{job_id}/enrich-retry", status_code=202)
+async def retry_enrichment(
+    job_id: int,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Re-run seed enrichment for a job that failed enrichment."""
+    job = await session.get(SimulationJob, job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job.user_id != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    from saas.workers.tasks import enrich_retry_task
+    enrich_retry_task.delay(job_id=job.id, seed_text=job.seed_text, goal=job.goal)
+    return {"status": "retrying"}
 
 
 @router.get("/{job_id}/graph")

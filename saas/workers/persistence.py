@@ -251,6 +251,33 @@ async def _async_update_heartbeat(job_id: int) -> None:
             logger.warning("Could not update heartbeat for job %d: %s", job_id, exc)
 
 
+def _update_enrichment(job_id: int, enriched_text: str, citations_json: str) -> None:
+    """Persist enrichment results to the SimulationJob row."""
+    from sqlalchemy import text
+
+    factory = _get_worker_session_factory()
+    if factory is None:
+        return
+
+    async def _do_update():
+        async with factory() as session:
+            try:
+                await session.execute(
+                    text(
+                        "UPDATE simulation_jobs "
+                        "SET enriched_seed = :enriched, enrichment_citations = :citations "
+                        "WHERE id = :job_id"
+                    ),
+                    {"enriched": enriched_text, "citations": citations_json, "job_id": job_id},
+                )
+                await session.commit()
+                logger.info("Saved enrichment for job %d (%d chars)", job_id, len(enriched_text))
+            except Exception as exc:
+                logger.warning("Could not save enrichment for job %d: %s", job_id, exc)
+
+    _run_async(_do_update())
+
+
 def _update_job_retry(job_id: int, retry_count: int) -> None:
     """Update retry_count and reset status to PROVISIONING for a job being retried."""
     from sqlalchemy import text
