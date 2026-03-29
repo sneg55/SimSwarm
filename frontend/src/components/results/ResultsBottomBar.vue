@@ -61,7 +61,7 @@ const shareLabel = computed(() => {
   if (props.shareStatus === 'generating') return 'Generating link...'
   if (props.shareStatus === 'copied') return 'Link copied!'
   if (props.shareStatus === 'error') return 'Failed — try again'
-  return 'Copy public link'
+  return 'Share simulation'
 })
 
 const shareButtonClass = computed(() => {

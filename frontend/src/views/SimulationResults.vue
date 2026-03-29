@@ -230,6 +230,7 @@ const sentimentBars = computed(() => {
 // ── Graph helpers ─────────────────────────────────────────────────────────────
 
 function buildNodeRelationships(nodes, edges) {
+  const nameMap = Object.fromEntries(nodes.map(n => [n.uuid, n.name || n.uuid]))
   const relMap = {}
   for (const edge of edges) {
     if (!relMap[edge.source_node_uuid]) relMap[edge.source_node_uuid] = []
@@ -237,7 +238,7 @@ function buildNodeRelationships(nodes, edges) {
       direction: 'outgoing',
       type: edge.name || edge.fact || '',
       target_uuid: edge.target_node_uuid,
-      targetName: edge.target_node_name || '',
+      targetName: edge.target_node_name || nameMap[edge.target_node_uuid] || edge.target_node_uuid,
       fact: edge.fact || '',
     })
     if (!relMap[edge.target_node_uuid]) relMap[edge.target_node_uuid] = []
@@ -245,7 +246,7 @@ function buildNodeRelationships(nodes, edges) {
       direction: 'incoming',
       type: edge.name || edge.fact || '',
       source_uuid: edge.source_node_uuid,
-      sourceName: edge.source_node_name || '',
+      sourceName: edge.source_node_name || nameMap[edge.source_node_uuid] || edge.source_node_uuid,
       fact: edge.fact || '',
     })
   }
