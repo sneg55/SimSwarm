@@ -372,16 +372,23 @@ def extract_graph_data(graph_id: str) -> dict:
         def _attr(obj, key):
             return getattr(obj, key, None) or (obj.get(key, "") if isinstance(obj, dict) else "")
 
+        # Build uuid→name lookup from nodes for backfilling edge names
+        node_name_map = {str(n.get("uuid", "") if isinstance(n, dict) else getattr(n, "uuid", "")): n.get("name", "") if isinstance(n, dict) else getattr(n, "name", "") for n in nodes}
+
         edges = []
         for e in raw_edges:
+            src_uuid = str(_attr(e, "source_node_uuid"))
+            tgt_uuid = str(_attr(e, "target_node_uuid"))
+            src_name = str(_attr(e, "source_node_name")) or node_name_map.get(src_uuid, "")
+            tgt_name = str(_attr(e, "target_node_name")) or node_name_map.get(tgt_uuid, "")
             edges.append({
                 "uuid": str(_attr(e, "uuid")),
                 "name": str(_attr(e, "name")),
                 "fact": str(_attr(e, "fact") or ""),
-                "source_node_uuid": str(_attr(e, "source_node_uuid")),
-                "target_node_uuid": str(_attr(e, "target_node_uuid")),
-                "source_node_name": str(_attr(e, "source_node_name")),
-                "target_node_name": str(_attr(e, "target_node_name")),
+                "source_node_uuid": src_uuid,
+                "target_node_uuid": tgt_uuid,
+                "source_node_name": src_name,
+                "target_node_name": tgt_name,
             })
 
         graph_data = {
