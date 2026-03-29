@@ -122,6 +122,7 @@
       :showJson="viewMode !== 'graph'"
       :showCsv="viewMode !== 'graph'"
       :pdfLoading="pdfLoading"
+      :shareStatus="shareStatus"
       @export="handleExport"
       @share="handleShare"
     />
@@ -347,19 +348,20 @@ function triggerDownload(blob, filename) {
   URL.revokeObjectURL(url)
 }
 
+const shareStatus = ref('')
+
 async function handleShare() {
   try {
+    shareStatus.value = 'generating'
     const data = await createShareLink(jobId)
     const publicUrl = `${window.location.origin}/s/${data.share_token}`
-    if (navigator.share) {
-      navigator.share({ title: job.value?.goal, url: publicUrl }).catch(() => {})
-    } else {
-      await navigator.clipboard.writeText(publicUrl)
-      alert('Public link copied!')
-    }
+    await navigator.clipboard.writeText(publicUrl)
+    shareStatus.value = 'copied'
+    setTimeout(() => { shareStatus.value = '' }, 3000)
   } catch (err) {
     console.error('Failed to create share link:', err)
-    alert('Failed to create share link.')
+    shareStatus.value = 'error'
+    setTimeout(() => { shareStatus.value = '' }, 3000)
   }
 }
 

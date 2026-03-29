@@ -26,20 +26,44 @@
     </button>
     <button
       @click="$emit('share')"
-      class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white bg-gradient-to-br from-ocean-cyan to-cyan-500 glow-cyan transition-all duration-250 ease-spring hover:glow-cyan-lg hover:-translate-y-0.5"
+      :disabled="shareStatus === 'generating'"
+      :class="shareButtonClass"
     >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>
-      Share simulation
+      <svg v-if="shareStatus !== 'copied'" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+      <svg v-else width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="20 6 9 17 4 12"/></svg>
+      {{ shareLabel }}
     </button>
   </div>
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   showPng: { type: Boolean, default: false },
   showJson: { type: Boolean, default: true },
+  showCsv: { type: Boolean, default: true },
   pdfLoading: { type: Boolean, default: false },
+  shareStatus: { type: String, default: '' },
 })
 
 defineEmits(['export', 'share'])
+
+const shareLabel = computed(() => {
+  if (props.shareStatus === 'generating') return 'Generating link...'
+  if (props.shareStatus === 'copied') return 'Link copied!'
+  if (props.shareStatus === 'error') return 'Failed — try again'
+  return 'Copy public link'
+})
+
+const shareButtonClass = computed(() => {
+  const base = 'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-250 ease-spring'
+  if (props.shareStatus === 'copied') {
+    return `${base} text-white bg-emerald-600 shadow-[0_0_16px_rgba(16,185,129,0.4)]`
+  }
+  if (props.shareStatus === 'error') {
+    return `${base} text-white bg-coral/80`
+  }
+  return `${base} text-white bg-gradient-to-br from-ocean-cyan to-cyan-500 glow-cyan hover:glow-cyan-lg hover:-translate-y-0.5 disabled:opacity-50`
+})
 </script>
