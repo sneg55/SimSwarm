@@ -64,6 +64,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             cd /opt/fishcloud
+            git config --global --add safe.directory /opt/fishcloud
             git pull origin main
             git submodule update --recursive
 
