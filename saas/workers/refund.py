@@ -25,6 +25,19 @@ def _refund_credits(job_id: int, user_id: str, credits: int) -> None:
         session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
         async with session_factory() as session:
             try:
+                existing = await session.execute(
+                    text(
+                        "SELECT 1 FROM credit_entries "
+                        "WHERE job_id = :job_id AND amount > 0 "
+                        "LIMIT 1"
+                    ),
+                    {"job_id": job_id},
+                )
+                if existing.first() is not None:
+                    logger.info(
+                        "Refund already exists for job %d; skipping duplicate", job_id
+                    )
+                    return
                 await session.execute(
                     text(
                         "INSERT INTO credit_entries "

@@ -184,11 +184,15 @@ def recover_stale_jobs() -> dict:
                 # Find the job's user and credits from our stale_jobs list
                 for row in stale_jobs:
                     if row[0] == jid and row[3] > 0:
-                        conn.execute(
+                        result = conn.execute(
                             text(
                                 "INSERT INTO credit_entries "
                                 "(user_id, amount, description, job_id, created_at) "
-                                "VALUES (:user_id, :amount, :description, :job_id, :created_at)"
+                                "SELECT :user_id, :amount, :description, :job_id, :created_at "
+                                "WHERE NOT EXISTS ("
+                                "  SELECT 1 FROM credit_entries "
+                                "  WHERE job_id = :job_id AND amount > 0"
+                                ")"
                             ),
                             {
                                 "user_id": row[1],
@@ -198,7 +202,10 @@ def recover_stale_jobs() -> dict:
                                 "created_at": now,
                             },
                         )
-                        logger.info("recover.refunded job_id=%d credits=%d user=%s", jid, row[3], row[1])
+                        if result.rowcount:
+                            logger.info("recover.refunded job_id=%d credits=%d user=%s", jid, row[3], row[1])
+                        else:
+                            logger.info("recover.refund_skipped job_id=%d (already exists)", jid)
                         break
 
             conn.commit()
