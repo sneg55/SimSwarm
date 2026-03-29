@@ -48,7 +48,12 @@
     <!-- Transaction History -->
     <div class="bg-ocean-deep border border-mist-depth rounded-2xl p-6 mb-6">
       <h2 class="text-lg font-semibold text-mist-foam mb-4">Transaction History</h2>
-      <div v-if="historyLoading" class="text-center text-mist-slate py-4">Loading...</div>
+      <div v-if="historyLoading" class="space-y-6">
+        <SkeletonCard :lines="1" />
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <SkeletonCard v-for="i in 3" :key="i" :lines="2" />
+        </div>
+      </div>
       <div v-else-if="history.length === 0" class="text-center text-mist-slate py-4 text-sm">
         No transactions yet.
       </div>
@@ -180,6 +185,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import CreditBadge from '../components/CreditBadge.vue'
+import SkeletonCard from '../components/SkeletonCard.vue'
 import { useCreditsStore } from '../stores/credits.js'
 import { useAuthStore } from '../stores/auth.js'
 import { getBalance, purchaseCredits, getHistory } from '../api/billing.js'

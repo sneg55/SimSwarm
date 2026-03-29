@@ -2,7 +2,10 @@
   <div class="max-w-[640px] mx-auto px-4 pt-20 pb-16">
     <router-link to="/dashboard" class="text-sm text-mist-slate hover:text-ocean-glow transition-colors">&larr; Back to Dashboard</router-link>
 
-    <div v-if="loading" class="text-center py-20 text-mist-slate">Loading...</div>
+    <div v-if="loading" class="space-y-6 mt-6">
+      <SkeletonCard :lines="0" />
+      <SkeletonCard :lines="3" />
+    </div>
 
     <div v-else-if="job" class="mt-6 space-y-6">
 
@@ -145,6 +148,7 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import PipelineProgress from '../components/PipelineProgress.vue'
 import ChatReplay from '../components/ChatReplay.vue'
+import SkeletonCard from '../components/SkeletonCard.vue'
 import { getJob, retryJob } from '../api/jobs.js'
 
 const STAGE_NAMES = ['Seeding', 'Researching', 'Simulating', 'Analyzing', 'Generating report']

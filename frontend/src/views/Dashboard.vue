@@ -32,7 +32,9 @@
       <CreditWarning class="mb-6" />
 
       <!-- Loading -->
-      <div v-if="loading" class="text-center py-20 text-mist-slate">Loading...</div>
+      <div v-if="loading" class="space-y-4">
+        <SkeletonCard v-for="i in 3" :key="i" :lines="2" />
+      </div>
 
       <!-- Empty State -->
       <DashboardEmpty v-else-if="jobs.length === 0" />
@@ -78,6 +80,7 @@ import { ref, computed, onMounted } from 'vue'
 import CreditWarning from '../components/CreditWarning.vue'
 import DashboardEmpty from '../components/DashboardEmpty.vue'
 import SimCard from '../components/SimCard.vue'
+import SkeletonCard from '../components/SkeletonCard.vue'
 import { listJobs, deleteJob } from '../api/jobs.js'
 import { getBalance } from '../api/billing.js'
 import { useCreditsStore } from '../stores/credits.js'
