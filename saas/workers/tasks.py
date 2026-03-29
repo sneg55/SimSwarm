@@ -222,3 +222,38 @@ def cleanup_orphaned_pods() -> dict:
 def recover_stale_jobs() -> dict:
     """Find jobs stuck in RUNNING/PROVISIONING after a worker restart and fail+refund them."""
     return _recover_stale_jobs_impl()
+
+
+@celery_app.task(name="fishcloud.prune_error_events")
+def prune_error_events() -> dict:
+    """Delete error_events rows older than 30 days."""
+    import os
+    from datetime import datetime, timedelta, timezone
+
+    from sqlalchemy import create_engine, text
+
+    database_url = os.getenv("DATABASE_URL", "")
+    if not database_url:
+        logger.warning("prune_error_events: DATABASE_URL not set, skipping")
+        return {"deleted": 0}
+
+    sync_url = (
+        database_url
+        .replace("+asyncpg", "")
+        .replace("postgresql://", "postgresql+psycopg2://")
+    )
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    engine = create_engine(sync_url)
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                text("DELETE FROM error_events WHERE timestamp < :cutoff"),
+                {"cutoff": cutoff},
+            )
+            conn.commit()
+            deleted = result.rowcount
+        logger.info("prune_error_events: deleted=%d rows older than 30d", deleted)
+        return {"deleted": deleted}
+    finally:
+        engine.dispose()

@@ -4,9 +4,13 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 _engine = None
 _session_factory = None
 
+# Alias used by error_tracking middleware and other consumers that need a
+# direct reference to the session factory without going through the DI layer.
+async_session_factory = None
+
 
 def init_db(database_url: str):
-    global _engine, _session_factory
+    global _engine, _session_factory, async_session_factory
     _engine = create_async_engine(
         database_url,
         pool_pre_ping=True,
@@ -17,6 +21,7 @@ def init_db(database_url: str):
         },
     )
     _session_factory = async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
+    async_session_factory = _session_factory
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
