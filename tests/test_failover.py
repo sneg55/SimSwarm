@@ -92,3 +92,17 @@ async def test_terminate_delegates_to_correct_provider():
     primary.terminate.assert_called_once_with("inst-xyz")
     fallback.terminate.assert_not_called()
     assert "inst-xyz" not in fp._active_instances
+
+
+@pytest.mark.asyncio
+async def test_terminate_falls_back_when_map_empty():
+    """When _active_instances is empty (e.g. after worker restart), provider_hint selects primary."""
+    primary = AsyncMock()
+    fallback = AsyncMock()
+
+    fp = FailoverGPUProvider(primary=primary, fallback=fallback)
+    # Do NOT provision — map stays empty, simulating post-restart state
+    await fp.terminate("pod-id", provider_hint="runpod")
+
+    primary.terminate.assert_called_once_with("pod-id")
+    fallback.terminate.assert_not_called()

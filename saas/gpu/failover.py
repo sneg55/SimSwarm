@@ -40,12 +40,36 @@ class FailoverGPUProvider:
             raise KeyError(f"Unknown instance_id: {instance_id}")
         return await provider.get_status(instance_id)
 
-    async def terminate(self, instance_id: str) -> None:
-        """Delegate termination to the provider that created the instance."""
+    async def terminate(self, instance_id: str, provider_hint: str | None = None) -> None:
+        """Delegate termination to the provider that created the instance.
+
+        After a worker restart _active_instances is empty.  In that case
+        provider_hint (e.g. "runpod" or "vastai") is used to select the
+        right provider.  If neither the map nor a hint is available we
+        fall back to the primary provider and log a warning.
+        """
         provider = self._active_instances.get(instance_id)
-        if provider:
-            await provider.terminate(instance_id)
-            del self._active_instances[instance_id]
+        if provider is None:
+            if provider_hint:
+                hint_lower = provider_hint.lower()
+                if "vast" in hint_lower:
+                    provider = self.fallback
+                else:
+                    provider = self.primary
+                logger.info(
+                    "terminate: instance %s not in active map; using provider_hint=%r",
+                    instance_id,
+                    provider_hint,
+                )
+            else:
+                logger.warning(
+                    "terminate: instance %s not in active map and no provider_hint; "
+                    "attempting primary provider as default",
+                    instance_id,
+                )
+                provider = self.primary
+        await provider.terminate(instance_id)
+        self._active_instances.pop(instance_id, None)
 
     async def execute_command(self, instance_id: str, command: str) -> str:
         """Delegate command execution to the owning provider."""

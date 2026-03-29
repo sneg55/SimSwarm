@@ -156,12 +156,12 @@ async def _async_update_pipeline_stage(job_id: int, stage: int) -> None:
             logger.warning("Could not update pipeline_stage for job %d: %s", job_id, exc)
 
 
-def _update_pod_id(job_id: int, pod_id: str) -> None:
+def _update_pod_id(job_id: int, pod_id: str, gpu_provider: str = "runpod") -> None:
     """Persist pod_id to the SimulationJob row immediately after GPU provisioning."""
-    _run_async(_async_update_pod_id(job_id, pod_id))
+    _run_async(_async_update_pod_id(job_id, pod_id, gpu_provider=gpu_provider))
 
 
-async def _async_update_pod_id(job_id: int, pod_id: str) -> None:
+async def _async_update_pod_id(job_id: int, pod_id: str, gpu_provider: str = "runpod") -> None:
     """Async impl of _update_pod_id — safe to await from async callbacks."""
     from sqlalchemy import text
 
@@ -173,13 +173,19 @@ async def _async_update_pod_id(job_id: int, pod_id: str) -> None:
         try:
             await session.execute(
                 text(
-                    "UPDATE simulation_jobs SET pod_id = :pod_id, status = 'PROVISIONING' "
+                    "UPDATE simulation_jobs "
+                    "SET pod_id = :pod_id, gpu_provider = :gpu_provider, status = 'PROVISIONING' "
                     "WHERE id = :job_id"
                 ),
-                {"pod_id": pod_id, "job_id": job_id},
+                {"pod_id": pod_id, "gpu_provider": gpu_provider, "job_id": job_id},
             )
             await session.commit()
-            logger.info("Saved pod_id=%s for job %d (status → PROVISIONING)", pod_id, job_id)
+            logger.info(
+                "Saved pod_id=%s gpu_provider=%s for job %d (status → PROVISIONING)",
+                pod_id,
+                gpu_provider,
+                job_id,
+            )
         except Exception as exc:
             logger.warning("Could not save pod_id for job %d: %s", job_id, exc)
 
