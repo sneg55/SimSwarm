@@ -14,8 +14,6 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
-    volumes:
-      - ./demos:/app/demos
 
   celery:
     build: .
@@ -68,7 +66,6 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile
       - frontend_dist:/srv/frontend
-      - ./demos:/srv/demos
       - caddy_data:/data
       - caddy_config:/config
     depends_on:

@@ -1,8 +1,6 @@
 import os
-from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -31,10 +29,5 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     init_db(settings.DATABASE_URL)
     app.include_router(api_router)
-
-    # Serve demo JSON files at /demos/
-    demos_dir = Path(__file__).parent.parent / "demos"
-    if demos_dir.exists():
-        app.mount("/demos", StaticFiles(directory=str(demos_dir)), name="demos")
 
     return app
