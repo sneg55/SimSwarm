@@ -74,7 +74,7 @@
       </div>
 
       <!-- ── Graph View ── -->
-      <div v-else-if="viewMode === 'graph'" class="pt-[52px]" style="height: calc(100vh - 52px)">
+      <div v-else-if="viewMode === 'graph'" class="pt-[52px] overflow-hidden" style="height: 100vh">
         <GraphVisualization
           :nodes="graphData?.nodes || []"
           :edges="graphData?.edges || []"

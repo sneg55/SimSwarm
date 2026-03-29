@@ -2,8 +2,7 @@
   <div
     ref="wrapperRef"
     class="relative bg-ocean-abyss rounded-xl border border-mist-depth overflow-hidden"
-    :class="isFullscreen ? 'fixed inset-0 z-50 rounded-none' : ''"
-    :style="!isFullscreen ? 'height: calc(100vh - 120px)' : ''"
+    :class="isFullscreen ? 'fixed inset-0 z-50 rounded-none' : 'h-full'"
   >
     <!-- Loading state -->
     <div v-if="loading" class="absolute inset-0 flex items-center justify-center bg-ocean-abyss/80 z-40">
