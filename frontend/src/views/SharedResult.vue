@@ -31,7 +31,7 @@
 
         <div class="max-w-[800px] mx-auto pl-12 pr-4 xl:pl-16 space-y-12">
           <!-- Simulation header card -->
-          <div id="story-header" class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
+          <div id="story-header" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
             <h1 class="text-2xl font-bold text-mist-foam mb-2">{{ result.title }}</h1>
             <p class="text-sm text-mist-slate capitalize">
               {{ result.tier }} tier
@@ -41,17 +41,18 @@
           </div>
 
           <!-- Report content card -->
-          <div id="story-report" class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
+          <div id="story-report" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
             <template v-if="structured">
               <div v-if="structured.brief" class="mb-8">
                 <h2 class="text-lg font-bold text-mist-foam mb-3">Executive Brief</h2>
                 <p class="text-sm text-mist-drift leading-relaxed">{{ structured.brief }}</p>
               </div>
               <ConfidenceGrid v-if="structured.confidence?.length" :items="structured.confidence" class="mb-8" />
-              <div v-if="structured.findings?.length" class="mb-8">
+              <div v-if="structured.findings?.length" class="mb-8" data-reveal data-reveal-stagger>
                 <h2 class="text-lg font-bold text-mist-foam mb-4">Key Findings</h2>
                 <div class="grid gap-4">
                   <FindingCard v-for="(f, i) in structured.findings" :key="i"
+                    data-reveal-child
                     :label="f.label" :title="f.title" :description="f.description"
                     :metric="f.metric" :accent-color="f.accentColor" />
                 </div>
@@ -88,7 +89,7 @@
         <ReportToc :items="tocItems" />
 
         <div class="max-w-[800px] mx-auto pl-12 pr-4 xl:pl-16 space-y-12">
-          <div id="report-header" class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
+          <div id="report-header" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
             <h1 class="text-2xl font-bold text-mist-foam mb-2">{{ result.title }}</h1>
             <p class="text-sm text-mist-slate capitalize">
               {{ result.tier }} tier
@@ -97,7 +98,7 @@
             </p>
           </div>
 
-          <div id="report-content" class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
+          <div id="report-content" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
             <ReportViewer :content="result.report || 'No report available.'" />
           </div>
 
@@ -134,9 +135,12 @@ import FindingCard from '../components/results/FindingCard.vue'
 import SentimentBars from '../components/results/SentimentBars.vue'
 import CoalitionCard from '../components/results/CoalitionCard.vue'
 import ConfidenceGrid from '../components/results/ConfidenceGrid.vue'
+import { useScrollReveal } from '../composables/useScrollReveal.js'
 
 const route = useRoute()
 const token = route.params.token
+
+useScrollReveal()
 
 const result = ref(null)
 const loading = ref(true)
