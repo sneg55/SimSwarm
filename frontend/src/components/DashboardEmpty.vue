@@ -1,49 +1,52 @@
 <template>
-  <div class="text-center py-20">
-    <div class="relative w-28 h-28 mx-auto mb-8">
-      <!-- Pulsing rings -->
-      <div
-        v-for="(ring, i) in rings" :key="i"
-        class="absolute inset-0 rounded-full border"
-        :style="{
-          borderColor: ring.color,
-          animation: 'pulse-ring 4s ease-in-out infinite',
-          animationDelay: ring.delay,
-        }"
-      />
+  <div class="text-center py-16">
+    <div class="relative w-48 h-48 mx-auto mb-10">
+      <!-- Orbital rings -->
+      <div class="orbital-ring ring-1" />
+      <div class="orbital-ring ring-2" />
+      <div class="orbital-ring ring-3" />
 
-      <!-- Orbiting dots -->
-      <div class="absolute inset-0 animate-orbit" style="animation-duration: 12s;">
-        <div class="absolute w-2.5 h-2.5 rounded-full bg-ocean-glow top-0 left-1/2 -translate-x-1/2 animate-glow-breathe" />
-      </div>
-      <div class="absolute inset-0 animate-orbit" style="animation-duration: 18s; animation-delay: -4s; animation-direction: reverse;">
-        <div class="absolute w-2 h-2 rounded-full bg-organic-violet bottom-0 right-0 animate-glow-breathe" style="animation-delay: 1s;" />
-      </div>
-      <div class="absolute inset-0 animate-orbit" style="animation-duration: 15s; animation-delay: -8s;">
-        <div class="absolute w-2 h-2 rounded-full bg-coral bottom-2 left-0 animate-glow-breathe" style="animation-delay: 2s;" />
+      <!-- Orbiting dot 1 — cyan, fast -->
+      <div class="orbit-path orbit-1">
+        <div class="dot dot-cyan" />
       </div>
 
-      <!-- Sweeping arc -->
-      <svg class="absolute inset-0 w-full h-full animate-orbit" style="animation-duration: 10s;" viewBox="0 0 112 112">
-        <path
-          d="M 90 20 A 50 50 0 0 1 98 56"
-          fill="none"
-          stroke="url(#arcGradient)"
-          stroke-width="2.5"
-          stroke-linecap="round"
-        />
-        <defs>
-          <linearGradient id="arcGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stop-color="rgba(255,107,107,0)" />
-            <stop offset="50%" stop-color="rgba(255,107,107,0.7)" />
-            <stop offset="100%" stop-color="rgba(255,107,107,0)" />
-          </linearGradient>
-        </defs>
-      </svg>
+      <!-- Orbiting dot 2 — violet, medium, reverse -->
+      <div class="orbit-path orbit-2">
+        <div class="dot dot-violet" />
+      </div>
+
+      <!-- Orbiting dot 3 — coral, slow -->
+      <div class="orbit-path orbit-3">
+        <div class="dot dot-coral" />
+      </div>
+
+      <!-- Sweeping arc — orbits independently -->
+      <div class="orbit-path orbit-arc">
+        <svg class="arc-svg" width="48" height="48" viewBox="0 0 48 48">
+          <path
+            d="M 8 4 A 40 40 0 0 1 44 24"
+            fill="none"
+            stroke="url(#arcGrad)"
+            stroke-width="2.5"
+            stroke-linecap="round"
+          />
+          <defs>
+            <linearGradient id="arcGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="rgba(255,107,107,0)" />
+              <stop offset="40%" stop-color="rgba(255,107,107,0.8)" />
+              <stop offset="100%" stop-color="rgba(255,107,107,0)" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
 
       <!-- Center nucleus -->
-      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-ocean-cyan/80 animate-nucleus-pulse" />
-      <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-2.5 h-2.5 rounded-full bg-mist-foam/80" />
+      <div class="nucleus">
+        <div class="nucleus-glow" />
+        <div class="nucleus-core" />
+        <div class="nucleus-dot" />
+      </div>
     </div>
 
     <p class="text-lg text-mist-drift max-w-sm mx-auto mb-6 leading-relaxed">
@@ -63,34 +66,135 @@
 </template>
 
 <script setup>
-const rings = [
-  { color: 'rgba(34, 211, 238, 0.15)', delay: '0s' },
-  { color: 'rgba(167, 139, 250, 0.12)', delay: '1.3s' },
-  { color: 'rgba(255, 107, 107, 0.1)', delay: '2.6s' },
-]
 </script>
 
 <style scoped>
-@keyframes pulse-ring {
-  0%, 100% { transform: scale(0.85); opacity: 0.15; }
-  50% { transform: scale(1.15); opacity: 0.04; }
+/* Orbital rings — concentric, pulsing */
+.orbital-ring {
+  position: absolute;
+  border-radius: 50%;
+  border: 1px solid;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
 }
+.ring-1 {
+  width: 80px; height: 80px;
+  border-color: rgba(34,211,238,0.15);
+  animation: pulse-ring 4s ease-in-out infinite;
+}
+.ring-2 {
+  width: 120px; height: 120px;
+  border-color: rgba(167,139,250,0.1);
+  animation: pulse-ring 4s ease-in-out infinite 1.3s;
+}
+.ring-3 {
+  width: 160px; height: 160px;
+  border-color: rgba(255,107,107,0.08);
+  animation: pulse-ring 4s ease-in-out infinite 2.6s;
+}
+
+@keyframes pulse-ring {
+  0%, 100% { transform: translate(-50%,-50%) scale(1); opacity: 1; }
+  50% { transform: translate(-50%,-50%) scale(1.06); opacity: 0.4; }
+}
+
+/* Orbit paths — rotating containers that carry the dots */
+.orbit-path {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  animation: orbit linear infinite;
+}
+.orbit-1 { animation-duration: 8s; }
+.orbit-2 { animation-duration: 13s; animation-direction: reverse; animation-delay: -3s; }
+.orbit-3 { animation-duration: 18s; animation-delay: -7s; }
+.orbit-arc { animation-duration: 10s; animation-delay: -2s; }
 
 @keyframes orbit {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
 
-@keyframes nucleus-pulse {
-  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; }
-  50% { transform: translate(-50%, -50%) scale(1.15); opacity: 1; }
+/* Dots positioned on the orbit edge */
+.dot {
+  position: absolute;
+  border-radius: 50%;
+  animation: glow-breathe 3s ease-in-out infinite;
+}
+.dot-cyan {
+  width: 10px; height: 10px;
+  background: #22d3ee;
+  box-shadow: 0 0 12px 3px rgba(34,211,238,0.5);
+  top: 14px; left: 50%; transform: translateX(-50%);
+}
+.dot-violet {
+  width: 8px; height: 8px;
+  background: #a78bfa;
+  box-shadow: 0 0 10px 2px rgba(167,139,250,0.4);
+  bottom: 22px; right: 16px;
+  animation-delay: 1s;
+}
+.dot-coral {
+  width: 8px; height: 8px;
+  background: #ff6b6b;
+  box-shadow: 0 0 10px 2px rgba(255,107,107,0.4);
+  bottom: 28px; left: 16px;
+  animation-delay: 2s;
 }
 
-.animate-orbit {
-  animation: orbit 12s linear infinite;
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.7; transform: translateX(-50%) scale(1); }
+  50% { opacity: 1; transform: translateX(-50%) scale(1.3); }
+}
+.dot-violet, .dot-coral {
+  animation-name: glow-breathe-alt;
+}
+@keyframes glow-breathe-alt {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.3); }
 }
 
-.animate-nucleus-pulse {
+/* Arc SVG — positioned at edge of orbit */
+.arc-svg {
+  position: absolute;
+  top: -4px; right: -4px;
+}
+
+/* Center nucleus */
+.nucleus {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+}
+.nucleus-glow {
+  position: absolute;
+  width: 32px; height: 32px;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(34,211,238,0.3) 0%, transparent 70%);
   animation: nucleus-pulse 3s ease-in-out infinite;
+}
+.nucleus-core {
+  position: absolute;
+  width: 20px; height: 20px;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: rgba(34,211,238,0.8);
+  box-shadow: 0 0 20px 6px rgba(34,211,238,0.3);
+  animation: nucleus-pulse 3s ease-in-out infinite;
+}
+.nucleus-dot {
+  position: absolute;
+  width: 8px; height: 8px;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #e0f7fa;
+}
+
+@keyframes nucleus-pulse {
+  0%, 100% { transform: translate(-50%,-50%) scale(1); opacity: 0.8; }
+  50% { transform: translate(-50%,-50%) scale(1.15); opacity: 1; }
 }
 </style>
