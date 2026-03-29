@@ -1,6 +1,6 @@
-# FishCloud (MiroFish Hosted)
+# SimSwarm (FishCloud)
 
-A fully managed SaaS wrapping the open-source [MiroFish](https://github.com/666ghj/MiroFish) swarm intelligence engine (AGPL-3.0). Users buy credits, upload a seed document, type a prediction goal, and receive a prediction report with interactive agent chat replay and entity graph visualization.
+A fully managed SaaS wrapping the open-source [MiroFish](https://github.com/666ghj/MiroFish) swarm intelligence engine (AGPL-3.0). Users buy credits, upload a seed document, set a prediction goal, and receive a prediction report with interactive agent chat replay, entity graph visualization, and web-sourced research context.
 
 ## Architecture
 
@@ -22,9 +22,11 @@ MiroFish Engine (git submodule)
 - **Frontend** — Vue 3, Pinia, Cytoscape.js for graph visualization, Tailwind CSS
 - **Backend** — FastAPI, async SQLAlchemy, Celery task queue, Redis
 - **GPU** — Ephemeral RunPod spot instances (A100/H100), auto spin-up/teardown per job
-- **Billing** — Stripe one-time credit packs, double-entry credit ledger
+- **Enrichment** — xAI Grok (web_search + x_search) for seed text research
+- **Billing** — Stripe one-time credit packs (DB-configurable), double-entry credit ledger
 - **Database** — PostgreSQL 16, Alembic migrations
-- **Proxy** — Caddy with automatic TLS
+- **Monitoring** — Error event capture (API middleware + Celery failure handler), auto-prune
+- **Proxy** — Caddy with automatic TLS, security headers, SSRF protection
 
 ## Prerequisites
 
@@ -91,10 +93,10 @@ npm run build      # Production build to frontend/dist/
 ### Tests
 
 ```bash
-# Backend tests
+# Backend tests (316 tests, in-memory SQLite — no external DB needed)
 pytest
 
-# Frontend tests
+# Frontend tests (Vitest)
 cd frontend && npm test
 ```
 
@@ -108,7 +110,7 @@ For manual / first-time deployment:
 ssh root@your-server 'bash -s' < deploy.sh
 ```
 
-The deploy script clones the repo to `/opt/fishcloud`, checks for `.env`, runs migrations, and starts all services via Docker Compose.
+The deploy script pulls latest code, validates migrations (single Alembic head check), gracefully stops Celery, runs migrations, rebuilds frontend assets, and health-checks the API before completing.
 
 ### Environment Variables
 
@@ -120,42 +122,48 @@ The deploy script clones the repo to `/opt/fishcloud`, checks for `.env`, runs m
 | `STRIPE_SECRET_KEY` | Yes | Stripe API key |
 | `STRIPE_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret |
 | `RUNPOD_API_KEY` | Yes | RunPod GPU provisioning |
+| `XAI_API_KEY` | No | xAI API key for seed enrichment (web + X search) |
 | `DOMAIN` | No | Production domain (default: `localhost`) |
 | `LLM_API_KEY` | Yes | LLM API key for MiroFish engine |
 | `LLM_BASE_URL` | No | vLLM endpoint (default: `http://localhost:8000/v1`) |
 | `LLM_MODEL_NAME` | No | Model ID (default: `Qwen2.5-32B-Instruct-AWQ`) |
 | `ZEP_API_KEY` | Yes | Zep memory/graph service key |
+| `ALERT_WEBHOOK_URL` | No | Webhook URL for orphan pod / error alerts |
 
 ## Project Structure
 
 ```
 fishandcat/
 ├── saas/                  # FastAPI backend
-│   ├── api/               #   Route handlers (auth, jobs, billing, export, progress)
-│   ├── auth/              #   JWT auth, email verification
+│   ├── api/               #   Route handlers (auth, jobs, billing, profile, share)
+│   ├── auth/              #   JWT auth, email verification, password hashing
 │   ├── billing/           #   Stripe integration, credit ledger, credit packs
-│   ├── gpu/               #   RunPod provider, GPU provisioning
-│   ├── models/            #   SQLAlchemy ORM models
-│   ├── workers/           #   Celery app, job runner, tasks
+│   ├── gpu/               #   RunPod/Vast.ai provider, failover, error classification
+│   ├── middleware/        #   Error tracking middleware
+│   ├── models/            #   SQLAlchemy ORM models (job, user, credit_entry, credit_pack, error_event)
+│   ├── workers/           #   Celery app, job runner, enrichment, cleanup, recovery
 │   └── adapters/          #   MiroFish engine adapter
 ├── frontend/              # Vue 3 SPA
 │   └── src/
-│       ├── views/         #   Pages (Landing, Dashboard, SimulationResults, etc.)
-│       ├── components/    #   Reusable components (graph viz, credits, export)
+│       ├── views/         #   Pages (Landing, Dashboard, SimulationResults, Account, etc.)
+│       ├── components/    #   Reusable components (graph viz, skeleton, pipeline progress)
+│       ├── composables/   #   Shared logic (useSimulationData, useScrollReveal)
 │       ├── stores/        #   Pinia state management
 │       └── api/           #   Axios API clients
 ├── vendor/mirofish/       # MiroFish engine (git submodule)
-├── demos/                 # Static demo simulation snapshots (JSON)
+├── infra/docker/          # GPU worker image (Dockerfile, run_job.py, worker_api.py)
 ├── infra/scripts/         # Benchmark, demo refresh scripts
 ├── alembic/               # Database migrations
 ├── docs/                  # Specs, plans, benchmarks
 ├── Dockerfile             # Multi-stage build (frontend + backend)
 ├── docker-compose.yml     # Full stack orchestration
-├── Caddyfile              # Reverse proxy config
+├── Caddyfile              # Reverse proxy config (TLS, security headers, OG routing)
 └── deploy.sh              # Hetzner deployment script
 ```
 
 ## Credit Packs & Pricing
+
+Credit packs are configurable from the database (`credit_packs` table). Defaults:
 
 | Pack | Credits | Price |
 |------|---------|-------|
@@ -168,6 +176,16 @@ fishandcat/
 | Small | 1-500 | 30 |
 | Medium | 501-2,000 | 90 |
 | Large | 2,001-10,000 | 300 |
+
+## Key Features
+
+- **Seed Enrichment** — Optionally enriches user seed text with live web + X/Twitter research via xAI Grok before simulation runs. Toggle per-simulation, retry on failure.
+- **Entity Graph** — Interactive knowledge graph with sentiment scoring, agent stance, influence weights, and per-agent activity timeline on click.
+- **Job Retry** — Failed simulations can be retried with one click (same seed/goal/tier, new job).
+- **Error Monitoring** — Unhandled API exceptions and Celery task failures captured to `error_events` table with auto-pruning.
+- **Account Management** — Password change and account deletion (soft-delete).
+- **Share Links** — Public share URLs with OpenGraph meta tags for rich previews on Slack/Twitter/LinkedIn.
+- **Orphan Protection** — Celery beat runs cleanup every 10 min; healthcheck verifies beat is active; recovery terminates stale pods.
 
 ## License
 
