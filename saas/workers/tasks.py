@@ -15,9 +15,6 @@ from saas.workers.persistence import (
     _save_job_results,
     _update_job_metadata,
     _update_job_retry,
-    _update_heartbeat,
-    _update_pipeline_stage,
-    _update_pod_id,
 )
 from saas.workers.refund import _refund_credits
 from saas.workers.cleanup import cleanup_orphaned_pods as _cleanup_orphaned_pods_impl
