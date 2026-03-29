@@ -45,7 +45,7 @@
 
       <div class="relative z-10 flex gap-8 mt-12 text-sm text-mist-slate">
         <span class="flex items-center gap-1.5">&#x1F4B3; Pay-as-you-go credits</span>
-        <span class="flex items-center gap-1.5">&#x26A1; Results in under 5 minutes</span>
+        <span class="flex items-center gap-1.5">&#x26A1; Results in minutes, not months</span>
         <span class="flex items-center gap-1.5">&#x1F30A; Up to 10,000 agent swarms</span>
       </div>
     </section>

@@ -125,7 +125,11 @@
           Simulation failed
         </div>
         <p class="text-sm text-mist-drift">{{ job.error_message || 'An unexpected error occurred. Your credits have been refunded.' }}</p>
-        <router-link to="/sim/new" class="inline-block mt-3 text-sm text-ocean-glow hover:underline">Try again &rarr;</router-link>
+        <button
+          @click="handleRetry"
+          :disabled="retrying"
+          class="inline-block mt-3 text-sm text-ocean-glow hover:underline disabled:opacity-50 disabled:cursor-wait"
+        >{{ retrying ? 'Retrying...' : 'Retry this simulation' }} &rarr;</button>
       </div>
 
       <!-- Live chat replay (only while running, not after completion) -->
@@ -138,10 +142,10 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import PipelineProgress from '../components/PipelineProgress.vue'
 import ChatReplay from '../components/ChatReplay.vue'
-import { getJob } from '../api/jobs.js'
+import { getJob, retryJob } from '../api/jobs.js'
 
 const STAGE_NAMES = ['Seeding', 'Researching', 'Simulating', 'Analyzing', 'Generating report']
 const STAGE_STEP_IDS = ['seed', 'research', 'simulate', 'analyze', 'report']
@@ -154,10 +158,12 @@ const TIER_ESTIMATES = {
 }
 
 const route = useRoute()
+const router = useRouter()
 const jobId = route.params.id
 
 const job = ref(null)
 const loading = ref(true)
+const retrying = ref(false)
 const now = ref(Date.now())
 let pollInterval = null
 let tickInterval = null
@@ -320,6 +326,17 @@ async function fetchJob() {
     console.error('Failed to fetch job:', err)
   } finally {
     loading.value = false
+  }
+}
+
+async function handleRetry() {
+  retrying.value = true
+  try {
+    const newJob = await retryJob(jobId)
+    router.push(`/sim/${newJob.id}`)
+  } catch (err) {
+    alert(err.response?.data?.detail || 'Retry failed. Please try again.')
+    retrying.value = false
   }
 }
 

@@ -20,6 +20,11 @@ export async function listJobs() {
   return response.data
 }
 
+export async function retryJob(jobId) {
+  const response = await api.post(`/jobs/${jobId}/retry`)
+  return response.data
+}
+
 export async function deleteJob(jobId) {
   const response = await api.delete(`/jobs/${jobId}`)
   return response.data

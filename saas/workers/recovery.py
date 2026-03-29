@@ -153,6 +153,16 @@ def recover_stale_jobs() -> dict:
                     },
                 )
 
+                # Terminate the orphaned pod
+                if pod_id and pod_alive and runpod_key:
+                    try:
+                        import runpod
+                        runpod.api_key = runpod_key
+                        runpod.terminate_pod(pod_id)
+                        logger.info("recover.terminated_pod job_id=%d pod_id=%s", job_id, pod_id)
+                    except Exception as term_exc:
+                        logger.warning("recover.terminate_failed job_id=%d pod_id=%s error=%s", job_id, pod_id, term_exc)
+
                 logger.warning(
                     "recover.failed_job job_id=%d user_id=%s reason=%s age=%ds credits=%d",
                     job_id, user_id, reason, int(age_seconds), credits_charged,

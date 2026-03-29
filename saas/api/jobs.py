@@ -131,6 +131,27 @@ async def delete_job(
     await session.commit()
 
 
+@router.post("/{job_id}/retry", response_model=JobResponse, status_code=201)
+async def retry_job(
+    job_id: int,
+    request: Request,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Retry a failed job with the same seed_text, goal, and tier."""
+    original = await session.get(SimulationJob, job_id)
+    if not original:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if original.user_id != current_user["user_id"]:
+        raise HTTPException(status_code=403, detail="Not authorized")
+    if original.status not in (JobStatus.FAILED, JobStatus.REFUNDED):
+        raise HTTPException(status_code=400, detail="Only failed jobs can be retried")
+
+    from saas.schemas.jobs import TierEnum
+    body = JobCreate(seed_text=original.seed_text, goal=original.goal, tier=TierEnum(original.tier))
+    return await create_job(request, body, current_user, session)
+
+
 @router.get("/{job_id}/graph", response_model=GraphResponse)
 async def get_job_graph(
     job_id: int,
