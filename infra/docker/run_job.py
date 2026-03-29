@@ -596,6 +596,14 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
     # Extract graph data from Zep before the ephemeral graph is destroyed
     graph_data = extract_graph_data(graph_id)
 
+    # Score per-entity sentiment from chat_log mentions
+    try:
+        score_entity_sentiment(graph_data, chat_log)
+        scored = sum(1 for n in graph_data.get("nodes", []) if n.get("sentiment", 0) != 0)
+        print(f"[run_job] Sentiment scored: {scored}/{len(graph_data.get('nodes', []))} entities with non-zero sentiment", flush=True)
+    except Exception as exc:
+        print(f"[run_job] WARNING: sentiment scoring failed: {exc}", flush=True)
+
     # Build structured results from pipeline outputs
     structured = {}
     try:
