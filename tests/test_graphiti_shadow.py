@@ -134,6 +134,231 @@ def test_wait_for_episodes_is_noop():
     builder._wait_for_episodes(["uuid1", "uuid2"])
 
 
+# ── ZepToolsService mock-based tests ──
+
+def _make_mock_edge(uuid, name, fact, src, tgt, expired_at=None):
+    """Create a mock Graphiti EntityEdge."""
+    from unittest.mock import MagicMock
+    e = MagicMock()
+    e.uuid = uuid
+    e.name = name
+    e.fact = fact
+    e.source_node_uuid = src
+    e.target_node_uuid = tgt
+    e.created_at = None
+    e.valid_at = None
+    e.invalid_at = None
+    e.expired_at = expired_at
+    e.attributes = {}
+    return e
+
+
+def _make_mock_node(uuid, name, labels, summary=""):
+    from unittest.mock import MagicMock
+    n = MagicMock()
+    n.uuid = uuid
+    n.name = name
+    n.labels = labels
+    n.summary = summary
+    n.attributes = {}
+    return n
+
+
+def test_local_search_matches_keyword():
+    """_local_search should find edges whose fact contains the query."""
+    from unittest.mock import patch
+    from graphiti.zep_tools import ZepToolsService
+
+    tools = ZepToolsService()
+
+    mock_edges = [
+        _make_mock_edge("e1", "WORKS_FOR", "Alice works at Acme Corp", "n1", "n2"),
+        _make_mock_edge("e2", "ACQUIRED", "Acme acquired Widget", "n2", "n3"),
+        _make_mock_edge("e3", "LIVES_IN", "Bob lives in Berlin", "n4", "n5"),
+    ]
+
+    with patch.object(tools, "get_all_edges") as mock_get:
+        from graphiti.types import EdgeInfo
+        mock_get.return_value = [
+            EdgeInfo(uuid=e.uuid, name=e.name, fact=e.fact,
+                     source_node_uuid=e.source_node_uuid, target_node_uuid=e.target_node_uuid)
+            for e in mock_edges
+        ]
+        result = tools._local_search("graph-1", "acme", limit=10)
+
+    assert result.total_count == 2
+    assert len(result.facts) == 2
+    assert "Alice works at Acme Corp" in result.facts
+    assert "Acme acquired Widget" in result.facts
+
+
+def test_local_search_respects_limit():
+    from unittest.mock import patch
+    from graphiti.zep_tools import ZepToolsService
+    from graphiti.types import EdgeInfo
+
+    tools = ZepToolsService()
+
+    edges = [
+        EdgeInfo(uuid=f"e{i}", name="REL", fact=f"fact about topic {i}",
+                 source_node_uuid="n1", target_node_uuid="n2")
+        for i in range(20)
+    ]
+
+    with patch.object(tools, "get_all_edges", return_value=edges):
+        result = tools._local_search("g1", "topic", limit=5)
+
+    assert len(result.facts) == 5
+    assert len(result.edges) == 5
+
+
+def test_local_search_returns_empty_on_no_match():
+    """_local_search should return empty when no edges match."""
+    from unittest.mock import patch
+    from graphiti.zep_tools import ZepToolsService
+    from graphiti.types import EdgeInfo
+
+    tools = ZepToolsService()
+    edges = [EdgeInfo(uuid="e1", name="R", fact="unrelated content", source_node_uuid="n1", target_node_uuid="n2")]
+
+    with patch.object(tools, "get_all_edges", return_value=edges):
+        result = tools._local_search("g1", "nonexistent", limit=10)
+
+    assert result.total_count == 0
+    assert result.facts == []
+
+
+def test_quick_search_delegates_to_search_graph():
+    from unittest.mock import patch
+    from graphiti.zep_tools import ZepToolsService
+    from graphiti.types import SearchResult
+
+    tools = ZepToolsService()
+
+    mock_result = SearchResult(facts=["f1"], edges=[], nodes=[], query="q", total_count=1)
+
+    with patch.object(tools, "search_graph", return_value=mock_result) as mock_search:
+        result = tools.quick_search("g1", "query", limit=5)
+
+    mock_search.assert_called_once_with("g1", "query", limit=5, scope="edges")
+    assert result.facts == ["f1"]
+
+
+def test_panorama_search_splits_active_historical():
+    from unittest.mock import patch
+    from graphiti.zep_tools import ZepToolsService
+    from graphiti.types import NodeInfo, EdgeInfo
+
+    tools = ZepToolsService()
+
+    nodes = [NodeInfo(uuid="n1", name="Alice", labels=["Person"], summary="")]
+    edges = [
+        EdgeInfo(uuid="e1", name="R1", fact="active fact", source_node_uuid="n1", target_node_uuid="n2", expired_at=None),
+        EdgeInfo(uuid="e2", name="R2", fact="old fact", source_node_uuid="n1", target_node_uuid="n3", expired_at="2026-01-01"),
+        EdgeInfo(uuid="e3", name="R3", fact="another active", source_node_uuid="n2", target_node_uuid="n3", expired_at=None),
+    ]
+
+    with patch.object(tools, "get_all_nodes", return_value=nodes), \
+         patch.object(tools, "get_all_edges", return_value=edges):
+        result = tools.panorama_search("g1", "test", include_expired=True, limit=50)
+
+    assert result.active_count == 2
+    assert result.historical_count == 1
+    assert "active fact" in result.active_facts
+    assert "old fact" in result.historical_facts
+    assert result.total_nodes == 1
+    assert result.total_edges == 3
+
+
+def test_panorama_search_excludes_historical_when_disabled():
+    from unittest.mock import patch
+    from graphiti.zep_tools import ZepToolsService
+    from graphiti.types import EdgeInfo
+
+    tools = ZepToolsService()
+
+    edges = [
+        EdgeInfo(uuid="e1", name="R1", fact="active", source_node_uuid="n1", target_node_uuid="n2", expired_at=None),
+        EdgeInfo(uuid="e2", name="R2", fact="old", source_node_uuid="n1", target_node_uuid="n3", expired_at="2026-01-01"),
+    ]
+
+    with patch.object(tools, "get_all_nodes", return_value=[]), \
+         patch.object(tools, "get_all_edges", return_value=edges):
+        result = tools.panorama_search("g1", "test", include_expired=False)
+
+    assert result.historical_facts == []
+    assert result.active_count == 1
+
+
+def test_panorama_search_respects_limit():
+    from unittest.mock import patch
+    from graphiti.zep_tools import ZepToolsService
+    from graphiti.types import NodeInfo, EdgeInfo
+
+    tools = ZepToolsService()
+
+    nodes = [NodeInfo(uuid=f"n{i}", name=f"Node {i}", labels=[], summary="") for i in range(10)]
+    edges = [EdgeInfo(uuid=f"e{i}", name="R", fact=f"fact {i}", source_node_uuid="n1", target_node_uuid="n2") for i in range(10)]
+
+    with patch.object(tools, "get_all_nodes", return_value=nodes), \
+         patch.object(tools, "get_all_edges", return_value=edges):
+        result = tools.panorama_search("g1", "test", limit=3)
+
+    assert len(result.all_nodes) == 3
+    assert len(result.all_edges) == 3
+    assert result.total_nodes == 10  # total count still reflects full set
+
+
+def test_insight_forge_without_llm():
+    """insight_forge without LLM should search with original query only."""
+    from unittest.mock import patch
+    from graphiti.zep_tools import ZepToolsService
+    from graphiti.types import SearchResult
+
+    tools = ZepToolsService(llm_client=None)
+
+    mock_result = SearchResult(
+        facts=["fact1", "fact2"], edges=[], nodes=[{"uuid": "n1", "name": "A"}],
+        query="test", total_count=2,
+    )
+
+    with patch.object(tools, "search_graph", return_value=mock_result):
+        result = tools.insight_forge("g1", "main query", "sim requirement")
+
+    assert result.query == "main query"
+    assert result.sub_queries == ["main query"]  # no LLM, just original
+    assert len(result.semantic_facts) == 2
+    assert result.total_entities == 1
+
+
+def test_insight_forge_deduplicates_facts():
+    """insight_forge should deduplicate facts across sub-queries."""
+    from unittest.mock import patch, MagicMock
+    from graphiti.zep_tools import ZepToolsService
+    from graphiti.types import SearchResult
+
+    mock_llm = MagicMock()
+    mock_llm.chat.return_value = "What about X?\nWhat about Y?"
+
+    tools = ZepToolsService(llm_client=mock_llm)
+
+    # Both sub-queries return overlapping facts
+    call_count = [0]
+    def mock_search(graph_id, query, limit=10, scope="edges"):
+        call_count[0] += 1
+        return SearchResult(
+            facts=["shared fact", f"unique fact {call_count[0]}"],
+            edges=[], nodes=[], query=query, total_count=2,
+        )
+
+    with patch.object(tools, "search_graph", side_effect=mock_search):
+        result = tools.insight_forge("g1", "main", "requirement", max_sub_queries=2)
+
+    # "shared fact" should appear only once
+    assert result.semantic_facts.count("shared fact") == 1
+    assert len(result.semantic_facts) == 3  # shared + unique1 + unique2
+
+
 # ── Integration test (requires OPENAI_API_KEY + graphiti-core + kuzu) ──
 
 @pytest.mark.skipif(
