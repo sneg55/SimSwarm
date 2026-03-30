@@ -64,6 +64,9 @@ def enrich_seed(seed_text: str, goal: str) -> EnrichmentResult | None:
         logger.info("enrichment.success goal=%s summary_len=%d citations=%d", goal[:50], len(summary), len(citations))
         return EnrichmentResult(summary=summary, citations=citations)
 
+    except ImportError:
+        logger.error("enrichment.failed openai package not installed — enrichment disabled")
+        return None
     except Exception as exc:
         logger.warning("enrichment.failed error=%s", exc)
         return None

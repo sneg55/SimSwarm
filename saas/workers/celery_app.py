@@ -43,7 +43,16 @@ celery_app.conf.update(
 
 @worker_ready.connect
 def on_worker_ready(**kwargs):
-    """Run stale job recovery when the worker starts up."""
+    """Run stale job recovery and verify dependencies on worker startup."""
+    # Verify critical optional dependencies are importable
+    _optional_deps = {"openai": "xAI enrichment"}
+    for mod, feature in _optional_deps.items():
+        try:
+            __import__(mod)
+            logger.info("worker.dep_check %s OK (%s)", mod, feature)
+        except ImportError:
+            logger.error("worker.dep_missing %s NOT INSTALLED — %s will be disabled", mod, feature)
+
     logger.info("worker.ready — running stale job recovery")
     celery_app.send_task("fishcloud.recover_stale_jobs")
 
