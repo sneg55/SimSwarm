@@ -36,7 +36,8 @@ class RunPodProvider(GPUProvider):
         env["TRANSFORMERS_CACHE"] = "/models/huggingface"
 
         # GPU types to try in order of preference
-        gpu_types = [config.gpu_type, "NVIDIA L40S", "NVIDIA GeForce RTX 4090", "NVIDIA A40", "NVIDIA RTX A6000"]
+        # Only GPUs with >= 40GB VRAM (32B AWQ model needs ~18GB weights + KV cache)
+        gpu_types = [config.gpu_type, "NVIDIA L40S", "NVIDIA A40", "NVIDIA RTX A6000"]
         # Deduplicate while preserving order
         seen = set()
         gpu_types = [g for g in gpu_types if not (g in seen or seen.add(g))]
