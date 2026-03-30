@@ -9,7 +9,8 @@ class Settings(BaseSettings):
     LLM_API_KEY: str
     LLM_BASE_URL: str = "http://localhost:8000/v1"
     LLM_MODEL_NAME: str = "Qwen/Qwen2.5-32B-Instruct-AWQ"
-    ZEP_API_KEY: str
+    ZEP_API_KEY: str = ""
+    OPENAI_API_KEY: str = ""
 
     # Stripe billing
     STRIPE_SECRET_KEY: str = ""

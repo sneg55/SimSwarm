@@ -43,7 +43,7 @@ def run_simulation_task(
     max_rounds: int,
     vllm_args: str,
     llm_api_key: str,
-    zep_api_key: str,
+    openai_api_key: str = "",
     credits_charged: int = 0,
     enrich_web: bool = True,
 ) -> dict:
@@ -80,7 +80,7 @@ def run_simulation_task(
         max_rounds=max_rounds,
         vllm_args=vllm_args,
         llm_api_key=llm_api_key,
-        zep_api_key=zep_api_key,
+        openai_api_key=openai_api_key,
     )
 
     gpu_provider = _get_gpu_provider()

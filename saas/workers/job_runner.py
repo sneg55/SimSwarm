@@ -41,7 +41,7 @@ class JobConfig:
     max_rounds: int
     vllm_args: str
     llm_api_key: str
-    zep_api_key: str
+    openai_api_key: str
 
     @property
     def timeout_seconds(self) -> int:
@@ -52,7 +52,7 @@ class JobConfig:
             "LLM_API_KEY": self.llm_api_key,
             "LLM_BASE_URL": "http://localhost:8000/v1",
             "LLM_MODEL_NAME": self.model_id,
-            "ZEP_API_KEY": self.zep_api_key,
+            "OPENAI_API_KEY": self.openai_api_key,
             "OASIS_DEFAULT_MAX_ROUNDS": str(self.max_rounds),
             # Used by start.sh to configure vLLM server
             "MODEL_ID": self.model_id,

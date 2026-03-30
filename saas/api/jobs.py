@@ -87,7 +87,7 @@ async def create_job(
             max_rounds=routing.max_rounds,
             vllm_args=routing.vllm_args or "",
             llm_api_key=os.getenv("LLM_API_KEY", "not-needed"),
-            zep_api_key=os.getenv("ZEP_API_KEY", ""),
+            openai_api_key=os.getenv("OPENAI_API_KEY", ""),
             credits_charged=credits,
             enrich_web=body.enrich_web,
         )

@@ -18,7 +18,7 @@ def _make_job_config(tier: str = "medium") -> JobConfig:
         max_rounds=200,
         vllm_args="--max-model-len 16384",
         llm_api_key="sk-test",
-        zep_api_key="zep-test",
+        openai_api_key="",
     )
 
 
@@ -61,10 +61,10 @@ def test_to_mirofish_env_includes_required_keys():
     assert "LLM_API_KEY" in env
     assert "LLM_BASE_URL" in env
     assert "LLM_MODEL_NAME" in env
-    assert "ZEP_API_KEY" in env
+    assert "OPENAI_API_KEY" in env
     assert "OASIS_DEFAULT_MAX_ROUNDS" in env
     assert env["LLM_API_KEY"] == "sk-test"
-    assert env["ZEP_API_KEY"] == "zep-test"
+    assert env["OPENAI_API_KEY"] == ""
     assert env["OASIS_DEFAULT_MAX_ROUNDS"] == "200"
     assert env["LLM_MODEL_NAME"] == "Qwen2.5-32B-Instruct-AWQ"
 
