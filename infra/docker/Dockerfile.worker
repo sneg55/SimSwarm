@@ -21,11 +21,14 @@ RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests \
     "graphiti-core>=0.28.0,<0.29" "kuzu>=0.11.0"
 
 # Restore vLLM's critical pinned versions (only ==X.Y.Z style, skip @ file entries)
-RUN grep -E "^(transformers|tokenizers|starlette|fastapi|uvicorn)==" /tmp/vllm-freeze.txt > /tmp/vllm-restore.txt && \
-    pip install --no-cache-dir -r /tmp/vllm-restore.txt
+# Restore vLLM's critical pins — graphiti-core upgrades numpy/starlette which breaks vLLM
+RUN grep -E "^(transformers|tokenizers|starlette|fastapi|uvicorn|numpy)==" /tmp/vllm-freeze.txt > /tmp/vllm-restore.txt && \
+    pip install --no-cache-dir --force-reinstall -r /tmp/vllm-restore.txt
 
 # Verify everything imports
+# Verify all imports + numpy<2 (vLLM ABI requirement)
 RUN python3 -c "import vllm; print(f'vLLM {vllm.__version__}')" && \
+    python3 -c "import numpy; v=numpy.__version__; print(f'numpy {v}'); assert int(v.split('.')[0]) < 2, f'numpy {v} >= 2.0 breaks vLLM'" && \
     python3 -c "import flask; print(f'Flask {flask.__version__}')" && \
     python3 -c "import oasis; print('OASIS OK')" && \
     python3 -c "import graphiti_core; print('Graphiti OK')" && \
