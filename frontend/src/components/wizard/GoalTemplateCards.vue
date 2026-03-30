@@ -12,7 +12,7 @@
           <span class="text-base">{{ tpl.icon }}</span>
           <span class="text-[12px] font-semibold text-ocean-glow group-hover:text-ocean-cyan transition-colors">{{ tpl.label }}</span>
         </div>
-        <p class="text-[12px] text-mist-slate leading-snug line-clamp-2">{{ tpl.preview }}</p>
+        <p class="text-[12px] text-mist-slate leading-snug line-clamp-2">{{ tpl.text }}</p>
       </button>
     </div>
   </div>
@@ -26,35 +26,30 @@ const templates = [
     id: 'market-reaction',
     icon: '📈',
     label: 'Market Reaction',
-    preview: 'How will retail investors, analysts, and institutional traders react to [event] over the next 30 days? What price narratives and sentiment shifts should we expect?',
     text: 'How will retail investors, analysts, and institutional traders react to [event] over the next 30 days? What price narratives and sentiment shifts should we expect?',
   },
   {
     id: 'crisis-response',
     icon: '🚨',
     label: 'Crisis Response',
-    preview: 'What narratives will form around [crisis] and which stakeholder coalitions will emerge? How will public sentiment and media coverage evolve over the next two weeks?',
     text: 'What narratives will form around [crisis] and which stakeholder coalitions will emerge? How will public sentiment and media coverage evolve over the next two weeks?',
   },
   {
     id: 'policy-impact',
     icon: '⚖️',
     label: 'Policy Impact',
-    preview: 'How will [affected groups] respond to [policy change] and what regulatory cascades should we expect over the next quarter?',
     text: 'How will [affected groups] respond to [policy change] and what regulatory cascades should we expect over the next quarter? Which coalitions will form in support or opposition?',
   },
   {
     id: 'competitive-dynamics',
     icon: '♟️',
     label: 'Competitive Dynamics',
-    preview: 'How will [industry players] reposition after [disruption]? What alliances and rivalries will form, and how will market share narratives shift?',
     text: 'How will [industry players] reposition after [disruption]? What alliances and rivalries will form, and how will market share narratives shift over the next 60 days?',
   },
   {
     id: 'public-opinion',
     icon: '💬',
     label: 'Public Opinion',
-    preview: 'How will public sentiment shift across platforms and demographics following [event]? What opinion clusters and influencer coalitions will emerge?',
     text: 'How will public sentiment shift across platforms and demographics following [event]? What opinion clusters and influencer coalitions will emerge over the next month?',
   },
 ]

@@ -25,7 +25,7 @@
         <span>{{ tip }}</span>
       </div>
     </div>
-    <div v-else class="text-[12px] text-organic-seafoam flex items-center gap-1.5">
+    <div v-else-if="goal.trim()" class="text-[12px] text-organic-seafoam flex items-center gap-1.5">
       <span>✓</span>
       <span>Goal looks great — clear, specific, and well-framed.</span>
     </div>
@@ -40,7 +40,7 @@ const props = defineProps({
 })
 
 const TIMEFRAME_RE = /\b(\d+\s*(day|week|month|quarter|year)s?|over\s+\w+|within\s+\w+|next\s+\w+)\b/i
-const CAUSAL_RE = /\b(how\s+will|what\s+will|react|respond|impact|effect|influence|shift|change|affect|emerge|form|cascade)\b/i
+const CAUSAL_RE = /\b(how\s+will|what\s+will|react|respond|impact|influence|affect|emerge|cascade)\b/i
 const STAKEHOLDER_RE = /\b(investor|analyst|regulator|consumer|customer|user|player|competitor|coalition|government|media|public|retail|institutional|trader|executive|ceo|cfo|firm|company|brand|market)\b/i
 
 function wordCount(text) {
@@ -79,7 +79,7 @@ const labelColor = computed(() => {
 const label = computed(() => {
   if (!props.goal.trim()) return 'Not started'
   if (score.value <= 1) return 'Weak'
-  if (score.value <= 3) return 'Good'
+  if (score.value <= 3) return 'Fair'
   return 'Strong'
 })
 
