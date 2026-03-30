@@ -16,8 +16,9 @@ RUN pip install --no-cache-dir --ignore-installed -r /app/mirofish-requirements.
 # Force-install camel-oasis despite Python 3.12 constraint
 RUN pip install --no-cache-dir --ignore-requires-python camel-oasis==0.2.5
 
-# Install Flask + other deps
-RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests graphiti-core kuzu
+# Install Flask + other deps (versions pinned to avoid silent breakage on re-builds)
+RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests \
+    "graphiti-core>=0.28.0,<0.29" "kuzu>=0.4.0,<0.5"
 
 # Restore vLLM's critical pinned versions (only ==X.Y.Z style, skip @ file entries)
 RUN grep -E "^(transformers|tokenizers|starlette|fastapi|uvicorn)==" /tmp/vllm-freeze.txt > /tmp/vllm-restore.txt && \

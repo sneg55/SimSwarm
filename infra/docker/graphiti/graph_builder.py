@@ -93,6 +93,10 @@ class GraphBuilderService:
 
     def create_graph(self, name: str) -> str:
         """Create a new graph. Returns graph_id."""
+        # `from graphiti import ...` resolves to our shadow package at
+        # /app/graphiti/ (this file's directory) because the Dockerfile
+        # places /app first in sys.path, shadowing any graphiti-core top-level
+        # re-exports.  This is intentional — see Dockerfile.worker COPY step.
         from graphiti import get_graphiti_instance, _run
         _run(get_graphiti_instance())  # ensure singleton is initialized
         self._group_id = f"fishcloud_{uuid.uuid4().hex[:16]}"

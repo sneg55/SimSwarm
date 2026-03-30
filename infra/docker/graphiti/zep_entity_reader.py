@@ -48,11 +48,16 @@ class ZepEntityReader:
                 for e in raw_edges
             ]
 
-        # Build edge lookup per node UUID
+        # Build edge lookup per node UUID and node lookup by UUID
         node_edges: Dict[str, List[Dict[str, Any]]] = {}
         for edge in all_edges_data:
             for uid in (edge["source_node_uuid"], edge["target_node_uuid"]):
                 node_edges.setdefault(uid, []).append(edge)
+
+        node_map = {
+            n.uuid: {"uuid": n.uuid, "name": n.name or "", "labels": n.labels or []}
+            for n in raw_nodes
+        }
 
         entities: List[EntityNode] = []
         entity_types: set[str] = set()
@@ -71,15 +76,25 @@ class ZepEntityReader:
             for lbl in specific_labels:
                 entity_types.add(lbl)
 
-            related = node_edges.get(n.uuid, [])
+            related_edge_data = node_edges.get(n.uuid, [])
+
+            # Collect UUIDs of nodes connected via any edge, excluding self
+            related_node_uuids: set[str] = set()
+            for edge in related_edge_data:
+                related_node_uuids.add(edge["source_node_uuid"])
+                related_node_uuids.add(edge["target_node_uuid"])
+            related_node_uuids.discard(n.uuid)
+            related_nodes_data = [node_map[uid] for uid in related_node_uuids if uid in node_map]
+
+            # relationship_chains not implemented — Zep's chain data was rarely used by report agent
             entities.append(EntityNode(
                 uuid=n.uuid,
                 name=n.name or "",
                 labels=labels,
                 summary=n.summary or "",
                 attributes=n.attributes or {},
-                related_edges=related,
-                related_nodes=[],
+                related_edges=related_edge_data,
+                related_nodes=related_nodes_data,
             ))
 
         logger.info(
@@ -98,9 +113,10 @@ class ZepEntityReader:
         graph_id: str,
         entity_uuid: str,
     ) -> Optional[EntityNode]:
-        """Get a single entity by UUID."""
+        """Get a single entity by UUID, enriched with connected edges."""
         from graphiti import get_graphiti_instance, _run
         from graphiti_core.nodes import EntityNode as GEntityNode
+        from graphiti_core.edges import EntityEdge as GEntityEdge
 
         graphiti = _run(get_graphiti_instance())
         try:
@@ -111,12 +127,31 @@ class ZepEntityReader:
         if node is None:
             return None
 
+        # Fetch all edges in this graph and filter to those connected to this node
+        try:
+            raw_edges = _run(GEntityEdge.get_by_group_ids(graphiti.driver, [graph_id]))
+            related_edges = [
+                {
+                    "uuid": e.uuid,
+                    "name": e.name or "",
+                    "fact": e.fact or "",
+                    "source_node_uuid": e.source_node_uuid or "",
+                    "target_node_uuid": e.target_node_uuid or "",
+                }
+                for e in raw_edges
+                if e.source_node_uuid == entity_uuid or e.target_node_uuid == entity_uuid
+            ]
+        except Exception as exc:
+            logger.warning("Could not fetch edges for entity %s: %s", entity_uuid, exc)
+            related_edges = []
+
         return EntityNode(
             uuid=node.uuid,
             name=node.name or "",
             labels=node.labels or [],
             summary=node.summary or "",
             attributes=node.attributes or {},
+            related_edges=related_edges,
         )
 
     def get_all_edges(self, graph_id: str) -> List[Dict[str, Any]]:

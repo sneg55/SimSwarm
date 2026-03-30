@@ -4,6 +4,7 @@ Replaces app.services.zep_tools.ZepToolsService.
 """
 from __future__ import annotations
 
+import copy
 import logging
 from typing import Any, Dict, List, Optional
 
@@ -31,6 +32,9 @@ class ZepToolsService:
                 pass
         return self._llm_client
 
+    # NOTE: search_graph / quick_search return SearchResult with dicts for edges/nodes,
+    # while panorama_search returns PanoramaResult with NodeInfo/EdgeInfo objects.
+    # This intentionally matches the original Zep interface contract that MiroFish expects.
     def search_graph(
         self,
         graph_id: str,
@@ -50,12 +54,14 @@ class ZepToolsService:
                 NODE_HYBRID_SEARCH_RRF,
             )
 
+            # Copy the module-level singleton configs before mutating to avoid
+            # corrupting shared state across concurrent calls.
             if scope == "nodes":
-                config = NODE_HYBRID_SEARCH_RRF
+                config = copy.copy(NODE_HYBRID_SEARCH_RRF)
             elif scope == "both":
-                config = COMBINED_HYBRID_SEARCH_CROSS_ENCODER
+                config = copy.copy(COMBINED_HYBRID_SEARCH_CROSS_ENCODER)
             else:
-                config = EDGE_HYBRID_SEARCH_RRF
+                config = copy.copy(EDGE_HYBRID_SEARCH_RRF)
 
             config.limit = limit
             results = _run(graphiti.search_(
@@ -248,8 +254,8 @@ class ZepToolsService:
 
         return PanoramaResult(
             query=query,
-            all_nodes=all_nodes,
-            all_edges=all_edges,
+            all_nodes=all_nodes[:limit],
+            all_edges=all_edges[:limit],
             active_facts=active_facts,
             historical_facts=historical_facts if include_expired else [],
             total_nodes=len(all_nodes),
