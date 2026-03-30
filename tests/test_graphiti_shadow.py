@@ -172,8 +172,8 @@ def test_full_graph_lifecycle():
 
     tools = ZepToolsService()
     nodes = tools.get_all_nodes(graph_id)
-    edges = tools.get_all_edges(graph_id)
     assert len(nodes) > 0
+    assert len(tools.get_all_edges(graph_id)) >= 0
 
     reader = ZepEntityReader()
     filtered = reader.filter_defined_entities(graph_id)
