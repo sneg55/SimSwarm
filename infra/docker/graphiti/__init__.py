@@ -51,6 +51,9 @@ async def get_graphiti_instance():
         from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
 
         driver = KuzuDriver(db=":memory:")
+        # KuzuDriver doesn't set _database (base GraphDriver field) — patch it
+        if not hasattr(driver, '_database'):
+            driver._database = ':memory:'
 
         llm_client = OpenAIGenericClient(
             config=LLMConfig(
