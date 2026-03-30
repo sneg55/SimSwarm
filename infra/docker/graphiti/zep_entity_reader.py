@@ -145,6 +145,9 @@ class ZepEntityReader:
             logger.warning("Could not fetch edges for entity %s: %s", entity_uuid, exc)
             related_edges = []
 
+        # NOTE: related_nodes is not populated here (unlike filter_defined_entities
+        # which builds it from the edge adjacency map). MiroFish does not read
+        # related_nodes from this code path — it uses filter_defined_entities instead.
         return EntityNode(
             uuid=node.uuid,
             name=node.name or "",

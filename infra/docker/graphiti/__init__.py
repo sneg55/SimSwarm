@@ -11,6 +11,10 @@ _instance = None
 _entity_types = None
 _edge_types = None
 _edge_type_map = None
+# asyncio.Lock guards coroutine-level concurrency within a single event loop.
+# This does NOT protect cross-thread init — each thread's asyncio.run() creates its
+# own event loop with its own lock instance. Safe for the current single-job-per-pod
+# model. If ever used in a threaded context, add a threading.Lock for the outer check.
 _lock = asyncio.Lock()
 
 

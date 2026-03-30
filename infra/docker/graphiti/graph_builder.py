@@ -138,9 +138,12 @@ class GraphBuilderService:
             if not chunk.strip():
                 continue
             try:
+                # Pre-generate UUID and pass to add_episode. We trust graphiti-core
+                # honours the uuid= parameter (it does as of v0.28). The return value
+                # is not used — we track the pre-generated UUID for consistency.
                 ep_uuid = uuid.uuid4().hex
                 from graphiti_core.nodes import EpisodeType  # noqa: PLC0415
-                result = _run(graphiti.add_episode(
+                _run(graphiti.add_episode(
                     name=f"chunk_{i}",
                     episode_body=chunk,
                     source_description="seed_text",
