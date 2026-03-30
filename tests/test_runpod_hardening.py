@@ -112,7 +112,7 @@ async def test_job_runner_result_includes_pod_id():
     config = JobConfig(
         job_id=1, user_id="u1", seed_text="test", goal="test", tier="small",
         model_id="m", gpu_type="RTX4090", max_rounds=10, vllm_args="",
-        llm_api_key="k", zep_api_key="z",
+        llm_api_key="k", openai_api_key="",
     )
     result = await runner.run(config)
     assert result["pod_id"] == "pod_xyz"

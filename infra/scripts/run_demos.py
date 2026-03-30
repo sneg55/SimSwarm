@@ -114,7 +114,7 @@ def dispatch_demo(config: dict, dry_run: bool = False) -> str | None:
         max_rounds=routing["max_rounds"],
         vllm_args=routing["vllm_args"],
         llm_api_key=os.getenv("LLM_API_KEY", ""),
-        zep_api_key=os.getenv("ZEP_API_KEY", ""),
+        openai_api_key=os.getenv("OPENAI_API_KEY", ""),
         credits_charged=0,
     )
 

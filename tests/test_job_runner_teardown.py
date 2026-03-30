@@ -11,7 +11,7 @@ def _make_config(**overrides):
     defaults = dict(
         job_id=1, user_id="u1", seed_text="test seed", goal="test goal",
         tier="small", model_id="test-model", gpu_type="RTX4090",
-        max_rounds=10, vllm_args="", llm_api_key="k", zep_api_key="z",
+        max_rounds=10, vllm_args="", llm_api_key="k", openai_api_key="",
     )
     defaults.update(overrides)
     return JobConfig(**defaults)

@@ -11,13 +11,14 @@ RUN pip freeze > /tmp/vllm-freeze.txt
 
 # Install MiroFish dependencies (may conflict — we'll restore vLLM pins after)
 COPY vendor/mirofish/backend/requirements.txt /app/mirofish-requirements.txt
-RUN pip install --no-cache-dir --ignore-installed -r /app/mirofish-requirements.txt 2>/dev/null || true
+RUN pip install --no-cache-dir --ignore-installed -r /app/mirofish-requirements.txt || true
 
 # Force-install camel-oasis despite Python 3.12 constraint
 RUN pip install --no-cache-dir --ignore-requires-python camel-oasis==0.2.5
 
-# Install Flask + other deps
-RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests zep-cloud
+# Install Flask + other deps (versions pinned to avoid silent breakage on re-builds)
+RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests \
+    "graphiti-core>=0.28.0,<0.29" "kuzu>=0.4.0,<0.5"
 
 # Restore vLLM's critical pinned versions (only ==X.Y.Z style, skip @ file entries)
 RUN grep -E "^(transformers|tokenizers|starlette|fastapi|uvicorn)==" /tmp/vllm-freeze.txt > /tmp/vllm-restore.txt && \
@@ -27,7 +28,8 @@ RUN grep -E "^(transformers|tokenizers|starlette|fastapi|uvicorn)==" /tmp/vllm-f
 RUN python3 -c "import vllm; print(f'vLLM {vllm.__version__}')" && \
     python3 -c "import flask; print(f'Flask {flask.__version__}')" && \
     python3 -c "import oasis; print('OASIS OK')" && \
-    python3 -c "import zep_cloud; print('Zep OK')"
+    python3 -c "import graphiti_core; print('Graphiti OK')" && \
+    python3 -c "import kuzu; print('Kuzu OK')"
 
 # Copy MiroFish engine
 COPY vendor/mirofish/backend/ /app/mirofish/backend/
@@ -36,6 +38,7 @@ COPY vendor/mirofish/package.json /app/mirofish/package.json
 # Copy our job runner and worker API
 COPY infra/docker/run_job.py /app/run_job.py
 COPY infra/docker/worker_api.py /app/worker_api.py
+COPY infra/docker/graphiti/ /app/graphiti/
 COPY infra/docker/start.sh /app/start.sh
 RUN chmod +x /app/run_job.py /app/start.sh
 

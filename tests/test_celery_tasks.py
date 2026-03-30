@@ -66,7 +66,7 @@ def test_task_calls_runner():
             max_rounds=100,
             vllm_args="",
             llm_api_key="sk-test",
-            zep_api_key="zep-test",
+            openai_api_key="",
             credits_charged=10,
         )
 

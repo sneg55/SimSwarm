@@ -33,6 +33,7 @@ from pathlib import Path
 
 VLLM_URL = "http://localhost:8000/v1"
 MIROFISH_BACKEND = "/app/mirofish/backend"
+GRAPHITI_SHADOW = "/app/graphiti"
 
 
 # ---------------------------------------------------------------------------
@@ -118,7 +119,10 @@ ENGLISH_INSTRUCTION = (
 
 def _patch_mirofish_prompts_to_english():
     """Monkey-patch MiroFish service prompts to output in English."""
-    sys.path.insert(0, MIROFISH_BACKEND)
+    if GRAPHITI_SHADOW not in sys.path:
+        sys.path.insert(0, GRAPHITI_SHADOW)
+    if MIROFISH_BACKEND not in sys.path:
+        sys.path.insert(1, MIROFISH_BACKEND)
 
     modules_to_patch = [
         "app.services.ontology_generator",
@@ -902,7 +906,8 @@ def main() -> None:
     setup_mirofish_config()
 
     # 2. Make sure MiroFish backend is importable
-    sys.path.insert(0, MIROFISH_BACKEND)
+    sys.path.insert(0, GRAPHITI_SHADOW)
+    sys.path.insert(1, MIROFISH_BACKEND)
 
     # 3. Override Config after import
     _apply_config_overrides(args.max_rounds)

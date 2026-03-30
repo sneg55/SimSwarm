@@ -44,7 +44,7 @@ def _make_job_config(**overrides) -> JobConfig:
         max_rounds=50,
         vllm_args="",
         llm_api_key="sk-test",
-        zep_api_key="zep-test",
+        openai_api_key="",
     )
     defaults.update(overrides)
     return JobConfig(**defaults)
