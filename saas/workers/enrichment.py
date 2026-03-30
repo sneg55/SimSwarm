@@ -43,7 +43,7 @@ def enrich_seed(seed_text: str, goal: str) -> EnrichmentResult | None:
         )
 
         response = client.responses.create(
-            model="grok-3-mini",
+            model="grok-4-mini",
             tools=[{"type": "web_search"}, {"type": "x_search"}],
             input=prompt,
             timeout=30,
