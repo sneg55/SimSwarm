@@ -8,7 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from saas.database import get_session
 from saas.models.job import SimulationJob, JobStatus
 from saas.models.model_routing import ModelRouting
-from saas.schemas.jobs import JobCreate, JobResponse, JobListResponse, TIER_CREDITS
+from saas.schemas.jobs import JobCreate, JobResponse, JobListResponse
+from saas.tiers import TIER_CREDITS
 from saas.billing.ledger import CreditLedger, InsufficientCreditsError
 from saas.auth.dependencies import get_current_user
 import os

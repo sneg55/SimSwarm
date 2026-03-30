@@ -197,7 +197,7 @@ def prepare_simulation(project_id: str, graph_id: str, seed_text: str, goal: str
         project_id=project_id,
         graph_id=graph_id,
         enable_twitter=True,
-        enable_reddit=False,
+        enable_reddit=True,
     )
     simulation_id = state.simulation_id
 
@@ -217,6 +217,70 @@ def prepare_simulation(project_id: str, graph_id: str, seed_text: str, goal: str
 
 
 # ---------------------------------------------------------------------------
+# Step 2b — Patch agent profiles with platform-specific style instructions
+# ---------------------------------------------------------------------------
+
+TWITTER_STYLE = (
+    "\n\nPLATFORM BEHAVIOR (Twitter): You are posting on Twitter. "
+    "Keep posts under 280 characters. Be punchy and direct. "
+    "Use hashtags sparingly. React to trending topics. "
+    "Your tone should be conversational, opinionated, and concise. "
+    "Do NOT write long paragraphs — tweets are short takes."
+)
+
+REDDIT_STYLE = (
+    "\n\nPLATFORM BEHAVIOR (Reddit): You are posting on Reddit. "
+    "Write detailed, substantive posts and comments. "
+    "Provide reasoning, evidence, or personal experience. "
+    "Use paragraph form. Reddit rewards depth over brevity. "
+    "Your tone should be analytical and discussion-oriented. "
+    "Do NOT write short one-liners — Reddit expects thoughtful contributions."
+)
+
+
+def _patch_platform_profiles(simulation_id: str) -> None:
+    """Inject platform-specific writing style into agent profiles.
+
+    Twitter profiles get short/punchy instructions.
+    Reddit profiles get detailed/analytical instructions.
+    This prevents identical content across platforms.
+    """
+    from app.services.simulation_runner import SimulationRunner
+
+    sim_dir = os.path.join(SimulationRunner.RUN_STATE_DIR, simulation_id)
+
+    # Patch Twitter profiles (CSV: user_char column)
+    twitter_path = os.path.join(sim_dir, "twitter_profiles.csv")
+    if os.path.exists(twitter_path):
+        import csv
+        rows = []
+        with open(twitter_path, 'r', encoding='utf-8') as f:
+            reader = csv.reader(f)
+            header = next(reader)
+            rows.append(header)
+            char_idx = header.index('user_char') if 'user_char' in header else 3
+            for row in reader:
+                if len(row) > char_idx:
+                    row[char_idx] = row[char_idx] + TWITTER_STYLE
+                rows.append(row)
+        with open(twitter_path, 'w', newline='', encoding='utf-8') as f:
+            csv.writer(f).writerows(rows)
+        print(f"[run_job] Patched {len(rows) - 1} Twitter profiles with platform style", flush=True)
+
+    # Patch Reddit profiles (JSON: persona field)
+    reddit_path = os.path.join(sim_dir, "reddit_profiles.json")
+    if os.path.exists(reddit_path):
+        with open(reddit_path, 'r', encoding='utf-8') as f:
+            profiles = json.load(f)
+        for p in profiles:
+            if 'persona' in p:
+                p['persona'] = p['persona'] + REDDIT_STYLE
+        with open(reddit_path, 'w', encoding='utf-8') as f:
+            json.dump(profiles, f, ensure_ascii=False, indent=2)
+        print(f"[run_job] Patched {len(profiles)} Reddit profiles with platform style", flush=True)
+
+
+# ---------------------------------------------------------------------------
 # Step 3 — Run simulation and wait for completion
 # ---------------------------------------------------------------------------
 
@@ -230,7 +294,7 @@ def run_and_wait(simulation_id: str, max_rounds: int, poll_interval: int = 10) -
     print(f"[run_job] Step 4: Starting simulation (max_rounds={max_rounds})...", flush=True)
     run_state = SimulationRunner.start_simulation(
         simulation_id=simulation_id,
-        platform="twitter",
+        platform="parallel",
         max_rounds=max_rounds,
     )
 
@@ -639,6 +703,13 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
 
     project_id, graph_id = build_graph(seed_text, goal)
     simulation_id = prepare_simulation(project_id, graph_id, seed_text, goal)
+
+    # Patch profiles with platform-specific style to prevent identical cross-platform content
+    try:
+        _patch_platform_profiles(simulation_id)
+    except Exception as exc:
+        print(f"[run_job] WARNING: platform profile patching failed: {exc}", flush=True)
+
     run_and_wait(simulation_id, max_rounds)
     report_md = generate_report(graph_id, simulation_id, goal)
     chat_log = collect_chat_log(simulation_id)
