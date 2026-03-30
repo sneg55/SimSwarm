@@ -115,12 +115,8 @@
           </span>
           <svg class="w-4 h-4 text-mist-slate transition-transform" :class="{ 'rotate-180': researchOpen }" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
         </button>
-        <div v-show="researchOpen" class="px-5 pb-4 text-sm text-mist-drift leading-relaxed whitespace-pre-line">
-          {{ job.enriched_seed }}
-          <div v-if="citations.length" class="mt-3 pt-3 border-t border-mist-depth/30 space-y-1">
-            <a v-for="(c, i) in citations" :key="i" :href="c.url" target="_blank" rel="noopener"
-               class="block text-xs text-ocean-glow/70 hover:text-ocean-glow truncate">{{ c.title || c.url }}</a>
-          </div>
+        <div v-show="researchOpen" class="px-5 pb-4">
+          <ReportViewer :content="job.enriched_seed" />
         </div>
       </div>
 
@@ -178,6 +174,7 @@ import { useRoute, useRouter } from 'vue-router'
 import PipelineProgress from '../components/PipelineProgress.vue'
 import ChatReplay from '../components/ChatReplay.vue'
 import SkeletonCard from '../components/SkeletonCard.vue'
+import ReportViewer from '../components/ReportViewer.vue'
 import { getJob, retryJob, retryEnrichment } from '../api/jobs.js'
 
 const STAGE_NAMES = ['Seeding', 'Researching', 'Simulating', 'Analyzing', 'Generating report']
@@ -203,6 +200,7 @@ const enrichRetrying = ref(false)
 let pollInterval = null
 let tickInterval = null
 
+// Citations are rendered inline via markdown links in ReportViewer
 const citations = computed(() => {
   if (!job.value?.enrichment_citations) return []
   try { return JSON.parse(job.value.enrichment_citations) } catch { return [] }
