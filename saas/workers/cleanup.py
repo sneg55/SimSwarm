@@ -3,12 +3,41 @@ from __future__ import annotations
 
 import logging
 import os
+import re
+from datetime import datetime, timezone
 
 from saas.workers.alerts import send_orphan_alert
 
 logger = logging.getLogger(__name__)
 
 GRACE_PERIOD_SECONDS = 180  # 3 minutes
+
+
+def _pod_age_seconds(pod: dict) -> int:
+    """Estimate pod age in seconds from lastStatusChange or uptimeInSeconds.
+
+    RunPod's uptimeInSeconds is unreliable (often returns 0).
+    Fall back to parsing lastStatusChange timestamp.
+    """
+    uptime = pod.get("runtime", {}).get("uptimeInSeconds", 0) if pod.get("runtime") else 0
+    if uptime and uptime > 0:
+        return uptime
+
+    # Parse lastStatusChange: "Rented by User: Sun Mar 29 2026 18:34:45 GMT+0000 ..."
+    last_change = pod.get("lastStatusChange", "")
+    if last_change:
+        # Extract the date part after the colon
+        match = re.search(r':\s*(.+?)\s*(?:GMT|$)', last_change)
+        if match:
+            try:
+                dt = datetime.strptime(match.group(1).strip(), "%a %b %d %Y %H:%M:%S")
+                dt = dt.replace(tzinfo=timezone.utc)
+                age = int((datetime.now(timezone.utc) - dt).total_seconds())
+                return max(0, age)
+            except (ValueError, TypeError):
+                pass
+
+    return 0
 
 
 def _get_active_job_pod_ids() -> set[str] | None:
@@ -76,9 +105,9 @@ def cleanup_orphaned_pods() -> dict:
         if pod_id in active_pod_ids:
             continue
 
-        uptime = pod.get("runtime", {}).get("uptimeInSeconds", 0)
+        uptime = _pod_age_seconds(pod)
         if uptime < GRACE_PERIOD_SECONDS:
-            logger.info("cleanup.skipped_young pod_id=%s uptime=%ds", pod_id, uptime)
+            logger.info("cleanup.skipped_young pod_id=%s age=%ds", pod_id, uptime)
             continue
 
         try:
