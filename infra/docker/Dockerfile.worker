@@ -18,7 +18,7 @@ RUN pip install --no-cache-dir --ignore-requires-python camel-oasis==0.2.5
 
 # Install Flask + other deps (versions pinned to avoid silent breakage on re-builds)
 RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests \
-    "graphiti-core>=0.28.0,<0.29" "kuzu>=0.11.0"
+    "graphiti-core>=0.28.0,<0.29" "kuzu>=0.11.0" zep-cloud
 
 # Restore vLLM's critical pinned versions (only ==X.Y.Z style, skip @ file entries)
 # Restore vLLM's critical pins — graphiti-core upgrades numpy/starlette which breaks vLLM

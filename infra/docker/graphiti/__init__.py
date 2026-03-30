@@ -4,6 +4,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+import threading
 
 logger = logging.getLogger(__name__)
 
@@ -11,74 +12,87 @@ _instance = None
 _entity_types = None
 _edge_types = None
 _edge_type_map = None
-# asyncio.Lock guards coroutine-level concurrency within a single event loop.
-# This does NOT protect cross-thread init — each thread's asyncio.run() creates its
-# own event loop with its own lock instance. Safe for the current single-job-per-pod
-# model. If ever used in a threaded context, add a threading.Lock for the outer check.
-_lock = asyncio.Lock()
+_loop = None
+_thread = None
+_init_lock = threading.Lock()
+
+
+def _get_loop():
+    """Get or create a persistent event loop for all graphiti operations.
+
+    Kuzu's AsyncConnection is bound to the event loop that created it.
+    Using asyncio.run() (which creates a new loop each call) breaks the
+    connection on subsequent calls. A persistent loop solves this.
+    """
+    global _loop, _thread
+    if _loop is not None and _loop.is_running():
+        return _loop
+
+    _loop = asyncio.new_event_loop()
+
+    def _run_loop():
+        asyncio.set_event_loop(_loop)
+        _loop.run_forever()
+
+    _thread = threading.Thread(target=_run_loop, daemon=True)
+    _thread.start()
+    return _loop
 
 
 def _run(coro):
-    """Run async coroutine from sync context.
+    """Run async coroutine on the persistent graphiti event loop.
 
-    NOTE: When there is already a running event loop (e.g. inside an async
-    framework), we spin up a *new* loop in a ThreadPoolExecutor worker thread
-    so that asyncio.run() can be called there.  This avoids "This event loop
-    is already running" errors but does mean that the inner coroutine runs in
-    a separate thread — callers must ensure the objects returned are
-    thread-safe (Kuzu's in-process driver satisfies this for our usage).
+    All graphiti operations must run on the same event loop because Kuzu's
+    AsyncConnection is bound to the loop that created it.
     """
-    try:
-        asyncio.get_running_loop()
-        import concurrent.futures
-        with concurrent.futures.ThreadPoolExecutor() as pool:
-            return pool.submit(asyncio.run, coro).result()
-    except RuntimeError:
-        return asyncio.run(coro)
+    loop = _get_loop()
+    future = asyncio.run_coroutine_threadsafe(coro, loop)
+    return future.result(timeout=300)  # 5 min timeout
 
 
 async def get_graphiti_instance():
     """Lazy singleton — creates Graphiti with Kuzu in-memory + vLLM + OpenAI embedder."""
     global _instance
-    async with _lock:
+    with _init_lock:
         if _instance is not None:
             return _instance
 
-        from graphiti_core import Graphiti
-        from graphiti_core.driver.kuzu_driver import KuzuDriver
-        from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient
-        from graphiti_core.llm_client.config import LLMConfig
-        from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
+    from graphiti_core import Graphiti
+    from graphiti_core.driver.kuzu_driver import KuzuDriver
+    from graphiti_core.llm_client.openai_generic_client import OpenAIGenericClient
+    from graphiti_core.llm_client.config import LLMConfig
+    from graphiti_core.embedder.openai import OpenAIEmbedder, OpenAIEmbedderConfig
 
-        driver = KuzuDriver(db=":memory:")
-        # KuzuDriver doesn't set _database (base GraphDriver field) — patch it
-        if not hasattr(driver, '_database'):
-            driver._database = ':memory:'
+    driver = KuzuDriver(db=":memory:")
+    # KuzuDriver doesn't set _database (base GraphDriver field) — patch it
+    if not hasattr(driver, '_database'):
+        driver._database = ':memory:'
 
-        llm_client = OpenAIGenericClient(
-            config=LLMConfig(
-                api_key=os.getenv("LLM_API_KEY", "not-needed"),
-                model=os.getenv("LLM_MODEL_NAME", "Qwen/Qwen2.5-32B-Instruct-AWQ"),
-                base_url=os.getenv("LLM_BASE_URL", "http://localhost:8000/v1"),
-                temperature=0,
-            ),
+    llm_client = OpenAIGenericClient(
+        config=LLMConfig(
+            api_key=os.getenv("LLM_API_KEY", "not-needed"),
+            model=os.getenv("LLM_MODEL_NAME", "Qwen/Qwen2.5-32B-Instruct-AWQ"),
+            base_url=os.getenv("LLM_BASE_URL", "http://localhost:8000/v1"),
+            temperature=0,
+        ),
+    )
+
+    embedder = OpenAIEmbedder(
+        config=OpenAIEmbedderConfig(
+            api_key=os.getenv("OPENAI_API_KEY", ""),
+            embedding_model="text-embedding-3-small",
+            embedding_dim=1536,
         )
+    )
 
-        embedder = OpenAIEmbedder(
-            config=OpenAIEmbedderConfig(
-                api_key=os.getenv("OPENAI_API_KEY", ""),
-                embedding_model="text-embedding-3-small",
-                embedding_dim=1536,
-            )
-        )
-
+    with _init_lock:
         _instance = Graphiti(
             graph_driver=driver,
             llm_client=llm_client,
             embedder=embedder,
         )
-        logger.info("Graphiti + Kuzu initialized (in-memory)")
-        return _instance
+    logger.info("Graphiti + Kuzu initialized (in-memory, persistent event loop)")
+    return _instance
 
 
 def get_stored_entity_types():
@@ -102,8 +116,12 @@ def store_ontology(entity_types, edge_types, edge_type_map):
 
 def reset():
     """Reset singleton for next job."""
-    global _instance, _entity_types, _edge_types, _edge_type_map
+    global _instance, _entity_types, _edge_types, _edge_type_map, _loop, _thread
+    if _loop and _loop.is_running():
+        _loop.call_soon_threadsafe(_loop.stop)
     _instance = None
     _entity_types = None
     _edge_types = None
     _edge_type_map = None
+    _loop = None
+    _thread = None
