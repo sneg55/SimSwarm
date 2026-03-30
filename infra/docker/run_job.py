@@ -36,6 +36,37 @@ MIROFISH_BACKEND = "/app/mirofish/backend"
 GRAPHITI_SHADOW = "/app/graphiti"
 
 
+def _inject_shadow_modules():
+    """Pre-load Graphiti shadow modules into sys.modules.
+
+    MiroFish uses relative imports (from .graph_builder import ...) inside
+    app.services.__init__.py, which bypass sys.path ordering. By injecting
+    our shadow modules directly into sys.modules, Python finds them already
+    loaded when the relative import resolves.
+    """
+    import importlib.util
+
+    shadow_map = {
+        "app.services.graph_builder": os.path.join(GRAPHITI_SHADOW, "graph_builder.py"),
+        "app.services.zep_tools": os.path.join(GRAPHITI_SHADOW, "zep_tools.py"),
+        "app.services.zep_entity_reader": os.path.join(GRAPHITI_SHADOW, "zep_entity_reader.py"),
+        "app.utils.zep_paging": os.path.join(GRAPHITI_SHADOW, "zep_paging.py"),
+    }
+
+    for module_name, file_path in shadow_map.items():
+        if not os.path.exists(file_path):
+            print(f"[run_job] WARNING: shadow module not found: {file_path}", flush=True)
+            continue
+        spec = importlib.util.spec_from_file_location(module_name, file_path)
+        if spec and spec.loader:
+            mod = importlib.util.module_from_spec(spec)
+            sys.modules[module_name] = mod
+            spec.loader.exec_module(mod)
+            print(f"[run_job] Injected shadow: {module_name}", flush=True)
+        else:
+            print(f"[run_job] WARNING: could not load shadow: {file_path}", flush=True)
+
+
 # ---------------------------------------------------------------------------
 # English language overrides for MiroFish prompts (default is Chinese)
 # ---------------------------------------------------------------------------
@@ -908,6 +939,11 @@ def main() -> None:
     # 2. Make sure MiroFish backend is importable
     sys.path.insert(0, GRAPHITI_SHADOW)
     sys.path.insert(1, MIROFISH_BACKEND)
+
+    # 2b. Pre-load Graphiti shadow modules into sys.modules so MiroFish's
+    # relative imports (from .graph_builder import ...) resolve to our shadows
+    # instead of the real Zep-dependent modules.
+    _inject_shadow_modules()
 
     # 3. Override Config after import
     _apply_config_overrides(args.max_rounds)
