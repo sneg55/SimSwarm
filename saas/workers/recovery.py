@@ -115,7 +115,18 @@ def recover_stale_jobs() -> dict:
                 pod_alive = pod_id in active_pods if pod_id else False
 
                 if not _is_stale(last_heartbeat, created_at, pod_alive, timeout):
-                    if pod_alive and pod_id:
+                    # Only resume RUNNING jobs (pipeline already started).
+                    # PROVISIONING jobs are still being handled by their original
+                    # Celery task — resuming them causes "pod is idle" errors
+                    # because the pipeline hasn't been submitted yet.
+                    job_status_result = conn.execute(
+                        text("SELECT status FROM simulation_jobs WHERE id = :jid"),
+                        {"jid": job_id},
+                    )
+                    job_status_row = job_status_result.first()
+                    job_status = job_status_row[0] if job_status_row else ""
+
+                    if pod_alive and pod_id and job_status == "RUNNING":
                         logger.info(
                             "recover.resuming job_id=%d pod_id=%s",
                             job_id, pod_id,
