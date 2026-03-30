@@ -9,6 +9,14 @@
         <span :class="seedQualityClass">{{ seedQualityMessage }}</span>
         <span class="text-mist-slate">{{ seedText.length.toLocaleString() }} / 50,000 chars</span>
       </div>
+      <label class="flex items-center gap-3 mt-4 cursor-pointer group">
+        <input type="checkbox" v-model="enrichWeb"
+          class="w-4 h-4 rounded border-mist-depth bg-ocean-abyss text-ocean-cyan focus:ring-ocean-cyan/30 accent-ocean-cyan">
+        <div>
+          <span class="text-sm text-mist-drift group-hover:text-mist-foam transition-colors">Enrich with web research</span>
+          <p class="text-xs text-mist-slate mt-0.5">Automatically research your topic using web and social media search</p>
+        </div>
+      </label>
       <div class="wizard-nav">
         <div />
         <button @click="step = 2" :disabled="seedText.length < MIN_SEED_CHARS || seedText.length > MAX_SEED_CHARS" class="btn-next">
@@ -31,14 +39,6 @@
     <!-- Step 3 -->
     <div v-if="step === 3" class="step-anim">
       <WizardLaunch v-model:tier="selectedTier" />
-      <label class="flex items-center gap-3 mt-4 cursor-pointer group">
-        <input type="checkbox" v-model="enrichWeb"
-          class="w-4 h-4 rounded border-mist-depth bg-ocean-abyss text-ocean-cyan focus:ring-ocean-cyan/30 accent-ocean-cyan">
-        <div>
-          <span class="text-sm text-mist-drift group-hover:text-mist-foam transition-colors">Enrich with web research</span>
-          <p class="text-xs text-mist-slate mt-0.5">Automatically research your topic using web and social media search</p>
-        </div>
-      </label>
       <div class="wizard-nav">
         <button @click="step = 2" class="btn-back">← Back</button>
         <button @click="handleSubmit" :disabled="!canSubmit || loading" class="btn-launch">
