@@ -157,8 +157,35 @@ async def _async_update_pipeline_stage(job_id: int, stage: int) -> None:
 
 
 def _update_pod_id(job_id: int, pod_id: str, gpu_provider: str = "runpod") -> None:
-    """Persist pod_id to the SimulationJob row immediately after GPU provisioning."""
-    _run_async(_async_update_pod_id(job_id, pod_id, gpu_provider=gpu_provider))
+    """Persist pod_id to the SimulationJob row immediately after GPU provisioning.
+
+    Uses a sync connection to avoid asyncpg InterfaceError when the async pool
+    is busy with concurrent operations (enrichment, heartbeat, etc.).
+    """
+    import os
+    from sqlalchemy import create_engine, text
+
+    database_url = os.getenv("DATABASE_URL", "")
+    if not database_url:
+        logger.warning("DATABASE_URL not set; skipping pod_id update for job %d", job_id)
+        return
+
+    sync_url = database_url.replace("+asyncpg", "").replace("postgresql://", "postgresql+psycopg2://")
+    try:
+        engine = create_engine(sync_url)
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "UPDATE simulation_jobs SET pod_id = :pod_id, status = 'PROVISIONING', "
+                    "gpu_provider = :gpu_provider WHERE id = :job_id"
+                ),
+                {"pod_id": pod_id, "gpu_provider": gpu_provider, "job_id": job_id},
+            )
+            conn.commit()
+            logger.info("Saved pod_id=%s for job %d (status → PROVISIONING)", pod_id, job_id)
+        engine.dispose()
+    except Exception as exc:
+        logger.warning("Could not save pod_id for job %d: %s", job_id, exc)
 
 
 async def _async_update_pod_id(job_id: int, pod_id: str, gpu_provider: str = "runpod") -> None:
