@@ -124,8 +124,8 @@
         </div>
       </div>
 
-      <!-- Web research unavailable notice -->
-      <div v-else-if="job.enrich_web && !job.enriched_seed && (isActive || job.status === 'PENDING')"
+      <!-- Web research unavailable notice (show only after 30s grace period for enrichment to complete) -->
+      <div v-else-if="job.enrich_web && !job.enriched_seed && (isActive || job.status === 'PENDING') && elapsedSeconds > 30"
            class="flex items-center gap-3 px-5 py-3 rounded-xl bg-organic-violet/5 border border-organic-violet/15 text-sm text-mist-drift">
         Web research unavailable — running with your original seed
         <button @click="retryEnrich" :disabled="enrichRetrying"
