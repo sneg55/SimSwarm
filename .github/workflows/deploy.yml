@@ -81,6 +81,10 @@ jobs:
             # Build single image — celery/migrate/frontend-init all reuse it
             docker compose build --no-cache app
 
+            # Pre-flight: verify app imports cleanly (catches broken imports before deploy)
+            echo "Checking app imports..."
+            docker compose run --rm --no-deps app python -c "from saas.main import create_app; print('Import check passed')"
+
             # Pre-flight: verify single migration head
             heads=$(docker compose run --rm --no-deps app alembic heads 2>/dev/null | grep -c head || true)
             if [ "$heads" -gt 1 ]; then

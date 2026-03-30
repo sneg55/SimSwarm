@@ -42,13 +42,23 @@ fi
 
 # ── Step 1: Build single image ────────────────────────────────────────────────
 
-blue "[1/5] Building app image..."
+blue "[1/6] Building app image..."
 docker compose build --no-cache app
 echo "    Image: $APP_IMAGE"
 
-# ── Step 2: Validate migrations ───────────────────────────────────────────────
+# ── Step 2: Pre-flight checks ─────────────────────────────────────────────────
 
-blue "[2/5] Checking migrations..."
+blue "[2/6] Running pre-flight checks..."
+
+# Verify app imports cleanly (catches broken imports before deploy)
+if ! docker compose run --rm --no-deps app python -c "from saas.main import create_app" 2>/dev/null; then
+    red "ERROR: App import check failed. Fix before deploying."
+    docker compose run --rm --no-deps app python -c "from saas.main import create_app"
+    exit 1
+fi
+green "    Import check — OK"
+
+# Verify single migration head
 heads=$(docker compose run --rm --no-deps app alembic heads 2>/dev/null | grep -c "head" || true)
 if [ "$heads" -gt 1 ]; then
     red "ERROR: Multiple alembic heads detected. Fix before deploying:"
@@ -59,13 +69,13 @@ green "    Single migration head — OK"
 
 # ── Step 3: Run migrations ────────────────────────────────────────────────────
 
-blue "[3/5] Running migrations..."
+blue "[3/6] Running migrations..."
 docker compose run --rm migrate
 green "    Migrations applied"
 
 # ── Step 4: Deploy services ───────────────────────────────────────────────────
 
-blue "[4/5] Deploying services..."
+blue "[4/6] Deploying services..."
 
 # Graceful Celery shutdown (finish in-flight tasks, 120s timeout)
 docker compose stop -t 120 celery 2>/dev/null || true
@@ -79,7 +89,7 @@ docker compose up -d app celery redis db caddy
 
 # ── Step 5: Health check ──────────────────────────────────────────────────────
 
-blue "[5/5] Waiting for health check..."
+blue "[5/6] Waiting for health check..."
 healthy=false
 for i in $(seq 1 $HEALTH_RETRIES); do
     if curl -sf "$HEALTH_URL" > /dev/null 2>&1; then
