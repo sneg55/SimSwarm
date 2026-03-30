@@ -43,7 +43,7 @@ def enrich_seed(seed_text: str, goal: str) -> EnrichmentResult | None:
         )
 
         response = client.responses.create(
-            model="grok-4-mini",
+            model="grok-4-fast-non-reasoning",
             tools=[{"type": "web_search"}, {"type": "x_search"}],
             input=prompt,
             timeout=30,
@@ -55,11 +55,15 @@ def enrich_seed(seed_text: str, goal: str) -> EnrichmentResult | None:
             return None
 
         citations = []
-        for c in getattr(response, "citations", []) or []:
-            url = getattr(c, "url", None) or (c.get("url") if isinstance(c, dict) else None)
-            title = getattr(c, "title", None) or (c.get("title", "") if isinstance(c, dict) else "")
-            if url:
-                citations.append({"url": url, "title": title or ""})
+        seen_urls = set()
+        for item in response.output:
+            for content in getattr(item, "content", []):
+                for ann in getattr(content, "annotations", []):
+                    url = getattr(ann, "url", None)
+                    if url and url not in seen_urls:
+                        seen_urls.add(url)
+                        title = getattr(ann, "title", "") or ""
+                        citations.append({"url": url, "title": title})
 
         logger.info("enrichment.success goal=%s summary_len=%d citations=%d", goal[:50], len(summary), len(citations))
         return EnrichmentResult(summary=summary, citations=citations)
