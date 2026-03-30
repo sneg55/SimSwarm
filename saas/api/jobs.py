@@ -2,7 +2,7 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from saas.database import get_session
@@ -150,7 +150,15 @@ async def retry_job(
 
     from saas.schemas.jobs import TierEnum
     body = JobCreate(seed_text=original.seed_text, goal=original.goal, tier=TierEnum(original.tier))
-    return await create_job(request, body, current_user, session)
+    new_job = await create_job(request, body, current_user, session)
+
+    # Link new job to original so dashboard hides the superseded failure
+    await session.execute(
+        text("UPDATE simulation_jobs SET retry_of = :original_id WHERE id = :new_id"),
+        {"original_id": original.id, "new_id": new_job.id},
+    )
+    await session.commit()
+    return new_job
 
 
 @router.post("/{job_id}/enrich-retry", status_code=202)
@@ -201,14 +209,24 @@ async def list_jobs(
     session: AsyncSession = Depends(get_session),
 ):
     user_id = current_user["user_id"]
-    total_result = await session.execute(
-        select(func.count()).select_from(SimulationJob).where(SimulationJob.user_id == user_id)
+
+    # IDs of jobs that have been superseded by a retry
+    superseded_q = select(SimulationJob.retry_of).where(
+        SimulationJob.user_id == user_id,
+        SimulationJob.retry_of.is_not(None),
     )
+    superseded_ids = {row[0] for row in (await session.execute(superseded_q)).all()}
+
+    base = select(SimulationJob).where(
+        SimulationJob.user_id == user_id,
+        SimulationJob.id.notin_(superseded_ids) if superseded_ids else True,
+    )
+
+    total_result = await session.execute(select(func.count()).select_from(base.subquery()))
     total = total_result.scalar_one()
+
     result = await session.execute(
-        select(SimulationJob)
-        .where(SimulationJob.user_id == user_id)
-        .order_by(SimulationJob.created_at.desc())
+        base.order_by(SimulationJob.created_at.desc())
         .offset((page - 1) * per_page)
         .limit(per_page)
     )

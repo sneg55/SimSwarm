@@ -48,6 +48,7 @@ class SimulationJob(Base):
     last_heartbeat: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    retry_of: Mapped[int | None] = mapped_column(Integer, nullable=True)
     enrich_web: Mapped[bool] = mapped_column(default=True)
     enriched_seed: Mapped[str | None] = mapped_column(Text, nullable=True)
     enrichment_citations: Mapped[str | None] = mapped_column(Text, nullable=True)
