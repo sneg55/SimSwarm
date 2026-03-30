@@ -164,6 +164,99 @@ def _make_mock_node(uuid, name, labels, summary=""):
     return n
 
 
+def test_search_graph_happy_path():
+    """search_graph should call graphiti.search_() and transform results."""
+    from unittest.mock import patch, MagicMock
+    from graphiti.zep_tools import ZepToolsService
+
+    tools = ZepToolsService()
+
+    # Mock graphiti instance with search_() method
+    mock_graphiti = MagicMock()
+    mock_search_results = MagicMock()
+    mock_search_results.edges = [
+        _make_mock_edge("e1", "WORKS_FOR", "Alice works at Acme", "n1", "n2"),
+        _make_mock_edge("e2", "ACQUIRED", "Acme acquired Widget", "n2", "n3"),
+    ]
+    mock_search_results.nodes = [
+        _make_mock_node("n1", "Alice", ["Person"], "A person"),
+        _make_mock_node("n2", "Acme", ["Organization"], "A company"),
+    ]
+    mock_search_results.episodes = []
+    mock_search_results.communities = []
+
+    # Mock the async get_graphiti_instance to return our mock
+    async def mock_get_instance():
+        return mock_graphiti
+
+    # Mock search_ as a coroutine
+    async def mock_search(**kwargs):
+        return mock_search_results
+
+    mock_graphiti.search_ = mock_search
+
+    # Mock the search config recipes import
+    mock_config = MagicMock()
+    mock_recipes = MagicMock()
+    mock_recipes.EDGE_HYBRID_SEARCH_RRF = mock_config
+    mock_recipes.NODE_HYBRID_SEARCH_RRF = mock_config
+    mock_recipes.COMBINED_HYBRID_SEARCH_CROSS_ENCODER = mock_config
+
+    import sys
+    with patch.dict(sys.modules, {"graphiti_core.search.search_config_recipes": mock_recipes}):
+        with patch("graphiti.get_graphiti_instance", mock_get_instance):
+            with patch("graphiti._run", side_effect=lambda coro: __import__("asyncio").run(coro)):
+                result = tools.search_graph("g1", "acme", limit=5, scope="edges")
+
+    assert result.query == "acme"
+    assert len(result.facts) == 2
+    assert "Alice works at Acme" in result.facts
+    assert len(result.edges) == 2
+    assert result.edges[0]["uuid"] == "e1"
+    assert len(result.nodes) == 2
+    assert result.nodes[0]["name"] == "Alice"
+    assert result.total_count == 2
+
+
+def test_search_graph_scope_nodes():
+    """search_graph with scope='nodes' should use NODE_HYBRID_SEARCH_RRF config."""
+    from unittest.mock import patch, MagicMock
+    from graphiti.zep_tools import ZepToolsService
+
+    tools = ZepToolsService()
+
+    mock_graphiti = MagicMock()
+    mock_search_results = MagicMock()
+    mock_search_results.edges = []
+    mock_search_results.nodes = [_make_mock_node("n1", "Alice", ["Person"])]
+    mock_search_results.episodes = []
+    mock_search_results.communities = []
+
+    async def mock_get_instance():
+        return mock_graphiti
+
+    async def mock_search(**kwargs):
+        return mock_search_results
+
+    mock_graphiti.search_ = mock_search
+
+    mock_node_config = MagicMock()
+    mock_edge_config = MagicMock()
+    mock_recipes = MagicMock()
+    mock_recipes.EDGE_HYBRID_SEARCH_RRF = mock_edge_config
+    mock_recipes.NODE_HYBRID_SEARCH_RRF = mock_node_config
+    mock_recipes.COMBINED_HYBRID_SEARCH_CROSS_ENCODER = MagicMock()
+
+    import sys
+    with patch.dict(sys.modules, {"graphiti_core.search.search_config_recipes": mock_recipes}):
+        with patch("graphiti.get_graphiti_instance", mock_get_instance):
+            with patch("graphiti._run", side_effect=lambda coro: __import__("asyncio").run(coro)):
+                result = tools.search_graph("g1", "alice", limit=3, scope="nodes")
+
+    assert len(result.nodes) == 1
+    assert result.nodes[0]["name"] == "Alice"
+
+
 def test_local_search_matches_keyword():
     """_local_search should find edges whose fact contains the query."""
     from unittest.mock import patch
