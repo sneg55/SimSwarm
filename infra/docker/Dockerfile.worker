@@ -11,7 +11,7 @@ RUN pip freeze > /tmp/vllm-freeze.txt
 
 # Install MiroFish dependencies (may conflict — we'll restore vLLM pins after)
 COPY vendor/mirofish/backend/requirements.txt /app/mirofish-requirements.txt
-RUN pip install --no-cache-dir --ignore-installed -r /app/mirofish-requirements.txt 2>/dev/null || true
+RUN pip install --no-cache-dir --ignore-installed -r /app/mirofish-requirements.txt || true
 
 # Force-install camel-oasis despite Python 3.12 constraint
 RUN pip install --no-cache-dir --ignore-requires-python camel-oasis==0.2.5

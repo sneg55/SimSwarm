@@ -318,7 +318,12 @@ def test_insight_forge_without_llm():
     tools = ZepToolsService(llm_client=None)
 
     mock_result = SearchResult(
-        facts=["fact1", "fact2"], edges=[], nodes=[{"uuid": "n1", "name": "A"}],
+        facts=["fact1", "fact2"],
+        edges=[
+            {"uuid": "e1", "name": "WORKS_FOR", "fact": "fact1",
+             "source_node_uuid": "n1", "target_node_uuid": "n2"},
+        ],
+        nodes=[{"uuid": "n1", "name": "Alice"}, {"uuid": "n2", "name": "Acme"}],
         query="test", total_count=2,
     )
 
@@ -328,7 +333,10 @@ def test_insight_forge_without_llm():
     assert result.query == "main query"
     assert result.sub_queries == ["main query"]  # no LLM, just original
     assert len(result.semantic_facts) == 2
-    assert result.total_entities == 1
+    assert result.total_entities == 2
+    # Relationship chains should be populated from edges
+    assert len(result.relationship_chains) == 1
+    assert "Alice --[WORKS_FOR]--> Acme" in result.relationship_chains
 
 
 def test_insight_forge_deduplicates_facts():

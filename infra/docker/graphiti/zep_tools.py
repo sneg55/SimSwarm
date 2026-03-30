@@ -210,21 +210,44 @@ class ZepToolsService:
         # Search for each sub-query and aggregate
         all_facts: List[str] = []
         all_entities: List[Dict[str, Any]] = []
-        all_chains: List[str] = []
+        all_edges: List[Dict[str, Any]] = []
 
         for sq in sub_queries:
             result = self.search_graph(graph_id, sq, limit=10, scope="both")
             all_facts.extend(result.facts)
+            all_edges.extend(result.edges)
             for node in result.nodes:
                 all_entities.append(node)
 
         # Deduplicate facts
-        seen: set[str] = set()
+        seen_facts: set[str] = set()
         unique_facts: List[str] = []
         for f in all_facts:
-            if f not in seen:
-                seen.add(f)
+            if f not in seen_facts:
+                seen_facts.add(f)
                 unique_facts.append(f)
+
+        # Build relationship chains: "SourceName --[RELATION]--> TargetName"
+        # Build node name lookup from search result nodes
+        node_names: Dict[str, str] = {}
+        for n in all_entities:
+            uid = n.get("uuid", "")
+            name = n.get("name", "")
+            if uid and name:
+                node_names[uid] = name
+
+        relationship_chains: List[str] = []
+        seen_chains: set[str] = set()
+        for edge in all_edges:
+            src_uuid = edge.get("source_node_uuid", "")
+            tgt_uuid = edge.get("target_node_uuid", "")
+            rel_name = edge.get("name", "")
+            src_name = node_names.get(src_uuid, src_uuid[:8])
+            tgt_name = node_names.get(tgt_uuid, tgt_uuid[:8])
+            chain = f"{src_name} --[{rel_name}]--> {tgt_name}"
+            if chain not in seen_chains:
+                seen_chains.add(chain)
+                relationship_chains.append(chain)
 
         return InsightForgeResult(
             query=query,
@@ -232,10 +255,10 @@ class ZepToolsService:
             sub_queries=sub_queries,
             semantic_facts=unique_facts,
             entity_insights=all_entities,
-            relationship_chains=all_chains,
+            relationship_chains=relationship_chains,
             total_facts=len(unique_facts),
             total_entities=len(all_entities),
-            total_relationships=len(all_chains),
+            total_relationships=len(relationship_chains),
         )
 
     def panorama_search(
