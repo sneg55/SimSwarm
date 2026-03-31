@@ -46,45 +46,50 @@ def _extract_key_insight(report: str) -> str | None:
 
 
 def _save_job_results(job_id: int, report: str, chat_log: str, graph_data: str = "{}", key_insight: str | None = None, structured: str | None = None) -> None:
-    """Persist pipeline results (report + chat_log + graph_data + key_insight + structured) to the SimulationJob row."""
-    from sqlalchemy import text
+    """Persist pipeline results to the SimulationJob row.
 
-    factory = _get_worker_session_factory()
-    if factory is None:
+    Uses a sync connection to avoid asyncpg InterfaceError — this is the most
+    critical save in the pipeline and MUST succeed.
+    """
+    import os
+    from sqlalchemy import create_engine, text
+
+    database_url = os.getenv("DATABASE_URL", "")
+    if not database_url:
         logger.warning("DATABASE_URL not set; skipping result save for job %d", job_id)
         return
 
-    async def _do_save():
-        async with factory() as session:
-            try:
-                await session.execute(
-                    text(
-                        "UPDATE simulation_jobs "
-                        "SET status = 'COMPLETED', "
-                        "    result_report = :report, "
-                        "    result_chat_log = :chat_log, "
-                        "    result_graph = :graph_data, "
-                        "    key_insight = :key_insight, "
-                        "    result_structured = :structured, "
-                        "    completed_at = :completed_at "
-                        "WHERE id = :job_id"
-                    ),
-                    {
-                        "report": report,
-                        "chat_log": chat_log,
-                        "graph_data": graph_data,
-                        "key_insight": key_insight,
-                        "structured": structured,
-                        "completed_at": datetime.now(timezone.utc),
-                        "job_id": job_id,
-                    },
-                )
-                await session.commit()
-                logger.info("Saved results for job %d", job_id)
-            except Exception as exc:
-                logger.warning("Could not save results for job %d: %s", job_id, exc)
-
-    _run_async(_do_save())
+    sync_url = database_url.replace("+asyncpg", "").replace("postgresql://", "postgresql+psycopg2://")
+    try:
+        engine = create_engine(sync_url)
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "UPDATE simulation_jobs "
+                    "SET status = 'COMPLETED', "
+                    "    result_report = :report, "
+                    "    result_chat_log = :chat_log, "
+                    "    result_graph = :graph_data, "
+                    "    key_insight = :key_insight, "
+                    "    result_structured = :structured, "
+                    "    completed_at = :completed_at "
+                    "WHERE id = :job_id"
+                ),
+                {
+                    "report": report,
+                    "chat_log": chat_log,
+                    "graph_data": graph_data,
+                    "key_insight": key_insight,
+                    "structured": structured,
+                    "completed_at": datetime.now(timezone.utc),
+                    "job_id": job_id,
+                },
+            )
+            conn.commit()
+            logger.info("Saved results for job %d", job_id)
+        engine.dispose()
+    except Exception as exc:
+        logger.warning("Could not save results for job %d: %s", job_id, exc)
 
 
 def _mark_job_failed(job_id: int, error_message: str) -> None:
