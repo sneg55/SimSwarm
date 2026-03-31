@@ -146,6 +146,27 @@ REDDIT_STYLE = (
 # Helpers
 # ---------------------------------------------------------------------------
 
+def wait_for_neo4j(timeout: int = 60) -> None:
+    """Block until Neo4j responds on the Bolt port."""
+    uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+    user = os.getenv("NEO4J_USER", "neo4j")
+    password = os.getenv("NEO4J_PASSWORD", "")
+    start = time.time()
+    while time.time() - start < timeout:
+        try:
+            from neo4j import GraphDatabase
+            d = GraphDatabase.driver(uri, auth=(user, password))
+            with d.session() as s:
+                s.run("RETURN 1")
+            d.close()
+            print(f"[run_job] Neo4j ready at {uri}", flush=True)
+            return
+        except Exception:
+            pass
+        time.sleep(3)
+    raise TimeoutError(f"Neo4j at {uri} did not respond within {timeout}s")
+
+
 def wait_for_vllm(timeout: int = 600) -> None:
     """Block until vLLM OpenAI-compatible server responds on /v1/models."""
     start = time.time()
@@ -218,12 +239,15 @@ def _patch_prompts_to_english():
     for mod_name in modules_to_patch:
         try:
             mod = __import__(mod_name, fromlist=[""])
+            patched = 0
             for attr in dir(mod):
                 val = getattr(mod, attr)
                 if isinstance(val, str) and len(val) > 80 and not attr.startswith("_"):
                     setattr(mod, attr, ENGLISH_INSTRUCTION + val)
+                    patched += 1
+            print(f"[run_job] Patched {mod_name}: {patched} prompts", flush=True)
         except ImportError:
-            pass
+            print(f"[run_job] WARNING: could not patch {mod_name} (not found)", flush=True)
 
     # Replace ontology prompt entirely
     try:
@@ -722,70 +746,72 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
     out.mkdir(parents=True, exist_ok=True)
 
     project_id, graph_id = build_graph(seed_text, goal)
-    simulation_id = prepare_simulation(project_id, graph_id, seed_text, goal)
-
-    # Patch profiles with platform-specific style
     try:
-        _patch_platform_profiles(simulation_id)
-    except Exception as exc:
-        print(f"[run_job] WARNING: platform profile patching failed: {exc}", flush=True)
+        simulation_id = prepare_simulation(project_id, graph_id, seed_text, goal)
 
-    run_and_wait(simulation_id, max_rounds)
-    report_md = generate_report(graph_id, simulation_id, goal)
-    chat_log = collect_chat_log(simulation_id)
+        # Patch profiles with platform-specific style
+        try:
+            _patch_platform_profiles(simulation_id)
+        except Exception as exc:
+            print(f"[run_job] WARNING: platform profile patching failed: {exc}", flush=True)
 
-    # Extract graph data from Neo4j
-    graph_data = extract_graph_data(graph_id)
+        run_and_wait(simulation_id, max_rounds)
+        report_md = generate_report(graph_id, simulation_id, goal)
+        chat_log = collect_chat_log(simulation_id)
 
-    # Inject per-agent stance
-    try:
-        inject_agent_stance(simulation_id, graph_data)
-    except Exception as exc:
-        print(f"[run_job] WARNING: stance injection failed: {exc}", flush=True)
+        # Extract graph data from Neo4j
+        graph_data = extract_graph_data(graph_id)
 
-    # Score per-entity sentiment
-    try:
-        score_entity_sentiment(graph_data, chat_log)
-        scored = sum(1 for n in graph_data.get("nodes", []) if n.get("sentiment", 0) != 0)
-        print(f"[run_job] Sentiment scored: {scored}/{len(graph_data.get('nodes', []))} entities with non-zero sentiment", flush=True)
-    except Exception as exc:
-        print(f"[run_job] WARNING: sentiment scoring failed: {exc}", flush=True)
+        # Inject per-agent stance
+        try:
+            inject_agent_stance(simulation_id, graph_data)
+        except Exception as exc:
+            print(f"[run_job] WARNING: stance injection failed: {exc}", flush=True)
 
-    # Build structured results
-    structured = {}
-    try:
-        report_dirs = list(Path("/tmp/results").parent.glob("report_*"))
-        if not report_dirs:
-            report_dirs = list(Path("/tmp").glob("report_*"))
-        outline = None
-        section_contents = {}
-        for rd in report_dirs:
-            outline_file = rd / "outline.json"
-            if outline_file.exists():
-                outline = json.loads(outline_file.read_text(encoding="utf-8"))
-            for sf in sorted(rd.glob("section_*.md")):
-                section_contents[sf.name] = sf.read_text(encoding="utf-8")
-        structured = build_structured_results(outline, section_contents, chat_log, graph_data)
-        print(f"[run_job] Structured results: {len(structured.get('findings', []))} findings", flush=True)
-    except Exception as exc:
-        print(f"[run_job] WARNING: structured results failed: {exc}", flush=True)
+        # Score per-entity sentiment
+        try:
+            score_entity_sentiment(graph_data, chat_log)
+            scored = sum(1 for n in graph_data.get("nodes", []) if n.get("sentiment", 0) != 0)
+            print(f"[run_job] Sentiment scored: {scored}/{len(graph_data.get('nodes', []))} entities with non-zero sentiment", flush=True)
+        except Exception as exc:
+            print(f"[run_job] WARNING: sentiment scoring failed: {exc}", flush=True)
 
-    structured_str = json.dumps(structured, ensure_ascii=False, default=str)
-    (out / "structured_results.json").write_text(structured_str, encoding="utf-8")
+        # Build structured results
+        structured = {}
+        try:
+            report_dirs = list(out.glob("report_*"))
+            if not report_dirs:
+                report_dirs = list(out.parent.glob("report_*"))
+            outline = None
+            section_contents = {}
+            for rd in report_dirs:
+                outline_file = rd / "outline.json"
+                if outline_file.exists():
+                    outline = json.loads(outline_file.read_text(encoding="utf-8"))
+                for sf in sorted(rd.glob("section_*.md")):
+                    section_contents[sf.name] = sf.read_text(encoding="utf-8")
+            structured = build_structured_results(outline, section_contents, chat_log, graph_data)
+            print(f"[run_job] Structured results: {len(structured.get('findings', []))} findings", flush=True)
+        except Exception as exc:
+            print(f"[run_job] WARNING: structured results failed: {exc}", flush=True)
 
-    (out / "report.md").write_text(report_md, encoding="utf-8")
-    chat_log_str = json.dumps(chat_log, ensure_ascii=False, default=str)
-    (out / "chat_log.json").write_text(chat_log_str, encoding="utf-8")
-    graph_data_str = json.dumps(graph_data, ensure_ascii=False, default=str)
-    (out / "graph_data.json").write_text(graph_data_str, encoding="utf-8")
+        structured_str = json.dumps(structured, ensure_ascii=False, default=str)
+        (out / "structured_results.json").write_text(structured_str, encoding="utf-8")
 
-    # Cleanup Neo4j graph
-    try:
-        _storage.delete_graph(graph_id)
-        _storage.close()
-        print(f"[run_job] Neo4j graph {graph_id} cleaned up", flush=True)
-    except Exception as exc:
-        print(f"[run_job] WARNING: graph cleanup failed: {exc}", flush=True)
+        (out / "report.md").write_text(report_md, encoding="utf-8")
+        chat_log_str = json.dumps(chat_log, ensure_ascii=False, default=str)
+        (out / "chat_log.json").write_text(chat_log_str, encoding="utf-8")
+        graph_data_str = json.dumps(graph_data, ensure_ascii=False, default=str)
+        (out / "graph_data.json").write_text(graph_data_str, encoding="utf-8")
+
+    finally:
+        # Always clean up Neo4j graph, even on failure
+        try:
+            _storage.delete_graph(graph_id)
+            _storage.close()
+            print(f"[run_job] Neo4j graph {graph_id} cleaned up", flush=True)
+        except Exception as exc:
+            print(f"[run_job] WARNING: graph cleanup failed: {exc}", flush=True)
 
     summary = {
         "status": "completed",
@@ -831,7 +857,10 @@ def main() -> None:
     # 4. Patch prompts to English
     _patch_prompts_to_english()
 
-    # 5. Wait for vLLM
+    # 5. Check Neo4j connectivity
+    wait_for_neo4j()
+
+    # 6. Wait for vLLM
     if not args.skip_vllm_wait:
         wait_for_vllm()
 

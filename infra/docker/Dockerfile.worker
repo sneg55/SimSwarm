@@ -11,7 +11,7 @@ RUN pip freeze > /tmp/vllm-freeze.txt
 
 # Install MiroShark dependencies (may conflict — we'll restore vLLM pins after)
 COPY vendor/miroshark/backend/requirements.txt /app/miroshark-requirements.txt
-RUN pip install --no-cache-dir --ignore-installed -r /app/miroshark-requirements.txt || true
+RUN pip install --no-cache-dir --ignore-installed -r /app/miroshark-requirements.txt
 
 # Install worker-specific deps
 RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests neo4j openai

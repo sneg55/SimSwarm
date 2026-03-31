@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 
 from saas.workers.celery_app import celery_app
 from saas.workers.job_runner import JobConfig, JobRunner
@@ -44,9 +45,6 @@ def run_simulation_task(
     vllm_args: str,
     llm_api_key: str,
     openai_api_key: str = "",
-    neo4j_uri: str = "bolt://localhost:7687",
-    neo4j_user: str = "neo4j",
-    neo4j_password: str = "",
     credits_charged: int = 0,
     enrich_web: bool = True,
 ) -> dict:
@@ -84,9 +82,10 @@ def run_simulation_task(
         vllm_args=vllm_args,
         llm_api_key=llm_api_key,
         openai_api_key=openai_api_key,
-        neo4j_uri=neo4j_uri,
-        neo4j_user=neo4j_user,
-        neo4j_password=neo4j_password,
+        # Neo4j credentials read from env — not passed through Celery task args
+        neo4j_uri=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+        neo4j_user=os.getenv("NEO4J_USER", "neo4j"),
+        neo4j_password=os.getenv("NEO4J_PASSWORD", ""),
     )
 
     gpu_provider = _get_gpu_provider()

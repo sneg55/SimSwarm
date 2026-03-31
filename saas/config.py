@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     # Neo4j graph database
     NEO4J_URI: str = "bolt://localhost:7687"
     NEO4J_USER: str = "neo4j"
-    NEO4J_PASSWORD: str = ""
+    NEO4J_PASSWORD: str  # Required — no default to catch misconfiguration
 
     # Stripe billing
     STRIPE_SECRET_KEY: str = ""

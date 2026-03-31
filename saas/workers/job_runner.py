@@ -1,4 +1,4 @@
-"""Job runner: bridges Celery tasks to GPU provider + MiroFish pipeline."""
+"""Job runner: bridges Celery tasks to GPU provider + MiroShark pipeline."""
 from __future__ import annotations
 
 import asyncio
@@ -195,7 +195,7 @@ class JobRunner:
             pass
 
     async def _execute_pipeline(self, instance_id: str, config: JobConfig) -> dict:
-        """Execute the MiroFish pipeline via the worker pod's HTTP API.
+        """Execute the MiroShark pipeline via the worker pod's HTTP API.
 
         Steps:
           1. Poll /health until the worker API (and vLLM) is ready
