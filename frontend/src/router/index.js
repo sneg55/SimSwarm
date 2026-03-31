@@ -66,6 +66,12 @@ const router = createRouter({
   routes,
 })
 
+router.afterEach((to) => {
+  if (typeof window.gtag === 'function') {
+    window.gtag('config', 'G-FHW4ZS55MB', { page_path: to.fullPath })
+  }
+})
+
 router.beforeEach((to, from, next) => {
   const authStore = useAuthStore()
   if (to.meta.requiresAuth && !authStore.isLoggedIn) {
