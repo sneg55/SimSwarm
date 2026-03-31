@@ -2,9 +2,9 @@
   <transition name="slide">
     <div
       v-if="node"
-      class="absolute top-10 right-0 bottom-0 w-80 bg-ocean-deep/95 backdrop-blur-lg border-l border-mist-depth shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-y-auto z-30"
+      class="absolute top-10 right-0 bottom-0 w-[420px] bg-ocean-deep/95 backdrop-blur-lg border-l border-mist-depth shadow-[0_0_40px_rgba(0,0,0,0.5)] overflow-y-auto z-30"
     >
-      <div class="p-5">
+      <div class="p-6">
         <!-- Close button -->
         <div class="flex justify-end mb-3">
           <button
@@ -79,28 +79,58 @@
           </div>
         </div>
 
-        <!-- Agent Activity -->
+        <!-- Agent Activity (social post style) -->
         <div v-if="agentActions.length > 0" class="mt-6 pt-4 border-t border-mist-depth/50">
           <h4 class="text-[10px] font-bold tracking-widest text-mist-slate uppercase mb-3">
             Activity ({{ dedupedActions.length }})
           </h4>
 
-          <div class="space-y-2 max-h-[40vh] overflow-y-auto pr-1">
+          <div class="space-y-3 max-h-[45vh] overflow-y-auto pr-1">
             <div
               v-for="(action, i) in dedupedActions"
               :key="i"
-              class="rounded-lg bg-ocean-abyss/40 border border-mist-depth/30 px-3 py-2"
+              class="rounded-xl border transition-colors"
+              :class="platformCardClass(action.platforms)"
             >
-              <div class="flex items-center gap-2 mb-1">
-                <span class="text-[10px] font-mono font-bold uppercase px-1.5 py-0.5 rounded"
+              <!-- Post header -->
+              <div class="flex items-center gap-2.5 px-4 pt-3 pb-2">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                  :style="{ backgroundColor: nodeColor + '25', color: nodeColor }">
+                  {{ node.name?.charAt(0) || '?' }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="text-sm font-semibold text-mist-foam truncate">{{ node.name }}</div>
+                  <div class="flex items-center gap-1.5 text-[10px] text-mist-slate">
+                    <svg v-if="action.platforms.includes('twitter')" class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+                    <svg v-if="action.platforms.includes('reddit')" class="w-3 h-3" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg>
+                    <span>{{ action.platforms.join(', ') }}</span>
+                    <span class="text-mist-depth">·</span>
+                    <span>Round {{ action.round_num }}</span>
+                  </div>
+                </div>
+                <span class="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded-full"
                   :class="actionBadgeClass(action.action_type)"
                 >{{ actionLabel(action.action_type) }}</span>
-                <span v-if="action.platforms.length" class="text-[10px] text-mist-slate/50">{{ action.platforms.join(', ') }}</span>
-                <span class="text-[10px] text-mist-slate/40 ml-auto">R{{ action.round_num }}</span>
               </div>
-              <p v-if="actionContent(action)" class="text-xs text-mist-drift leading-relaxed">
-                {{ actionContent(action) }}
-              </p>
+
+              <!-- Post content -->
+              <div v-if="actionContent(action)" class="px-4 pb-3">
+                <p class="text-[13px] text-mist-drift leading-relaxed">{{ actionContent(action) }}</p>
+              </div>
+
+              <!-- Engagement bar (visual only) -->
+              <div v-if="action.action_type === 'CREATE_POST' || action.action_type === 'CREATE_COMMENT'"
+                class="flex items-center gap-6 px-4 py-2 border-t border-mist-depth/20 text-[10px] text-mist-slate/40">
+                <span class="flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                </span>
+                <span class="flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+                </span>
+                <span class="flex items-center gap-1">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -154,6 +184,14 @@ const relationships = computed(() => {
   if (!props.node || !props.node.relationships) return []
   return props.node.relationships
 })
+
+function platformCardClass(platforms) {
+  if (platforms.includes('twitter'))
+    return 'bg-[#0B1426] border-[#1D9BF0]/15 hover:border-[#1D9BF0]/30'
+  if (platforms.includes('reddit'))
+    return 'bg-[#0B1426] border-[#FF4500]/15 hover:border-[#FF4500]/30'
+  return 'bg-ocean-abyss/40 border-mist-depth/30'
+}
 
 function actionLabel(type) {
   const map = {
