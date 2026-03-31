@@ -14,7 +14,7 @@ COPY vendor/miroshark/backend/requirements.txt /app/miroshark-requirements.txt
 RUN pip install --no-cache-dir --ignore-installed -r /app/miroshark-requirements.txt
 
 # Install worker-specific deps
-RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests neo4j openai
+RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests neo4j openai sentence-transformers
 
 # Restore vLLM's critical pins — MiroShark deps may upgrade numpy/starlette which breaks vLLM
 RUN grep -E "^(transformers|tokenizers|starlette|fastapi|uvicorn|numpy)==" /tmp/vllm-freeze.txt > /tmp/vllm-restore.txt && \
