@@ -44,13 +44,16 @@ def run_simulation_task(
     vllm_args: str,
     llm_api_key: str,
     openai_api_key: str = "",
+    neo4j_uri: str = "bolt://localhost:7687",
+    neo4j_user: str = "neo4j",
+    neo4j_password: str = "",
     credits_charged: int = 0,
     enrich_web: bool = True,
 ) -> dict:
     """
     Celery task that:
       1. Provisions a GPU instance via RunPod / Vast.ai
-      2. Runs the MiroFish 5-step pipeline (run_job.py on the GPU)
+      2. Runs the MiroShark pipeline (run_job.py on the GPU)
       3. Saves report + chat_log to the SimulationJob row
       4. Auto-refunds credits and marks the job failed on any error
 
@@ -81,6 +84,9 @@ def run_simulation_task(
         vllm_args=vllm_args,
         llm_api_key=llm_api_key,
         openai_api_key=openai_api_key,
+        neo4j_uri=neo4j_uri,
+        neo4j_user=neo4j_user,
+        neo4j_password=neo4j_password,
     )
 
     gpu_provider = _get_gpu_provider()

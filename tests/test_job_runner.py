@@ -19,6 +19,9 @@ def _make_job_config(tier: str = "medium") -> JobConfig:
         vllm_args="--max-model-len 16384",
         llm_api_key="sk-test",
         openai_api_key="",
+        neo4j_uri="bolt://localhost:7687",
+        neo4j_user="neo4j",
+        neo4j_password="test",
     )
 
 
@@ -54,18 +57,18 @@ def test_timeout_by_tier_large():
     assert config.timeout_seconds == 43200
 
 
-def test_to_mirofish_env_includes_required_keys():
-    """to_mirofish_env returns all required environment variables."""
+def test_to_worker_env_includes_required_keys():
+    """to_worker_env returns all required environment variables."""
     config = _make_job_config()
-    env = config.to_mirofish_env()
+    env = config.to_worker_env()
     assert "LLM_API_KEY" in env
     assert "LLM_BASE_URL" in env
     assert "LLM_MODEL_NAME" in env
-    assert "OPENAI_API_KEY" in env
-    assert "OASIS_DEFAULT_MAX_ROUNDS" in env
+    assert "NEO4J_URI" in env
+    assert "WONDERWALL_DEFAULT_MAX_ROUNDS" in env
     assert env["LLM_API_KEY"] == "sk-test"
-    assert env["OPENAI_API_KEY"] == ""
-    assert env["OASIS_DEFAULT_MAX_ROUNDS"] == "200"
+    assert env["NEO4J_URI"] == "bolt://localhost:7687"
+    assert env["WONDERWALL_DEFAULT_MAX_ROUNDS"] == "200"
     assert env["LLM_MODEL_NAME"] == "Qwen2.5-32B-Instruct-AWQ"
 
 

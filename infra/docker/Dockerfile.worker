@@ -1,4 +1,4 @@
-# GPU Worker Image for FishCloud
+# GPU Worker Image for FishCloud (MiroShark engine)
 # Based on vLLM's official image (has CUDA + vLLM + correct transformers pre-installed)
 FROM vllm/vllm-openai:v0.6.6.post1 AS base
 
@@ -9,39 +9,30 @@ WORKDIR /app
 # Save vLLM's pinned dependency versions
 RUN pip freeze > /tmp/vllm-freeze.txt
 
-# Install MiroFish dependencies (may conflict — we'll restore vLLM pins after)
-COPY vendor/mirofish/backend/requirements.txt /app/mirofish-requirements.txt
-RUN pip install --no-cache-dir --ignore-installed -r /app/mirofish-requirements.txt || true
+# Install MiroShark dependencies (may conflict — we'll restore vLLM pins after)
+COPY vendor/miroshark/backend/requirements.txt /app/miroshark-requirements.txt
+RUN pip install --no-cache-dir --ignore-installed -r /app/miroshark-requirements.txt || true
 
-# Force-install camel-oasis despite Python 3.12 constraint
-RUN pip install --no-cache-dir --ignore-requires-python camel-oasis==0.2.5
+# Install worker-specific deps
+RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests neo4j openai
 
-# Install Flask + other deps (versions pinned to avoid silent breakage on re-builds)
-RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests \
-    "graphiti-core>=0.28.0,<0.29" "kuzu>=0.11.0" zep-cloud
-
-# Restore vLLM's critical pinned versions (only ==X.Y.Z style, skip @ file entries)
-# Restore vLLM's critical pins — graphiti-core upgrades numpy/starlette which breaks vLLM
+# Restore vLLM's critical pins — MiroShark deps may upgrade numpy/starlette which breaks vLLM
 RUN grep -E "^(transformers|tokenizers|starlette|fastapi|uvicorn|numpy)==" /tmp/vllm-freeze.txt > /tmp/vllm-restore.txt && \
     pip install --no-cache-dir --force-reinstall -r /tmp/vllm-restore.txt
 
-# Verify everything imports
 # Verify all imports + numpy<2 (vLLM ABI requirement)
 RUN python3 -c "import vllm; print(f'vLLM {vllm.__version__}')" && \
     python3 -c "import numpy; v=numpy.__version__; print(f'numpy {v}'); assert int(v.split('.')[0]) < 2, f'numpy {v} >= 2.0 breaks vLLM'" && \
-    python3 -c "import flask; print(f'Flask {flask.__version__}')" && \
-    python3 -c "import oasis; print('OASIS OK')" && \
-    python3 -c "import graphiti_core; print('Graphiti OK')" && \
-    python3 -c "import kuzu; print('Kuzu OK')"
+    python3 -c "import flask; print('Flask OK')" && \
+    python3 -c "import neo4j; print('neo4j OK')" && \
+    python3 -c "import openai; print('openai OK')"
 
-# Copy MiroFish engine
-COPY vendor/mirofish/backend/ /app/mirofish/backend/
-COPY vendor/mirofish/package.json /app/mirofish/package.json
+# Copy MiroShark engine
+COPY vendor/miroshark/backend/ /app/miroshark/backend/
 
 # Copy our job runner and worker API
 COPY infra/docker/run_job.py /app/run_job.py
 COPY infra/docker/worker_api.py /app/worker_api.py
-COPY infra/docker/graphiti/ /app/graphiti/
 COPY infra/docker/start.sh /app/start.sh
 RUN chmod +x /app/run_job.py /app/start.sh
 

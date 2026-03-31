@@ -42,19 +42,27 @@ class JobConfig:
     vllm_args: str
     llm_api_key: str
     openai_api_key: str
+    neo4j_uri: str
+    neo4j_user: str
+    neo4j_password: str
 
     @property
     def timeout_seconds(self) -> int:
         return TIER_TIMEOUTS[self.tier]
 
-    def to_mirofish_env(self) -> dict[str, str]:
+    def to_worker_env(self) -> dict[str, str]:
         return {
             "LLM_API_KEY": self.llm_api_key,
             "LLM_BASE_URL": "http://localhost:8000/v1",
             "LLM_MODEL_NAME": self.model_id,
             "OPENAI_API_KEY": self.openai_api_key,
-            "OASIS_DEFAULT_MAX_ROUNDS": str(self.max_rounds),
-            # Used by start.sh to configure vLLM server
+            "NEO4J_URI": self.neo4j_uri,
+            "NEO4J_USER": self.neo4j_user,
+            "NEO4J_PASSWORD": self.neo4j_password,
+            "EMBEDDING_PROVIDER": "openai",
+            "EMBEDDING_MODEL": "text-embedding-3-small",
+            "EMBEDDING_DIMENSIONS": "1536",
+            "WONDERWALL_DEFAULT_MAX_ROUNDS": str(self.max_rounds),
             "MODEL_ID": self.model_id,
             "VLLM_ARGS": self.vllm_args or "--max-model-len 32768",
         }
@@ -101,7 +109,7 @@ class JobRunner:
             docker_image=get_worker_image(),
             max_cost_per_hour_usd=TIER_MAX_COST_USD.get(config.tier, 4.00),
             timeout_seconds=config.timeout_seconds,
-            env_vars=config.to_mirofish_env(),
+            env_vars=config.to_worker_env(),
         )
 
         if self._stage_callback is not None:

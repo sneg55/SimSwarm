@@ -88,6 +88,9 @@ async def create_job(
             vllm_args=routing.vllm_args or "",
             llm_api_key=os.getenv("LLM_API_KEY", "not-needed"),
             openai_api_key=os.getenv("OPENAI_API_KEY", ""),
+            neo4j_uri=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+            neo4j_user=os.getenv("NEO4J_USER", "neo4j"),
+            neo4j_password=os.getenv("NEO4J_PASSWORD", ""),
             credits_charged=credits,
             enrich_web=body.enrich_web,
         )

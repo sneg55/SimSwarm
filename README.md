@@ -150,7 +150,7 @@ fishandcat/
 │       ├── composables/   #   Shared logic (useSimulationData, useScrollReveal)
 │       ├── stores/        #   Pinia state management
 │       └── api/           #   Axios API clients
-├── vendor/mirofish/       # MiroFish engine (git submodule)
+├── vendor/miroshark/       # MiroFish engine (git submodule)
 ├── infra/docker/          # GPU worker image (Dockerfile, run_job.py, worker_api.py)
 ├── infra/scripts/         # Benchmark, demo refresh scripts
 ├── alembic/               # Database migrations
@@ -189,4 +189,4 @@ Credit packs are configurable from the database (`credit_packs` table). Defaults
 
 ## License
 
-The SaaS layer (`saas/`, `frontend/` additions, `infra/`) is proprietary. The MiroFish engine in `vendor/mirofish/` is licensed under [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html).
+The SaaS layer (`saas/`, `frontend/` additions, `infra/`) is proprietary. The MiroFish engine in `vendor/miroshark/` is licensed under [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html).

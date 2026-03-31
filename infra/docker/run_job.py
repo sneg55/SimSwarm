@@ -3,6 +3,8 @@
 Job runner script that executes on GPU worker instances.
 Called by the SaaS Celery worker via SSH/exec after provisioning.
 
+Uses MiroShark engine with Neo4j graph database.
+
 Usage:
     python3 run_job.py \
         --seed-file /tmp/seed.txt \
@@ -10,15 +12,14 @@ Usage:
         --max-rounds 200 \
         --output-dir /tmp/results
 
-Pipeline (5 steps matching the MiroFish UI workflow):
-    1. Wait for vLLM to be ready (health check)
-    2. Build Zep knowledge graph from seed text
-       (text split → ontology generation → graph ingestion)
-    3. Create + prepare simulation
+Pipeline (5 steps):
+    1. Build Neo4j knowledge graph from seed text
+       (ontology generation → NER extraction → graph ingestion)
+    2. Create + prepare simulation
        (entity filtering → profile generation → config generation)
-    4. Run OASIS simulation (parallel twitter+reddit)
-    5. Generate report via ReportAgent
-    6. Export report.md + chat_log.json to output_dir
+    3. Run Wonderwall simulation (parallel twitter+reddit)
+    4. Generate report via ReportAgent
+    5. Export report.md + chat_log.json + graph_data.json
 """
 from __future__ import annotations
 
@@ -32,43 +33,14 @@ import requests
 from pathlib import Path
 
 VLLM_URL = "http://localhost:8000/v1"
-MIROFISH_BACKEND = "/app/mirofish/backend"
-GRAPHITI_SHADOW = "/app/graphiti"
+MIROSHARK_BACKEND = "/app/miroshark/backend"
 
-
-def _inject_shadow_modules():
-    """Pre-load Graphiti shadow modules into sys.modules.
-
-    MiroFish uses relative imports (from .graph_builder import ...) inside
-    app.services.__init__.py, which bypass sys.path ordering. By injecting
-    our shadow modules directly into sys.modules, Python finds them already
-    loaded when the relative import resolves.
-    """
-    import importlib.util
-
-    shadow_map = {
-        "app.services.graph_builder": os.path.join(GRAPHITI_SHADOW, "graph_builder.py"),
-        "app.services.zep_tools": os.path.join(GRAPHITI_SHADOW, "zep_tools.py"),
-        "app.services.zep_entity_reader": os.path.join(GRAPHITI_SHADOW, "zep_entity_reader.py"),
-        "app.utils.zep_paging": os.path.join(GRAPHITI_SHADOW, "zep_paging.py"),
-    }
-
-    for module_name, file_path in shadow_map.items():
-        if not os.path.exists(file_path):
-            print(f"[run_job] WARNING: shadow module not found: {file_path}", flush=True)
-            continue
-        spec = importlib.util.spec_from_file_location(module_name, file_path)
-        if spec and spec.loader:
-            mod = importlib.util.module_from_spec(spec)
-            sys.modules[module_name] = mod
-            spec.loader.exec_module(mod)
-            print(f"[run_job] Injected shadow: {module_name}", flush=True)
-        else:
-            print(f"[run_job] WARNING: could not load shadow: {file_path}", flush=True)
+# Module-level storage reference (set in main, used by all pipeline steps)
+_storage = None
 
 
 # ---------------------------------------------------------------------------
-# English language overrides for MiroFish prompts (default is Chinese)
+# English ontology prompt (replaces MiroShark's default Chinese prompt)
 # ---------------------------------------------------------------------------
 
 ENGLISH_ONTOLOGY_PROMPT = """You are a knowledge graph ontology designer. Your task is to analyze the given text and simulation goal, then design entity types and relationship types for a social media opinion simulation.
@@ -148,38 +120,26 @@ ENGLISH_INSTRUCTION = (
 )
 
 
-def _patch_mirofish_prompts_to_english():
-    """Monkey-patch MiroFish service prompts to output in English."""
-    if GRAPHITI_SHADOW not in sys.path:
-        sys.path.insert(0, GRAPHITI_SHADOW)
-    if MIROFISH_BACKEND not in sys.path:
-        sys.path.insert(1, MIROFISH_BACKEND)
+# ---------------------------------------------------------------------------
+# Platform-specific profile style instructions
+# ---------------------------------------------------------------------------
 
-    modules_to_patch = [
-        "app.services.ontology_generator",
-        "app.services.report_agent",
-        "app.services.oasis_profile_generator",
-        "app.services.simulation_config_generator",
-    ]
+TWITTER_STYLE = (
+    "\n\nPLATFORM BEHAVIOR (Twitter): You are posting on Twitter. "
+    "Keep posts under 280 characters. Be punchy and direct. "
+    "Use hashtags sparingly. React to trending topics. "
+    "Your tone should be conversational, opinionated, and concise. "
+    "Do NOT write long paragraphs — tweets are short takes."
+)
 
-    for mod_name in modules_to_patch:
-        try:
-            mod = __import__(mod_name, fromlist=[""])
-            for attr in dir(mod):
-                val = getattr(mod, attr)
-                if isinstance(val, str) and len(val) > 80 and not attr.startswith("_"):
-                    setattr(mod, attr, ENGLISH_INSTRUCTION + val)
-        except ImportError:
-            pass
-
-    # Replace ontology prompt entirely with clean English version
-    try:
-        import app.services.ontology_generator as ontology_mod
-        ontology_mod.ONTOLOGY_SYSTEM_PROMPT = ENGLISH_ONTOLOGY_PROMPT
-    except ImportError:
-        pass
-
-    print("[run_job] Patched MiroFish prompts to English output", flush=True)
+REDDIT_STYLE = (
+    "\n\nPLATFORM BEHAVIOR (Reddit): You are posting on Reddit. "
+    "Write detailed, substantive posts and comments. "
+    "Provide reasoning, evidence, or personal experience. "
+    "Use paragraph form. Reddit rewards depth over brevity. "
+    "Your tone should be analytical and discussion-oriented. "
+    "Do NOT write short one-liners — Reddit expects thoughtful contributions."
+)
 
 
 # ---------------------------------------------------------------------------
@@ -201,22 +161,26 @@ def wait_for_vllm(timeout: int = 600) -> None:
     raise TimeoutError(f"vLLM server did not start within {timeout}s")
 
 
-def setup_mirofish_config() -> None:
-    """
-    Write a .env file at the MiroFish backend root and override the Config
-    class attributes so that both dotenv-based and direct-attribute access
-    paths pick up the correct values.
-    """
+def setup_miroshark_config(max_rounds: int) -> None:
+    """Write .env for MiroShark and override Config class."""
     env_values = {
         "LLM_API_KEY": os.getenv("LLM_API_KEY", "not-needed"),
         "LLM_BASE_URL": VLLM_URL,
         "LLM_MODEL_NAME": os.getenv("LLM_MODEL_NAME", "Qwen2.5-32B-Instruct-AWQ"),
-        "ZEP_API_KEY": os.getenv("ZEP_API_KEY", ""),
-        "OASIS_DEFAULT_MAX_ROUNDS": os.getenv("OASIS_DEFAULT_MAX_ROUNDS", "200"),
+        "NEO4J_URI": os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+        "NEO4J_USER": os.getenv("NEO4J_USER", "neo4j"),
+        "NEO4J_PASSWORD": os.getenv("NEO4J_PASSWORD", ""),
+        "EMBEDDING_PROVIDER": os.getenv("EMBEDDING_PROVIDER", "openai"),
+        "EMBEDDING_MODEL": os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
+        "EMBEDDING_BASE_URL": "https://api.openai.com/v1",
+        "EMBEDDING_API_KEY": os.getenv("OPENAI_API_KEY", ""),
+        "EMBEDDING_DIMENSIONS": os.getenv("EMBEDDING_DIMENSIONS", "1536"),
+        "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
+        "OPENAI_API_BASE_URL": VLLM_URL,
+        "WONDERWALL_DEFAULT_MAX_ROUNDS": str(max_rounds),
     }
 
-    # Write .env so MiroFish's own dotenv-based Config loader picks it up
-    env_path = Path(MIROFISH_BACKEND) / ".env"
+    env_path = Path(MIROSHARK_BACKEND) / ".env"
     env_path.write_text(
         "\n".join(f"{k}={v}" for k, v in env_values.items()) + "\n",
         encoding="utf-8",
@@ -225,22 +189,52 @@ def setup_mirofish_config() -> None:
 
 
 def _apply_config_overrides(max_rounds: int) -> None:
-    """
-    Patch Config class attributes after import so any already-imported
-    reference uses the updated values.
-    """
-    from app.config import Config  # noqa: PLC0415
+    """Patch Config class after import."""
+    from app.config import Config
 
     Config.LLM_API_KEY = os.getenv("LLM_API_KEY", "not-needed")
     Config.LLM_BASE_URL = VLLM_URL
     Config.LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "Qwen2.5-32B-Instruct-AWQ")
-    Config.ZEP_API_KEY = os.getenv("ZEP_API_KEY", "")
-    Config.OASIS_DEFAULT_MAX_ROUNDS = max_rounds
+    Config.NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
+    Config.NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
+    Config.NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
+    Config.EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "openai")
+    Config.EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
+    Config.EMBEDDING_BASE_URL = "https://api.openai.com/v1"
+    Config.EMBEDDING_API_KEY = os.getenv("OPENAI_API_KEY", "")
+    Config.EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "1536"))
+    Config.WONDERWALL_DEFAULT_MAX_ROUNDS = max_rounds
 
 
-# ---------------------------------------------------------------------------
-# Step 1 — Build Zep knowledge graph from seed text
-# ---------------------------------------------------------------------------
+def _patch_prompts_to_english():
+    """Monkey-patch MiroShark prompts to output in English."""
+    modules_to_patch = [
+        "app.services.ontology_generator",
+        "app.services.report_agent",
+        "app.services.oasis_profile_generator",
+        "app.services.simulation_config_generator",
+    ]
+
+    for mod_name in modules_to_patch:
+        try:
+            mod = __import__(mod_name, fromlist=[""])
+            for attr in dir(mod):
+                val = getattr(mod, attr)
+                if isinstance(val, str) and len(val) > 80 and not attr.startswith("_"):
+                    setattr(mod, attr, ENGLISH_INSTRUCTION + val)
+        except ImportError:
+            pass
+
+    # Replace ontology prompt entirely
+    try:
+        import app.services.ontology_generator as ontology_mod
+        if hasattr(ontology_mod, "ONTOLOGY_SYSTEM_PROMPT"):
+            ontology_mod.ONTOLOGY_SYSTEM_PROMPT = ENGLISH_ONTOLOGY_PROMPT
+    except ImportError:
+        pass
+
+    print("[run_job] Patched MiroShark prompts to English output", flush=True)
+
 
 def _extract_enrichment_hints(seed_text: str) -> str | None:
     """Extract entity hints from the enrichment section of the seed text."""
@@ -257,18 +251,25 @@ def _extract_enrichment_hints(seed_text: str) -> str | None:
     )
 
 
+# ---------------------------------------------------------------------------
+# Step 1 — Build Neo4j knowledge graph from seed text
+# ---------------------------------------------------------------------------
+
 def build_graph(seed_text: str, goal: str) -> tuple[str, str]:
     """
-    Steps 1-2 of the MiroFish pipeline:
-      • Generate ontology from seed text
-      • Build a Zep graph using GraphBuilderService
-
+    Steps 1-2: Generate ontology, build Neo4j graph via MiroShark's storage.
     Returns (project_id, graph_id).
     """
-    from app.services.ontology_generator import OntologyGenerator  # noqa: PLC0415
-    from app.services.graph_builder import GraphBuilderService  # noqa: PLC0415
+    global _storage
 
-    # Extract enrichment hints to improve ontology design
+    from app.services.ontology_generator import OntologyGenerator
+    from app.storage.neo4j_storage import Neo4jStorage
+    from app.services.text_processor import TextProcessor
+
+    # Initialize Neo4j storage (connects to remote Neo4j VPS)
+    _storage = Neo4jStorage()
+
+    # Extract enrichment hints for ontology
     enrichment_hints = _extract_enrichment_hints(seed_text)
     if enrichment_hints:
         print("[run_job] Using enrichment research as ontology context", flush=True)
@@ -281,21 +282,18 @@ def build_graph(seed_text: str, goal: str) -> tuple[str, str]:
         additional_context=enrichment_hints,
     )
 
-    print("[run_job] Step 2: Building Zep knowledge graph...", flush=True)
-    builder = GraphBuilderService()
-    graph_id = builder.create_graph(name=f"SimSwarm-{int(time.time())}")
-    builder.set_ontology(graph_id, ontology)
+    print("[run_job] Step 2: Building Neo4j knowledge graph...", flush=True)
+    graph_id = _storage.create_graph(name=f"SimSwarm-{int(time.time())}")
+    _storage.set_ontology(graph_id, ontology)
 
-    # Split text, ingest in batches, wait for Zep processing
-    from app.services.text_processor import TextProcessor  # noqa: PLC0415
-
+    # Split text, ingest in batches
     chunks = TextProcessor.split_text(seed_text, chunk_size=500, overlap=50)
-    episode_uuids = builder.add_text_batches(graph_id, chunks, batch_size=3)
-    builder._wait_for_episodes(episode_uuids, timeout=600)
+    _storage.add_text_batch(graph_id, chunks, batch_size=3)
 
-    # Use graph_id as project_id (one graph per job)
+    info = _storage.get_graph_info(graph_id)
+    print(f"[run_job] Graph ready: graph_id={graph_id}, nodes={info.get('node_count', 0)}, edges={info.get('edge_count', 0)}", flush=True)
+
     project_id = graph_id
-    print(f"[run_job] Graph ready: graph_id={graph_id}", flush=True)
     return project_id, graph_id
 
 
@@ -305,12 +303,10 @@ def build_graph(seed_text: str, goal: str) -> tuple[str, str]:
 
 def prepare_simulation(project_id: str, graph_id: str, seed_text: str, goal: str) -> str:
     """
-    Step 3 of the MiroFish pipeline.
-    Creates a SimulationState and runs prepare_simulation() synchronously.
-
+    Step 3: Create simulation state and prepare (entities → profiles → config).
     Returns simulation_id.
     """
-    from app.services.simulation_manager import SimulationManager  # noqa: PLC0415
+    from app.services.simulation_manager import SimulationManager
 
     print("[run_job] Step 3: Creating and preparing simulation...", flush=True)
     sm = SimulationManager()
@@ -319,6 +315,7 @@ def prepare_simulation(project_id: str, graph_id: str, seed_text: str, goal: str
         graph_id=graph_id,
         enable_twitter=True,
         enable_reddit=True,
+        enable_polymarket=False,
     )
     simulation_id = state.simulation_id
 
@@ -331,6 +328,7 @@ def prepare_simulation(project_id: str, graph_id: str, seed_text: str, goal: str
         document_text=seed_text,
         use_llm_for_profiles=True,
         progress_callback=_progress,
+        storage=_storage,
     )
 
     print(f"[run_job] Simulation prepared: {simulation_id}", flush=True)
@@ -338,34 +336,11 @@ def prepare_simulation(project_id: str, graph_id: str, seed_text: str, goal: str
 
 
 # ---------------------------------------------------------------------------
-# Step 2b — Patch agent profiles with platform-specific style instructions
+# Step 2b — Patch platform-specific profiles
 # ---------------------------------------------------------------------------
 
-TWITTER_STYLE = (
-    "\n\nPLATFORM BEHAVIOR (Twitter): You are posting on Twitter. "
-    "Keep posts under 280 characters. Be punchy and direct. "
-    "Use hashtags sparingly. React to trending topics. "
-    "Your tone should be conversational, opinionated, and concise. "
-    "Do NOT write long paragraphs — tweets are short takes."
-)
-
-REDDIT_STYLE = (
-    "\n\nPLATFORM BEHAVIOR (Reddit): You are posting on Reddit. "
-    "Write detailed, substantive posts and comments. "
-    "Provide reasoning, evidence, or personal experience. "
-    "Use paragraph form. Reddit rewards depth over brevity. "
-    "Your tone should be analytical and discussion-oriented. "
-    "Do NOT write short one-liners — Reddit expects thoughtful contributions."
-)
-
-
 def _patch_platform_profiles(simulation_id: str) -> None:
-    """Inject platform-specific writing style into agent profiles.
-
-    Twitter profiles get short/punchy instructions.
-    Reddit profiles get detailed/analytical instructions.
-    This prevents identical content across platforms.
-    """
+    """Inject platform-specific writing style into agent profiles."""
     from app.services.simulation_runner import SimulationRunner
 
     sim_dir = os.path.join(SimulationRunner.RUN_STATE_DIR, simulation_id)
@@ -406,21 +381,19 @@ def _patch_platform_profiles(simulation_id: str) -> None:
 # ---------------------------------------------------------------------------
 
 def run_and_wait(simulation_id: str, max_rounds: int, poll_interval: int = 10) -> None:
-    """
-    Step 4: Start the OASIS simulation subprocess and block until it finishes.
-    Polls SimulationRunner.get_run_state() every *poll_interval* seconds.
-    """
-    from app.services.simulation_runner import SimulationRunner, RunnerStatus  # noqa: PLC0415
+    """Start the simulation subprocess and block until it finishes."""
+    from app.services.simulation_runner import SimulationRunner, RunnerStatus
 
     print(f"[run_job] Step 4: Starting simulation (max_rounds={max_rounds})...", flush=True)
-    run_state = SimulationRunner.start_simulation(
+    SimulationRunner.start_simulation(
         simulation_id=simulation_id,
         platform="parallel",
         max_rounds=max_rounds,
+        enable_cross_platform=True,
     )
 
     terminal_statuses = {RunnerStatus.COMPLETED, RunnerStatus.STOPPED, RunnerStatus.FAILED}
-    timeout = int(os.getenv("JOB_TIMEOUT_SECONDS", "43200"))  # 12h default
+    timeout = int(os.getenv("JOB_TIMEOUT_SECONDS", "43200"))
     start = time.time()
 
     while True:
@@ -443,7 +416,6 @@ def run_and_wait(simulation_id: str, max_rounds: int, poll_interval: int = 10) -
 
         if status in terminal_statuses:
             break
-
         time.sleep(poll_interval)
 
     if run_state.runner_status == RunnerStatus.FAILED:
@@ -457,24 +429,24 @@ def run_and_wait(simulation_id: str, max_rounds: int, poll_interval: int = 10) -
 # ---------------------------------------------------------------------------
 
 def generate_report(graph_id: str, simulation_id: str, goal: str) -> str:
-    """
-    Step 5: Run ReportAgent and return the full Markdown report string.
-    """
-    from app.services.report_agent import ReportAgent  # noqa: PLC0415
+    """Run ReportAgent and return the full Markdown report string."""
+    from app.services.report_agent import ReportAgent
+    from app.services.graph_tools import GraphToolsService
 
     print("[run_job] Step 5: Generating report...", flush=True)
 
+    graph_tools = GraphToolsService(storage=_storage)
     agent = ReportAgent(
         graph_id=graph_id,
         simulation_id=simulation_id,
         simulation_requirement=goal,
+        graph_tools=graph_tools,
     )
 
     def _progress(stage: str, pct: int, msg: str) -> None:
         print(f"[run_job]   [report:{stage}] {pct}% — {msg}", flush=True)
 
     report = agent.generate_report(progress_callback=_progress)
-    # Extract markdown from Report object
     if hasattr(report, "markdown_content") and report.markdown_content:
         markdown = report.markdown_content
     elif hasattr(report, "outline") and hasattr(report.outline, "to_markdown"):
@@ -488,109 +460,52 @@ def generate_report(graph_id: str, simulation_id: str, goal: str) -> str:
 
 
 # ---------------------------------------------------------------------------
-# Step 5 — Collect chat log (agent actions)
+# Step 5 — Collect chat log
 # ---------------------------------------------------------------------------
 
 def collect_chat_log(simulation_id: str) -> list:
     """Return all agent actions as a list of dicts."""
-    from app.services.simulation_runner import SimulationRunner  # noqa: PLC0415
+    from app.services.simulation_runner import SimulationRunner
 
     actions = SimulationRunner.get_all_actions(simulation_id)
     return [a.to_dict() for a in actions]
 
 
 # ---------------------------------------------------------------------------
-# Step 6 — Extract graph data from Zep before teardown
+# Step 6 — Extract graph data from Neo4j
 # ---------------------------------------------------------------------------
 
 def extract_graph_data(graph_id: str) -> dict:
-    """
-    Extract all nodes and edges from the Zep knowledge graph before it is
-    destroyed.  Returns a dict with ``nodes``, ``edges``, and ``metadata``.
-    On any failure the function returns an empty graph structure so that the
-    pipeline can still complete.
-    """
+    """Extract all nodes and edges from Neo4j before cleanup."""
     try:
-        from app.services.zep_tools import ZepToolsService  # noqa: PLC0415
+        data = _storage.get_graph_data(graph_id)
+        nodes = data.get("nodes", [])
+        edges = data.get("edges", [])
 
-        api_key = os.environ.get("ZEP_API_KEY", "")
-        print(f"[run_job] Extracting graph data for graph_id={graph_id}, ZEP_API_KEY={'set' if api_key else 'MISSING'}", flush=True)
-        zep = ZepToolsService(api_key=api_key)
-        raw_nodes = zep.get_all_nodes(graph_id)
-        raw_edges = zep.get_all_edges(graph_id)
-        print(f"[run_job] Zep returned {len(raw_nodes)} nodes, {len(raw_edges)} edges", flush=True)
+        # Filter orphan nodes (zero connections)
+        connected_uuids = set()
+        for e in edges:
+            connected_uuids.add(e.get("source_node_uuid", ""))
+            connected_uuids.add(e.get("target_node_uuid", ""))
 
-        # Build connection_count per node by counting edges
-        connection_count: dict[str, int] = {}
-        for edge in raw_edges:
-            src = getattr(edge, "source_node_uuid", None) or edge.get("source_node_uuid", "")
-            tgt = getattr(edge, "target_node_uuid", None) or edge.get("target_node_uuid", "")
-            connection_count[src] = connection_count.get(src, 0) + 1
-            connection_count[tgt] = connection_count.get(tgt, 0) + 1
+        filtered_nodes = [n for n in nodes if n.get("uuid", "") in connected_uuids]
 
-        entity_types: set[str] = set()
-
-        nodes = []
-        for n in raw_nodes:
-            uuid = getattr(n, "uuid", None) or (n.get("uuid", "") if isinstance(n, dict) else "")
-            name = getattr(n, "name", None) or (n.get("name", "") if isinstance(n, dict) else "")
-            labels = getattr(n, "labels", None) or (n.get("labels", []) if isinstance(n, dict) else [])
-            summary = getattr(n, "summary", None) or (n.get("summary", "") if isinstance(n, dict) else "")
-
-            # Skip orphan nodes (no edges) — they add visual noise
-            conn = connection_count.get(str(uuid), 0)
-            if conn == 0:
-                continue
-
-            # Primary label = first label that is not "Entity" or "Node"
-            primary_label = None
-            for lbl in (labels or []):
+        entity_types = set()
+        for n in filtered_nodes:
+            for lbl in n.get("labels", []):
                 if lbl not in ("Entity", "Node"):
-                    primary_label = lbl
-                    break
-            if primary_label:
-                entity_types.add(primary_label)
-
-            nodes.append({
-                "uuid": str(uuid),
-                "name": str(name),
-                "labels": list(labels or []),
-                "summary": str(summary or ""),
-                "connection_count": conn,
-            })
-
-        def _attr(obj, key):
-            return getattr(obj, key, None) or (obj.get(key, "") if isinstance(obj, dict) else "")
-
-        # Build uuid→name lookup from nodes for backfilling edge names
-        node_name_map = {n["uuid"]: n["name"] for n in nodes}
-
-        edges = []
-        for e in raw_edges:
-            src_uuid = str(_attr(e, "source_node_uuid"))
-            tgt_uuid = str(_attr(e, "target_node_uuid"))
-            src_name = (_attr(e, "source_node_name") or "") or node_name_map.get(src_uuid, "")
-            tgt_name = (_attr(e, "target_node_name") or "") or node_name_map.get(tgt_uuid, "")
-            edges.append({
-                "uuid": str(_attr(e, "uuid")),
-                "name": str(_attr(e, "name")),
-                "fact": str(_attr(e, "fact") or ""),
-                "source_node_uuid": src_uuid,
-                "target_node_uuid": tgt_uuid,
-                "source_node_name": src_name,
-                "target_node_name": tgt_name,
-            })
+                    entity_types.add(lbl)
 
         graph_data = {
-            "nodes": nodes,
+            "nodes": filtered_nodes,
             "edges": edges,
             "metadata": {
                 "entity_types": sorted(entity_types),
-                "total_nodes": len(nodes),
+                "total_nodes": len(filtered_nodes),
                 "total_edges": len(edges),
             },
         }
-        print(f"[run_job] Graph extracted: {len(nodes)} nodes, {len(edges)} edges", flush=True)
+        print(f"[run_job] Graph extracted: {len(filtered_nodes)} nodes, {len(edges)} edges", flush=True)
         return graph_data
 
     except Exception as exc:
@@ -601,7 +516,42 @@ def extract_graph_data(graph_id: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Per-entity sentiment scoring (keyword lexicon, no LLM)
+# Per-agent stance injection from simulation config
+# ---------------------------------------------------------------------------
+
+def inject_agent_stance(simulation_id: str, graph_data: dict) -> None:
+    """Read agent_configs and inject stance + influence_weight into graph nodes."""
+    from app.services.simulation_manager import SimulationManager
+
+    sm = SimulationManager()
+    config = sm.get_simulation_config(simulation_id)
+    if not config:
+        return
+
+    agent_configs = config.get("agent_configs", [])
+    if not agent_configs:
+        return
+
+    name_to_agent = {}
+    for ac in agent_configs:
+        name = (ac.get("entity_name") or "").strip().lower()
+        if name:
+            name_to_agent[name] = ac
+
+    matched = 0
+    for node in graph_data.get("nodes", []):
+        node_name = (node.get("name") or "").strip().lower()
+        ac = name_to_agent.get(node_name)
+        if ac:
+            node["stance"] = ac.get("stance", "neutral")
+            node["influence_weight"] = ac.get("influence_weight", 1.0)
+            matched += 1
+
+    print(f"[run_job] Stance injected: {matched}/{len(graph_data.get('nodes', []))} nodes matched", flush=True)
+
+
+# ---------------------------------------------------------------------------
+# Per-entity sentiment scoring
 # ---------------------------------------------------------------------------
 
 POSITIVE_WORDS = {
@@ -628,23 +578,17 @@ NEGATIVE_WORDS = {
 
 
 def score_entity_sentiment(graph_data: dict, chat_log: list[dict]) -> None:
-    """Score each graph node's sentiment by analyzing chat_log mentions.
-
-    Mutates graph_data["nodes"] in place, adding a "sentiment" float field
-    (-1.0 to +1.0) to each node.
-    """
+    """Score each graph node's sentiment by analyzing chat_log mentions."""
     nodes = graph_data.get("nodes", [])
     if not nodes:
         return
 
-    # Build lookup: lowercase entity name → node index(es)
     name_to_indices: dict[str, list[int]] = {}
     for i, node in enumerate(nodes):
         name = node.get("name", "").strip()
         if name:
             name_to_indices.setdefault(name.lower(), []).append(i)
 
-    # Accumulate sentiment scores per node index
     pos_counts: dict[int, int] = {}
     neg_counts: dict[int, int] = {}
 
@@ -655,12 +599,10 @@ def score_entity_sentiment(graph_data: dict, chat_log: list[dict]) -> None:
         content_lower = content.lower()
         agent_name = (entry.get("agent_name") or "").strip().lower()
 
-        # Count positive/negative words in this entry (strip punctuation)
         words = set(re.findall(r'\b[a-z]+\b', content_lower))
         pos = len(words & POSITIVE_WORDS)
         neg = len(words & NEGATIVE_WORDS)
 
-        # Find which entities are mentioned in this content
         matched_indices: set[int] = set()
         for entity_name, indices in name_to_indices.items():
             if entity_name in content_lower:
@@ -672,7 +614,6 @@ def score_entity_sentiment(graph_data: dict, chat_log: list[dict]) -> None:
             pos_counts[idx] = pos_counts.get(idx, 0) + pos
             neg_counts[idx] = neg_counts.get(idx, 0) + neg
 
-    # Compute sentiment score per node
     for i, node in enumerate(nodes):
         p = pos_counts.get(i, 0)
         n = neg_counts.get(i, 0)
@@ -684,45 +625,7 @@ def score_entity_sentiment(graph_data: dict, chat_log: list[dict]) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Per-agent stance injection from simulation config
-# ---------------------------------------------------------------------------
-
-def inject_agent_stance(simulation_id: str, graph_data: dict) -> None:
-    """Read agent_configs from simulation_config.json and inject stance +
-    influence_weight into matching graph nodes by entity name."""
-    from app.services.simulation_manager import SimulationManager
-
-    sm = SimulationManager()
-    config = sm.get_simulation_config(simulation_id)
-    if not config:
-        print("[run_job] No simulation_config.json found, skipping stance injection", flush=True)
-        return
-
-    agent_configs = config.get("agent_configs", [])
-    if not agent_configs:
-        return
-
-    # Build lookup: lowercase entity name → agent config
-    name_to_agent = {}
-    for ac in agent_configs:
-        name = (ac.get("entity_name") or "").strip().lower()
-        if name:
-            name_to_agent[name] = ac
-
-    matched = 0
-    for node in graph_data.get("nodes", []):
-        node_name = (node.get("name") or "").strip().lower()
-        ac = name_to_agent.get(node_name)
-        if ac:
-            node["stance"] = ac.get("stance", "neutral")
-            node["influence_weight"] = ac.get("influence_weight", 1.0)
-            matched += 1
-
-    print(f"[run_job] Stance injected: {matched}/{len(graph_data.get('nodes', []))} nodes matched", flush=True)
-
-
-# ---------------------------------------------------------------------------
-# Structured results (no LLM calls — pure data transformation)
+# Structured results
 # ---------------------------------------------------------------------------
 
 FINDING_COLORS = ["#22D3EE", "#A78BFA", "#F97316", "#6EE7B7", "#FF6B6B", "#FBBF24"]
@@ -734,7 +637,6 @@ def build_structured_results(outline, section_contents, chat_log, graph_data):
     if outline and outline.get("summary"):
         brief = outline["summary"]
 
-    # Findings from outline sections + section content
     findings = []
     sections = (outline or {}).get("sections", [])
     sorted_files = sorted(section_contents.keys())
@@ -752,7 +654,6 @@ def build_structured_results(outline, section_contents, chat_log, graph_data):
             "accentColor": FINDING_COLORS[i % len(FINDING_COLORS)],
         })
 
-    # Sentiment from chat_log action types per platform
     sentiment = []
     platform_actions = {}
     for action in chat_log:
@@ -769,7 +670,6 @@ def build_structured_results(outline, section_contents, chat_log, graph_data):
         value = int((positive / total) * 100) if total > 0 else 0
         sentiment.append({"label": platform.capitalize(), "value": value, "direction": "positive" if value >= 50 else "negative"})
 
-    # Coalitions from FOLLOW patterns
     coalitions = []
     follow_graph = {}
     agent_names = set()
@@ -802,7 +702,6 @@ def build_structured_results(outline, section_contents, chat_log, graph_data):
             })
             ci += 1
 
-    # Confidence from simulation metadata
     meta = graph_data.get("metadata", {})
     confidence = [
         {"label": "Agents", "value": str(len(agent_names)), "color": "#22D3EE"},
@@ -818,14 +717,14 @@ def build_structured_results(outline, section_contents, chat_log, graph_data):
 # ---------------------------------------------------------------------------
 
 def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) -> dict:
-    """Run the complete 5-step MiroFish pipeline and write results to output_dir."""
+    """Run the complete MiroShark pipeline and write results to output_dir."""
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
 
     project_id, graph_id = build_graph(seed_text, goal)
     simulation_id = prepare_simulation(project_id, graph_id, seed_text, goal)
 
-    # Patch profiles with platform-specific style to prevent identical cross-platform content
+    # Patch profiles with platform-specific style
     try:
         _patch_platform_profiles(simulation_id)
     except Exception as exc:
@@ -835,16 +734,16 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
     report_md = generate_report(graph_id, simulation_id, goal)
     chat_log = collect_chat_log(simulation_id)
 
-    # Extract graph data from Zep before the ephemeral graph is destroyed
+    # Extract graph data from Neo4j
     graph_data = extract_graph_data(graph_id)
 
-    # Inject per-agent stance from simulation config into graph nodes
+    # Inject per-agent stance
     try:
         inject_agent_stance(simulation_id, graph_data)
     except Exception as exc:
         print(f"[run_job] WARNING: stance injection failed: {exc}", flush=True)
 
-    # Score per-entity sentiment from chat_log mentions
+    # Score per-entity sentiment
     try:
         score_entity_sentiment(graph_data, chat_log)
         scored = sum(1 for n in graph_data.get("nodes", []) if n.get("sentiment", 0) != 0)
@@ -852,7 +751,7 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
     except Exception as exc:
         print(f"[run_job] WARNING: sentiment scoring failed: {exc}", flush=True)
 
-    # Build structured results from pipeline outputs
+    # Build structured results
     structured = {}
     try:
         report_dirs = list(Path("/tmp/results").parent.glob("report_*"))
@@ -880,6 +779,14 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
     graph_data_str = json.dumps(graph_data, ensure_ascii=False, default=str)
     (out / "graph_data.json").write_text(graph_data_str, encoding="utf-8")
 
+    # Cleanup Neo4j graph
+    try:
+        _storage.delete_graph(graph_id)
+        _storage.close()
+        print(f"[run_job] Neo4j graph {graph_id} cleaned up", flush=True)
+    except Exception as exc:
+        print(f"[run_job] WARNING: graph cleanup failed: {exc}", flush=True)
+
     summary = {
         "status": "completed",
         "simulation_id": simulation_id,
@@ -901,61 +808,34 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Execute MiroFish 5-step pipeline on a GPU worker instance."
+        description="Execute MiroShark pipeline on a GPU worker instance."
     )
-    parser.add_argument(
-        "--seed-file",
-        required=True,
-        help="Path to a text file containing the seed material.",
-    )
-    parser.add_argument(
-        "--goal",
-        required=True,
-        help="Simulation requirement / research goal.",
-    )
-    parser.add_argument(
-        "--max-rounds",
-        type=int,
-        default=200,
-        help="Maximum OASIS simulation rounds (default: 200).",
-    )
-    parser.add_argument(
-        "--output-dir",
-        default="/tmp/results",
-        help="Directory where report.md, chat_log.json and summary.json are written.",
-    )
-    parser.add_argument(
-        "--skip-vllm-wait",
-        action="store_true",
-        help="Skip the vLLM health-check (useful for tests or when vLLM isn't used).",
-    )
+    parser.add_argument("--seed-file", required=True)
+    parser.add_argument("--goal", required=True)
+    parser.add_argument("--max-rounds", type=int, default=200)
+    parser.add_argument("--output-dir", default="/tmp/results")
+    parser.add_argument("--skip-vllm-wait", action="store_true")
     args = parser.parse_args()
 
     seed_text = Path(args.seed_file).read_text(encoding="utf-8")
 
-    # 1. Write MiroFish .env so dotenv picks it up on first import
-    setup_mirofish_config()
+    # 1. Write MiroShark .env
+    setup_miroshark_config(args.max_rounds)
 
-    # 2. Make sure MiroFish backend is importable
-    sys.path.insert(0, GRAPHITI_SHADOW)
-    sys.path.insert(1, MIROFISH_BACKEND)
-
-    # 2b. Pre-load Graphiti shadow modules into sys.modules so MiroFish's
-    # relative imports (from .graph_builder import ...) resolve to our shadows
-    # instead of the real Zep-dependent modules.
-    _inject_shadow_modules()
+    # 2. Make MiroShark backend importable
+    sys.path.insert(0, MIROSHARK_BACKEND)
 
     # 3. Override Config after import
     _apply_config_overrides(args.max_rounds)
 
-    # 3b. Patch all prompts to English output
-    _patch_mirofish_prompts_to_english()
+    # 4. Patch prompts to English
+    _patch_prompts_to_english()
 
-    # 4. Optionally wait for local vLLM
+    # 5. Wait for vLLM
     if not args.skip_vllm_wait:
         wait_for_vllm()
 
-    # 5. Run the pipeline
+    # 6. Run the pipeline
     run_pipeline(seed_text, args.goal, args.max_rounds, args.output_dir)
 
 
