@@ -94,7 +94,13 @@
             >
               <!-- Post header -->
               <div class="flex items-center gap-2.5 px-4 pt-3 pb-2">
-                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                <img
+                  v-if="avatarUri"
+                  :src="avatarUri"
+                  :alt="node.name"
+                  class="w-8 h-8 rounded-full bg-ocean-abyss/40"
+                >
+                <div v-else class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
                   :style="{ backgroundColor: nodeColor + '25', color: nodeColor }">
                   {{ node.name?.charAt(0) || '?' }}
                 </div>
@@ -141,6 +147,8 @@
 
 <script setup>
 import { computed } from 'vue'
+import { createAvatar } from '@dicebear/core'
+import { personas } from '@dicebear/collection'
 import { getEntityColor } from './graphColors.js'
 
 const props = defineProps({
@@ -165,6 +173,15 @@ const dedupedActions = computed(() => {
     }
   }
   return [...seen.values()]
+})
+
+const avatarUri = computed(() => {
+  if (!props.node?.name) return null
+  try {
+    return createAvatar(personas, { seed: props.node.name }).toDataUri()
+  } catch {
+    return null
+  }
 })
 
 const nodeColor = computed(() => {

@@ -13,6 +13,8 @@
     "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@dicebear/collection": "^9.4.2",
+    "@dicebear/core": "^9.4.2",
     "axios": "^1.7.0",
     "cytoscape": "^3.33.1",
     "cytoscape-cose-bilkent": "^4.1.0",
