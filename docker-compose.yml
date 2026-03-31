@@ -37,7 +37,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command: celery -A saas.workers.celery_app worker --beat --loglevel=info --concurrency=2
+    command: celery -A saas.workers.celery_app worker --beat --loglevel=info --concurrency=4
     healthcheck:
       # Verify worker responds AND beat scheduler is running (catches missing --beat flag)
       test: ["CMD-SHELL", "tr '\\0' ' ' < /proc/1/cmdline | grep -q beat && celery -A saas.workers.celery_app inspect ping --timeout 10"]
