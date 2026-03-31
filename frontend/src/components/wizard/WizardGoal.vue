@@ -16,7 +16,7 @@
     <GoalQualityMeter :goal="goal" />
 
     <div class="mt-6">
-      <GoalTemplateCards @select="onTemplateSelect" />
+      <GoalTemplateCards :seed-text="seedText" @select="onTemplateSelect" />
     </div>
   </div>
 </template>
@@ -27,6 +27,7 @@ import GoalTemplateCards from './GoalTemplateCards.vue'
 
 const props = defineProps({
   goal: { type: String, default: '' },
+  seedText: { type: String, default: '' },
 })
 
 const emit = defineEmits(['update:goal'])

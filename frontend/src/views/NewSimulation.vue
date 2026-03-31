@@ -27,7 +27,7 @@
 
     <!-- Step 2 -->
     <div v-if="step === 2" class="step-anim">
-      <WizardGoal v-model:goal="goal" />
+      <WizardGoal v-model:goal="goal" :seed-text="seedText" />
       <div class="wizard-nav">
         <button @click="step = 1" class="btn-back">← Back</button>
         <button @click="step = 3" :disabled="!goal.trim()" class="btn-next">

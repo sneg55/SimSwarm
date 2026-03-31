@@ -8,6 +8,7 @@ from saas.api.export import router as export_router
 from saas.api.share import router as share_router
 from saas.api.fetch import router as fetch_router
 from saas.api.profile import router as profile_router
+from saas.api.ai import router as ai_router
 
 api_router = APIRouter(prefix="/api")
 api_router.include_router(health_router)
@@ -19,3 +20,4 @@ api_router.include_router(export_router)
 api_router.include_router(share_router)
 api_router.include_router(fetch_router)
 api_router.include_router(profile_router)
+api_router.include_router(ai_router)
