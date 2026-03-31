@@ -103,8 +103,9 @@ jobs:
             docker compose rm -f frontend-init || true
             docker compose run --rm frontend-init
 
-            # Start services
+            # Start services + restart Caddy to pick up new frontend assets
             docker compose up -d app celery redis db caddy
+            docker compose restart caddy
 
             # Health check (wait up to 60s)
             for i in $(seq 1 20); do
