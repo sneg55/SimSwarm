@@ -10,6 +10,23 @@ from saas.workers.alerts import send_orphan_alert
 logger = logging.getLogger(__name__)
 
 HEARTBEAT_STALE_POD_DEAD_S = 300    # 5 minutes
+
+
+def _check_pod_status(pod_id: str) -> str:
+    """Check what the worker pod is doing via its /status endpoint.
+
+    Returns: 'idle', 'running', 'completed', 'failed', or 'unreachable'.
+    """
+    import httpx
+
+    url = f"https://{pod_id}-5000.proxy.runpod.net/status"
+    try:
+        resp = httpx.get(url, timeout=10)
+        if resp.status_code == 200:
+            return resp.json().get("status", "unknown")
+        return "unreachable"
+    except Exception:
+        return "unreachable"
 HEARTBEAT_STALE_NO_PROGRESS_S = 900  # 15 minutes
 
 
@@ -115,29 +132,27 @@ def recover_stale_jobs() -> dict:
                 pod_alive = pod_id in active_pods if pod_id else False
 
                 if not _is_stale(last_heartbeat, created_at, pod_alive, timeout):
-                    # Only resume RUNNING jobs (pipeline already started).
-                    # PROVISIONING jobs are still being handled by their original
-                    # Celery task — resuming them causes "pod is idle" errors
-                    # because the pipeline hasn't been submitted yet.
-                    job_status_result = conn.execute(
-                        text("SELECT status FROM simulation_jobs WHERE id = :jid"),
-                        {"jid": job_id},
-                    )
-                    job_status_row = job_status_result.first()
-                    job_status = job_status_row[0] if job_status_row else ""
-
-                    if pod_alive and pod_id and job_status == "RUNNING":
-                        logger.info(
-                            "recover.resuming job_id=%d pod_id=%s",
-                            job_id, pod_id,
-                        )
-                        resume_simulation_task.delay(
-                            job_id=job_id,
-                            user_id=user_id,
-                            pod_id=pod_id,
-                            credits_charged=credits_charged,
-                        )
-                        resumed.append({"job_id": job_id, "pod_id": pod_id})
+                    # Resume jobs whose pod is alive — check pod status first
+                    # to avoid "pod is idle" errors during vLLM warmup
+                    if pod_alive and pod_id:
+                        pod_status = _check_pod_status(pod_id)
+                        if pod_status in ("running", "completed"):
+                            logger.info(
+                                "recover.resuming job_id=%d pod_id=%s pod_status=%s",
+                                job_id, pod_id, pod_status,
+                            )
+                            resume_simulation_task.delay(
+                                job_id=job_id,
+                                user_id=user_id,
+                                pod_id=pod_id,
+                                credits_charged=credits_charged,
+                            )
+                            resumed.append({"job_id": job_id, "pod_id": pod_id})
+                        else:
+                            logger.info(
+                                "recover.skipping_idle job_id=%d pod_id=%s pod_status=%s",
+                                job_id, pod_id, pod_status,
+                            )
                     continue
 
                 reason = "heartbeat_stale" if last_heartbeat else "timeout"
