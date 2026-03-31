@@ -41,7 +41,7 @@ const props = defineProps({
 
 const TIMEFRAME_RE = /\b(\d+\s*(day|week|month|quarter|year)s?|over\s+\w+|within\s+\w+|next\s+\w+)\b/i
 const CAUSAL_RE = /\b(how\s+will|what\s+will|react|respond|impact|influence|affect|emerge|cascade)\b/i
-const STAKEHOLDER_RE = /\b(investor|analyst|regulator|consumer|customer|user|player|competitor|coalition|government|media|public|retail|institutional|trader|executive|ceo|cfo|firm|company|brand|market)\b/i
+const STAKEHOLDER_RE = /\b(investor|analyst|regulator|consumer|customer|user|player|competitor|coalition|government|media|public|retail|institutional|trader|executive|ceo|cfo|firm|company|brand|market)s?\b/i
 
 function wordCount(text) {
   return text.trim().split(/\s+/).filter(Boolean).length
@@ -51,7 +51,7 @@ const score = computed(() => {
   const g = props.goal
   if (!g.trim()) return 0
   let s = 0
-  if (wordCount(g) >= 30) s++
+  if (wordCount(g) >= 25) s++
   if (g.includes('?')) s++
   if (STAKEHOLDER_RE.test(g)) s++
   if (TIMEFRAME_RE.test(g)) s++
@@ -87,7 +87,7 @@ const activeTips = computed(() => {
   if (!props.goal.trim()) return []
   const g = props.goal
   const tips = []
-  if (wordCount(g) < 30) tips.push('Tip: Add more detail — longer goals produce more targeted analysis.')
+  if (wordCount(g) < 25) tips.push('Tip: Add more detail — longer goals produce more targeted analysis.')
   if (!g.includes('?')) tips.push("Tip: Frame as a question — 'How will...' or 'What will...'")
   if (!STAKEHOLDER_RE.test(g)) tips.push("Tip: Mention specific stakeholders (e.g. 'retail investors, regulators, media')")
   if (!TIMEFRAME_RE.test(g)) tips.push("Tip: Add a timeframe (e.g. 'over 30 days' or 'within the next quarter')")

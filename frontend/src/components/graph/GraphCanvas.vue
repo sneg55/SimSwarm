@@ -40,6 +40,26 @@ let highlightStartTime = 0
 let animFrame = null
 let lastTime = 0
 
+// Camera (pan & zoom)
+let camX = 0, camY = 0  // pan offset in screen pixels
+let camZoom = 1
+const MIN_ZOOM = 0.2, MAX_ZOOM = 5
+
+// Drag state
+let isDragging = false
+let dragStartX = 0, dragStartY = 0
+let dragStartCamX = 0, dragStartCamY = 0
+let dragMoved = false  // distinguish drag from click
+
+// Convert screen coords → world coords
+function screenToWorld(sx, sy) {
+  return { x: (sx - camX) / camZoom, y: (sy - camY) / camZoom }
+}
+// Convert world coords → screen coords
+function worldToScreen(wx, wy) {
+  return { x: wx * camZoom + camX, y: wy * camZoom + camY }
+}
+
 const SENTIMENT_COLORS = {
   negative: { r: 255, g: 107, b: 107 },
   positive: { r: 110, g: 231, b: 183 },
@@ -167,23 +187,40 @@ function isNodeHidden(n) {
 }
 
 // Mouse tracking
-let mouseX = -1, mouseY = -1
+let mouseX = -1, mouseY = -1  // screen coords
+let worldMouseX = -1, worldMouseY = -1
+
+function hitTestNode(wx, wy) {
+  for (const n of graphNodes) {
+    if (isNodeHidden(n)) continue
+    const dx = n.x - wx, dy = n.y - wy
+    const hitRadius = (n.size * 1.5 + 8) / camZoom
+    if (Math.sqrt(dx * dx + dy * dy) < hitRadius) return n
+  }
+  return null
+}
 
 function onMouseMove(e) {
   const rect = canvasRef.value.getBoundingClientRect()
   mouseX = e.clientX - rect.left
   mouseY = e.clientY - rect.top
+  const w = screenToWorld(mouseX, mouseY)
+  worldMouseX = w.x
+  worldMouseY = w.y
+
+  // Handle drag panning
+  if (isDragging) {
+    camX = dragStartCamX + (mouseX - dragStartX)
+    camY = dragStartCamY + (mouseY - dragStartY)
+    if (Math.abs(mouseX - dragStartX) > 3 || Math.abs(mouseY - dragStartY) > 3) {
+      dragMoved = true
+    }
+    canvasRef.value.style.cursor = 'grabbing'
+    return
+  }
 
   const prev = hoveredNode
-  hoveredNode = null
-  for (const n of graphNodes) {
-    if (isNodeHidden(n)) continue
-    const dx = n.x - mouseX, dy = n.y - mouseY
-    if (Math.sqrt(dx * dx + dy * dy) < n.size * 1.5 + 8) {
-      hoveredNode = n
-      break
-    }
-  }
+  hoveredNode = hitTestNode(worldMouseX, worldMouseY)
 
   if (hoveredNode) {
     canvasRef.value.style.cursor = 'pointer'
@@ -196,12 +233,32 @@ function onMouseMove(e) {
       y: mouseY,
     })
   } else {
-    canvasRef.value.style.cursor = 'default'
+    canvasRef.value.style.cursor = 'grab'
     if (prev) emit('node-unhover')
   }
 }
 
-function onClick() {
+function onMouseDown(e) {
+  if (e.button !== 0) return  // left button only
+  isDragging = true
+  dragMoved = false
+  dragStartX = e.clientX - canvasRef.value.getBoundingClientRect().left
+  dragStartY = e.clientY - canvasRef.value.getBoundingClientRect().top
+  dragStartCamX = camX
+  dragStartCamY = camY
+}
+
+function onMouseUp() {
+  const wasDragging = isDragging && dragMoved
+  isDragging = false
+
+  // If we dragged, don't fire click
+  if (wasDragging) {
+    canvasRef.value.style.cursor = hoveredNode ? 'pointer' : 'grab'
+    return
+  }
+
+  // Click logic
   if (hoveredNode) {
     selectedNode = hoveredNode
     connectedIds.clear()
@@ -229,6 +286,21 @@ function onClick() {
   }
 }
 
+function onWheel(e) {
+  e.preventDefault()
+  const rect = canvasRef.value.getBoundingClientRect()
+  const sx = e.clientX - rect.left
+  const sy = e.clientY - rect.top
+
+  // Zoom toward mouse position
+  const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1
+  const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, camZoom * zoomFactor))
+  const ratio = newZoom / camZoom
+  camX = sx - (sx - camX) * ratio
+  camY = sy - (sy - camY) * ratio
+  camZoom = newZoom
+}
+
 function animate(timestamp) {
   if (!ctx || !W || !H) { animFrame = requestAnimationFrame(animate); return }
 
@@ -236,6 +308,11 @@ function animate(timestamp) {
   const dt = Math.min(time - lastTime, 0.05)
   lastTime = time
   ctx.clearRect(0, 0, W, H)
+
+  // Apply camera transform
+  ctx.save()
+  ctx.translate(camX, camY)
+  ctx.scale(camZoom, camZoom)
 
   // Physics
   for (let i = 0; i < graphNodes.length; i++) {
@@ -405,6 +482,7 @@ function animate(timestamp) {
     }
   }
 
+  ctx.restore()
   animFrame = requestAnimationFrame(animate)
 }
 
@@ -432,18 +510,18 @@ function fitToVisibleArea() {
   const bbH = maxY - minY || 1
   const availW = rightBound - margin * 2
   const availH = H - margin * 2
-  const scale = Math.min(availW / bbW, availH / bbH, 1)
+
+  // Calculate zoom to fit all nodes in available area
+  camZoom = Math.min(availW / bbW, availH / bbH, 2)
+  camZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, camZoom))
+
+  // Center the bounding box in the available area
   const bbCx = (minX + maxX) / 2
   const bbCy = (minY + maxY) / 2
   const targetCx = margin + availW / 2
   const targetCy = margin + availH / 2
-
-  for (const n of graphNodes) {
-    n.x = (n.x - bbCx) * scale + targetCx
-    n.y = (n.y - bbCy) * scale + targetCy
-    n.homeX = n.x / W
-    n.homeY = n.y / H
-  }
+  camX = targetCx - bbCx * camZoom
+  camY = targetCy - bbCy * camZoom
 }
 
 function focusNode(id) {
@@ -451,14 +529,11 @@ function focusNode(id) {
   if (!node) return
   highlightedNodeId = id
   highlightStartTime = performance.now() * 0.001
-  // Pan node to center of available area (left of panel)
+  // Pan camera so node is at center of available area
   const rightBound = props.panelOpen ? W - PANEL_WIDTH : W
   const cx = rightBound / 2, cy2 = H / 2
-  const dx = cx - node.x, dy = cy2 - node.y
-  for (const n of graphNodes) {
-    n.x += dx; n.y += dy
-    n.homeX += dx / W; n.homeY += dy / H
-  }
+  camX = cx - node.x * camZoom
+  camY = cy2 - node.y * camZoom
   // Clear ping after 4s
   setTimeout(() => { if (highlightedNodeId === id) highlightedNodeId = null }, 4000)
 }
@@ -496,7 +571,10 @@ onMounted(() => {
     lastTime = performance.now() * 0.001
     animFrame = requestAnimationFrame(animate)
     canvasRef.value?.addEventListener('mousemove', onMouseMove)
-    canvasRef.value?.addEventListener('click', onClick)
+    canvasRef.value?.addEventListener('mousedown', onMouseDown)
+    canvasRef.value?.addEventListener('mouseup', onMouseUp)
+    canvasRef.value?.addEventListener('mouseleave', () => { isDragging = false })
+    canvasRef.value?.addEventListener('wheel', onWheel, { passive: false })
     window.addEventListener('resize', () => { resize(); buildGraph() })
     emit('ready')
   })
@@ -505,6 +583,8 @@ onMounted(() => {
 onBeforeUnmount(() => {
   if (animFrame) cancelAnimationFrame(animFrame)
   canvasRef.value?.removeEventListener('mousemove', onMouseMove)
-  canvasRef.value?.removeEventListener('click', onClick)
+  canvasRef.value?.removeEventListener('mousedown', onMouseDown)
+  canvasRef.value?.removeEventListener('mouseup', onMouseUp)
+  canvasRef.value?.removeEventListener('wheel', onWheel)
 })
 </script>
