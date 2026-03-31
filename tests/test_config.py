@@ -7,7 +7,7 @@ def test_settings_loads_from_env(monkeypatch):
     monkeypatch.setenv("LLM_API_KEY", "test-key")
     monkeypatch.setenv("LLM_BASE_URL", "http://localhost:8000/v1")
     monkeypatch.setenv("LLM_MODEL_NAME", "test-model")
-    monkeypatch.setenv("ZEP_API_KEY", "test-zep")
+    monkeypatch.setenv("NEO4J_PASSWORD", "test-neo4j")
 
     settings = Settings()
     assert settings.DATABASE_URL == "postgresql+asyncpg://test:test@localhost/test"
@@ -24,7 +24,7 @@ def test_settings_has_defaults(monkeypatch):
         DATABASE_URL="postgresql+asyncpg://x:x@localhost/x",
         SECRET_KEY="x",
         LLM_API_KEY="x",
-        ZEP_API_KEY="x",
+        NEO4J_PASSWORD="x",
         _env_file=None,
     )
     assert settings.LLM_BASE_URL == "http://localhost:8000/v1"
@@ -37,6 +37,6 @@ def test_test_database_url_override():
         DATABASE_URL="sqlite+aiosqlite:///test.db",
         SECRET_KEY="x",
         LLM_API_KEY="x",
-        ZEP_API_KEY="x",
+        NEO4J_PASSWORD="x",
     )
     assert "sqlite" in settings.DATABASE_URL

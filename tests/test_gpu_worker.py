@@ -45,6 +45,9 @@ def _make_job_config(**overrides) -> JobConfig:
         vllm_args="",
         llm_api_key="sk-test",
         openai_api_key="",
+            neo4j_uri="bolt://localhost:7687",
+            neo4j_user="neo4j",
+            neo4j_password="test",
     )
     defaults.update(overrides)
     return JobConfig(**defaults)

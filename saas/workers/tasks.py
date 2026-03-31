@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import os
 
 from saas.workers.celery_app import celery_app
 from saas.workers.job_runner import JobConfig, JobRunner
@@ -50,7 +51,7 @@ def run_simulation_task(
     """
     Celery task that:
       1. Provisions a GPU instance via RunPod / Vast.ai
-      2. Runs the MiroFish 5-step pipeline (run_job.py on the GPU)
+      2. Runs the MiroShark pipeline (run_job.py on the GPU)
       3. Saves report + chat_log to the SimulationJob row
       4. Auto-refunds credits and marks the job failed on any error
 
@@ -81,6 +82,10 @@ def run_simulation_task(
         vllm_args=vllm_args,
         llm_api_key=llm_api_key,
         openai_api_key=openai_api_key,
+        # Neo4j credentials read from env — not passed through Celery task args
+        neo4j_uri=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
+        neo4j_user=os.getenv("NEO4J_USER", "neo4j"),
+        neo4j_password=os.getenv("NEO4J_PASSWORD", ""),
     )
 
     gpu_provider = _get_gpu_provider()

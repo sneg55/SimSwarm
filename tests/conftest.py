@@ -31,7 +31,7 @@ test_settings = Settings(
     LLM_API_KEY="test-key",
     LLM_BASE_URL="http://localhost:8000/v1",
     LLM_MODEL_NAME="test-model",
-    ZEP_API_KEY="test-zep",
+    NEO4J_PASSWORD="test-neo4j",
 )
 
 
