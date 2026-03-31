@@ -43,81 +43,7 @@ _storage = None
 # English ontology prompt (replaces MiroShark's default Chinese prompt)
 # ---------------------------------------------------------------------------
 
-ENGLISH_ONTOLOGY_PROMPT = """You are a knowledge graph ontology designer. Your task is to analyze the given text and simulation goal, then design entity types and relationship types for a social media opinion simulation.
 
-**Output valid JSON only. No other text.**
-
-## Context
-
-We are building a social media simulation system where:
-- Each entity is an account/actor that posts, comments, follows, and interacts on social media
-- Entities influence each other through information sharing and discourse
-- We need to model how different actors react to events and how information spreads
-
-Entities MUST be real-world actors that can speak and interact on social media:
-- Specific individuals (public figures, experts, journalists, politicians)
-- Companies and their official accounts
-- Organizations (NGOs, unions, industry groups, universities)
-- Government agencies and regulators
-- Media outlets (newspapers, TV, podcasts, influencers)
-- Representative community groups (advocacy groups, fan communities, professional associations)
-
-Entities MUST NOT be abstract concepts, topics, opinions, or attitudes.
-
-## Output Format
-
-```json
-{
-    "entity_types": [
-        {
-            "name": "TypeName (PascalCase)",
-            "description": "Brief description (under 100 chars)",
-            "attributes": [
-                {"name": "attribute_name (snake_case)", "type": "text", "description": "What this captures"}
-            ],
-            "examples": ["Example Entity 1", "Example Entity 2"]
-        }
-    ],
-    "edge_types": [
-        {
-            "name": "RELATIONSHIP_NAME (UPPER_SNAKE_CASE)",
-            "description": "Brief description (under 100 chars)",
-            "source_targets": [{"source": "SourceType", "target": "TargetType"}],
-            "attributes": []
-        }
-    ],
-    "analysis_summary": "Brief analysis of the text and key actors identified"
-}
-```
-
-## Design Rules
-
-### Entity Types (6-10 types)
-- Design types that match the ACTUAL actors in the text — not generic academic templates
-- Include 2 fallback types at the end: `Person` (any individual) and `Organization` (any org)
-- The remaining 4-8 types should be SPECIFIC to the domain in the text
-- Each type needs clear boundaries — no overlapping types
-- 1-3 attributes per type (do NOT use reserved names: name, uuid, group_id, created_at, summary)
-
-### Relationship Types (6-10 types)
-- Reflect real social media and institutional relationships
-- Cover: institutional ties (WORKS_FOR, REGULATES), social dynamics (SUPPORTS, OPPOSES), information flow (REPORTS_ON, RESPONDS_TO)
-- Ensure source_targets reference your defined entity types
-
-### Quality Checklist
-- Every type must have 2+ concrete examples from the text
-- Types should cover ALL major actors mentioned, not just the first few
-- Relationship types should enable modeling the core dynamics described in the simulation goal
-- ALL output must be in English
-"""
-
-ENGLISH_INSTRUCTION = (
-    "CRITICAL REQUIREMENT: ALL output text MUST be written entirely in English. "
-    "Do NOT output any Chinese, Japanese, Korean, or other non-Latin text. "
-    "Translate any non-English context or references to English. "
-    "This applies to ALL fields: names, descriptions, analysis, summaries, reports, "
-    "dialogue, posts, comments, and any other generated text.\n\n"
-)
 
 
 # ---------------------------------------------------------------------------
@@ -227,37 +153,6 @@ def _apply_config_overrides(max_rounds: int) -> None:
     Config.WONDERWALL_DEFAULT_MAX_ROUNDS = max_rounds
 
 
-def _patch_prompts_to_english():
-    """Monkey-patch MiroShark prompts to output in English."""
-    modules_to_patch = [
-        "app.services.ontology_generator",
-        "app.services.report_agent",
-        "app.services.oasis_profile_generator",
-        "app.services.simulation_config_generator",
-    ]
-
-    for mod_name in modules_to_patch:
-        try:
-            mod = __import__(mod_name, fromlist=[""])
-            patched = 0
-            for attr in dir(mod):
-                val = getattr(mod, attr)
-                if isinstance(val, str) and len(val) > 80 and not attr.startswith("_"):
-                    setattr(mod, attr, ENGLISH_INSTRUCTION + val)
-                    patched += 1
-            print(f"[run_job] Patched {mod_name}: {patched} prompts", flush=True)
-        except ImportError:
-            print(f"[run_job] WARNING: could not patch {mod_name} (not found)", flush=True)
-
-    # Replace ontology prompt entirely
-    try:
-        import app.services.ontology_generator as ontology_mod
-        if hasattr(ontology_mod, "ONTOLOGY_SYSTEM_PROMPT"):
-            ontology_mod.ONTOLOGY_SYSTEM_PROMPT = ENGLISH_ONTOLOGY_PROMPT
-    except ImportError:
-        pass
-
-    print("[run_job] Patched MiroShark prompts to English output", flush=True)
 
 
 def _extract_enrichment_hints(seed_text: str) -> str | None:
@@ -854,13 +749,10 @@ def main() -> None:
     # 3. Override Config after import
     _apply_config_overrides(args.max_rounds)
 
-    # 4. Patch prompts to English
-    _patch_prompts_to_english()
-
-    # 5. Check Neo4j connectivity
+    # 4. Check Neo4j connectivity
     wait_for_neo4j()
 
-    # 6. Wait for vLLM
+    # 5. Wait for vLLM
     if not args.skip_vllm_wait:
         wait_for_vllm()
 
