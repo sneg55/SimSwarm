@@ -119,7 +119,7 @@ def setup_miroshark_config(max_rounds: int) -> None:
         "NEO4J_PASSWORD": os.getenv("NEO4J_PASSWORD", ""),
         "EMBEDDING_PROVIDER": os.getenv("EMBEDDING_PROVIDER", "openai"),
         "EMBEDDING_MODEL": os.getenv("EMBEDDING_MODEL", "text-embedding-3-small"),
-        "EMBEDDING_BASE_URL": "https://api.openai.com/v1",
+        "EMBEDDING_BASE_URL": "https://api.openai.com",
         "EMBEDDING_API_KEY": os.getenv("OPENAI_API_KEY", ""),
         "EMBEDDING_DIMENSIONS": os.getenv("EMBEDDING_DIMENSIONS", "1536"),
         "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY", ""),
@@ -147,7 +147,7 @@ def _apply_config_overrides(max_rounds: int) -> None:
     Config.NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")
     Config.EMBEDDING_PROVIDER = os.getenv("EMBEDDING_PROVIDER", "openai")
     Config.EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "text-embedding-3-small")
-    Config.EMBEDDING_BASE_URL = "https://api.openai.com/v1"
+    Config.EMBEDDING_BASE_URL = "https://api.openai.com"
     Config.EMBEDDING_API_KEY = os.getenv("OPENAI_API_KEY", "")
     Config.EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "1536"))
     Config.WONDERWALL_DEFAULT_MAX_ROUNDS = max_rounds
