@@ -80,8 +80,71 @@ NEW_DEMO_SLUGS = [
 ]
 
 
+DEMO_USER_EMAIL = "demo@fishcloud.internal"
+
+
+def _get_or_create_demo_user() -> str:
+    """Get or create the system demo user. Returns user_id as string."""
+    from sqlalchemy import create_engine, text
+    import secrets
+    import bcrypt
+
+    database_url = os.getenv("DATABASE_URL", "")
+    sync_url = database_url.replace("+asyncpg", "").replace("postgresql://", "postgresql+psycopg2://")
+    engine = create_engine(sync_url)
+
+    with engine.connect() as conn:
+        row = conn.execute(
+            text("SELECT id FROM users WHERE email = :email"),
+            {"email": DEMO_USER_EMAIL},
+        ).first()
+
+        if row:
+            user_id = str(row[0])
+        else:
+            pw_hash = bcrypt.hashpw(secrets.token_bytes(32), bcrypt.gensalt()).decode()
+            result = conn.execute(
+                text(
+                    "INSERT INTO users (email, password_hash, email_verified, created_at) "
+                    "VALUES (:email, :pw, true, now()) RETURNING id"
+                ),
+                {"email": DEMO_USER_EMAIL, "pw": pw_hash},
+            )
+            user_id = str(result.scalar())
+            conn.commit()
+            print(f"  Created demo user: id={user_id}")
+
+    engine.dispose()
+    return user_id
+
+
+def _create_job_row(user_id: str, seed_text: str, goal: str, tier: str) -> int:
+    """Create a SimulationJob row in the DB. Returns job_id."""
+    from sqlalchemy import create_engine, text
+
+    database_url = os.getenv("DATABASE_URL", "")
+    sync_url = database_url.replace("+asyncpg", "").replace("postgresql://", "postgresql+psycopg2://")
+    engine = create_engine(sync_url)
+
+    with engine.connect() as conn:
+        result = conn.execute(
+            text(
+                "INSERT INTO simulation_jobs "
+                "(user_id, seed_text, goal, tier, credits_charged, status, enrich_web, created_at) "
+                "VALUES (:uid, :seed, :goal, :tier, 0, 'PENDING', true, now()) "
+                "RETURNING id"
+            ),
+            {"uid": user_id, "seed": seed_text, "goal": goal, "tier": tier},
+        )
+        job_id = result.scalar()
+        conn.commit()
+
+    engine.dispose()
+    return job_id
+
+
 def dispatch_demo(config: dict, dry_run: bool = False) -> str | None:
-    """Dispatch a demo simulation via Celery. Returns task ID or None."""
+    """Dispatch a demo simulation via Celery with a real job row. Returns task ID or None."""
     from saas.workers.tasks import run_simulation_task
 
     slug = config["slug"]
@@ -100,12 +163,14 @@ def dispatch_demo(config: dict, dry_run: bool = False) -> str | None:
         print("  [DRY RUN] Would dispatch Celery task")
         return "dry-run"
 
-    # Dispatch directly — no job row, no credits, no auth
-    # Use job_id=0 and user_id="demo" since this is an operator-initiated run
-    # credits_charged=0 so no refund logic triggers on failure
+    # Create real job row so cleanup/recovery can track the pod
+    user_id = _get_or_create_demo_user()
+    job_id = _create_job_row(user_id, seed_text, config["goal"], tier)
+    print(f"  Created job row: id={job_id}, user_id={user_id}")
+
     result = run_simulation_task.delay(
-        job_id=0,
-        user_id="demo",
+        job_id=job_id,
+        user_id=user_id,
         seed_text=seed_text,
         goal=config["goal"],
         tier=tier,
@@ -118,7 +183,7 @@ def dispatch_demo(config: dict, dry_run: bool = False) -> str | None:
         credits_charged=0,
     )
 
-    print(f"  Dispatched: task_id={result.id}")
+    print(f"  Dispatched: task_id={result.id}, job_id={job_id}")
     return result.id
 
 
