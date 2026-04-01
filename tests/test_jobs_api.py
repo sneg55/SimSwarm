@@ -117,3 +117,36 @@ async def test_unauthenticated_request_returns_401(client):
         },
     )
     assert response.status_code == 401
+
+
+async def test_create_job_with_forecast_days(client, auth_headers, funded_user, seeded_routing):
+    with _mock_delay():
+        response = await client.post(
+            "/api/jobs",
+            headers=auth_headers,
+            json={
+                "seed_text": "Breaking news: markets are volatile.",
+                "goal": "Predict market sentiment",
+                "tier": "small",
+                "forecast_days": 30,
+            },
+        )
+    assert response.status_code == 201
+    data = response.json()
+    assert data["tier"] == "small"
+    assert data["credits_charged"] == 30
+
+
+async def test_create_job_without_forecast_days(client, auth_headers, funded_user, seeded_routing):
+    """forecast_days is optional — existing behavior still works."""
+    with _mock_delay():
+        response = await client.post(
+            "/api/jobs",
+            headers=auth_headers,
+            json={
+                "seed_text": "Breaking news: markets are volatile.",
+                "goal": "Predict market sentiment",
+                "tier": "small",
+            },
+        )
+    assert response.status_code == 201

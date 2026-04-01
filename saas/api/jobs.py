@@ -70,6 +70,7 @@ async def create_job(
         credits_charged=credits,
         status=JobStatus.PENDING,
         enrich_web=body.enrich_web,
+        forecast_days=body.forecast_days,
     )
     session.add(job)
     await session.flush()  # get job.id without committing

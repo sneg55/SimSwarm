@@ -17,6 +17,7 @@ class JobCreate(BaseModel):
     goal: str
     tier: TierEnum
     enrich_web: bool = True
+    forecast_days: int | None = None
 
     @field_validator("seed_text")
     @classmethod

@@ -52,3 +52,4 @@ class SimulationJob(Base):
     enrich_web: Mapped[bool] = mapped_column(default=True)
     enriched_seed: Mapped[str | None] = mapped_column(Text, nullable=True)
     enrichment_citations: Mapped[str | None] = mapped_column(Text, nullable=True)
+    forecast_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
