@@ -35,6 +35,13 @@ class Settings(BaseSettings):
     MAX_SEED_CHARS: int = 50_000
     MAX_SIMULATION_ROUNDS: int = 200
 
+    # MinIO object storage (rich simulation data)
+    MINIO_ENDPOINT: str = ""
+    MINIO_ACCESS_KEY: str = ""
+    MINIO_SECRET_KEY: str = ""
+    MINIO_BUCKET: str = "simswarm"
+    MINIO_SECURE: bool = True
+
     # Worker image
     WORKER_IMAGE_REPO: str = "ghcr.io/sneg55/simswarm-worker"
     WORKER_IMAGE_TAG: str = "latest"
