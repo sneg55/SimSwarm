@@ -1,4 +1,4 @@
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from saas.storage.minio_client import SimDataStorage, SIM_DATA_FILES
 
