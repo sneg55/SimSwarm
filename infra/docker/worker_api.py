@@ -25,7 +25,49 @@ _job = {
 _lock = threading.Lock()
 
 
-def _run_pipeline(seed_text, goal, max_rounds):
+def _extract_and_upload(results_dir, chat_log_str, upload_urls):
+    """Extract data from SQLite DBs and upload to MinIO via presigned URLs."""
+    import json as _json
+    from sim_data_extractor import extract_all
+
+    summary_path = results_dir / "summary.json"
+    if not summary_path.exists():
+        print("[worker] No summary.json, skipping sim data extraction", flush=True)
+        return False
+
+    summary = _json.loads(summary_path.read_text())
+    sim_dir = summary.get("sim_dir", "")
+    if not sim_dir or not os.path.isdir(sim_dir):
+        print(f"[worker] sim_dir not found: {sim_dir}", flush=True)
+        return False
+
+    actions = _json.loads(chat_log_str) if isinstance(chat_log_str, str) else chat_log_str
+
+    print(f"[worker] Extracting simulation data from {sim_dir}", flush=True)
+    all_data = extract_all(sim_dir, actions)
+
+    uploaded = 0
+    for filename, url in upload_urls.items():
+        if filename not in all_data:
+            continue
+        data = all_data[filename]
+        body = _json.dumps(data, ensure_ascii=False, default=str).encode("utf-8")
+        try:
+            import requests as req
+            resp = req.put(url, data=body, headers={"Content-Type": "application/json"}, timeout=60)
+            if resp.status_code in (200, 204):
+                uploaded += 1
+                print(f"[worker] Uploaded {filename} ({len(body)} bytes)", flush=True)
+            else:
+                print(f"[worker] Upload failed for {filename}: HTTP {resp.status_code}", flush=True)
+        except Exception as exc:
+            print(f"[worker] Upload failed for {filename}: {exc}", flush=True)
+
+    print(f"[worker] Uploaded {uploaded}/{len(upload_urls)} sim data files", flush=True)
+    return uploaded > 0
+
+
+def _run_pipeline(seed_text, goal, max_rounds, forecast_days=None, upload_urls=None):
     """Run MiroFish pipeline in background, stream output to log file."""
     try:
         seed_file = Path("/tmp/seed.txt")
@@ -74,9 +116,23 @@ def _run_pipeline(seed_text, goal, max_rounds):
         if (results_dir / "structured_results.json").exists():
             structured = (results_dir / "structured_results.json").read_text()
 
+        # Extract and upload rich simulation data to MinIO
+        sim_data_uploaded = False
+        if upload_urls:
+            try:
+                sim_data_uploaded = _extract_and_upload(results_dir, chat_log, upload_urls)
+            except Exception as exc:
+                print(f"[worker] WARNING: sim data extraction/upload failed: {exc}", flush=True)
+
         with _lock:
             _job["status"] = "completed"
-            _job["result"] = {"report": report, "chat_log": chat_log, "graph_data": graph_data, "structured": structured}
+            _job["result"] = {
+                "report": report,
+                "chat_log": chat_log,
+                "graph_data": graph_data,
+                "structured": structured,
+                "sim_data_uploaded": sim_data_uploaded,
+            }
 
     except subprocess.TimeoutExpired:
         proc.kill()
@@ -113,6 +169,8 @@ def submit_job():
     seed_text = data.get("seed_text", "")
     goal = data.get("goal", "")
     max_rounds = data.get("max_rounds", 200)
+    forecast_days = data.get("forecast_days")
+    upload_urls = data.get("upload_urls")
 
     with _lock:
         if _job["status"] == "running":
@@ -125,7 +183,7 @@ def submit_job():
 
     thread = threading.Thread(
         target=_run_pipeline,
-        args=(seed_text, goal, max_rounds),
+        args=(seed_text, goal, max_rounds, forecast_days, upload_urls),
         daemon=True,
     )
     thread.start()
@@ -142,6 +200,7 @@ def job_status():
             resp["chat_log"] = _job["result"]["chat_log"]
             resp["graph_data"] = _job["result"].get("graph_data", "{}")
             resp["structured"] = _job["result"].get("structured", "{}")
+            resp["sim_data_uploaded"] = _job["result"].get("sim_data_uploaded", False)
         if _job["status"] == "failed":
             resp["error"] = _job["error"]
     return jsonify(resp)

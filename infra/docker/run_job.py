@@ -924,9 +924,11 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
         except Exception as exc:
             print(f"[run_job] WARNING: graph cleanup failed: {exc}", flush=True)
 
+    from app.services.simulation_runner import SimulationRunner as _SR
     summary = {
         "status": "completed",
         "simulation_id": simulation_id,
+        "sim_dir": os.path.join(_SR.RUN_STATE_DIR, simulation_id),
         "graph_id": graph_id,
         "report_length": len(report_md),
         "chat_log_entries": len(chat_log),
