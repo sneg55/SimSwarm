@@ -91,6 +91,7 @@ async def create_job(
             openai_api_key=os.getenv("OPENAI_API_KEY", ""),
             credits_charged=credits,
             enrich_web=body.enrich_web,
+            forecast_days=body.forecast_days,
         )
     except Exception:
         await session.rollback()

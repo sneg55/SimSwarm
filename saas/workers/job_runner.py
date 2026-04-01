@@ -45,6 +45,7 @@ class JobConfig:
     neo4j_uri: str
     neo4j_user: str
     neo4j_password: str
+    forecast_days: int | None = None
 
     @property
     def timeout_seconds(self) -> int:
@@ -260,6 +261,7 @@ class JobRunner:
                 "seed_text": config.seed_text,
                 "goal": config.goal,
                 "max_rounds": config.max_rounds,
+                "forecast_days": config.forecast_days,
             }, timeout=30)
             if resp.status_code != 200:
                 try:

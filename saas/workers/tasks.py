@@ -47,6 +47,7 @@ def run_simulation_task(
     openai_api_key: str = "",
     credits_charged: int = 0,
     enrich_web: bool = True,
+    forecast_days: int | None = None,
 ) -> dict:
     """
     Celery task that:
@@ -86,6 +87,7 @@ def run_simulation_task(
         neo4j_uri=os.getenv("NEO4J_URI", "bolt://localhost:7687"),
         neo4j_user=os.getenv("NEO4J_USER", "neo4j"),
         neo4j_password=os.getenv("NEO4J_PASSWORD", ""),
+        forecast_days=forecast_days,
     )
 
     gpu_provider = _get_gpu_provider()
