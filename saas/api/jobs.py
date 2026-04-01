@@ -12,11 +12,23 @@ from saas.schemas.jobs import JobCreate, JobResponse, JobListResponse
 from saas.tiers import TIER_CREDITS
 from saas.billing.ledger import CreditLedger, InsufficientCreditsError
 from saas.auth.dependencies import get_current_user
+from saas.storage.minio_client import SimDataStorage
 import os
 
 from saas.workers.tasks import run_simulation_task
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+
+
+def _get_sim_data_storage(request: Request) -> SimDataStorage:
+    settings = request.app.state.settings
+    return SimDataStorage(
+        endpoint=settings.MINIO_ENDPOINT,
+        access_key=settings.MINIO_ACCESS_KEY,
+        secret_key=settings.MINIO_SECRET_KEY,
+        bucket=settings.MINIO_BUCKET,
+        secure=settings.MINIO_SECURE,
+    )
 
 
 @router.post("", response_model=JobResponse, status_code=201)
@@ -75,6 +87,10 @@ async def create_job(
     session.add(job)
     await session.flush()  # get job.id without committing
 
+    # Generate presigned upload URLs for rich simulation data
+    storage = _get_sim_data_storage(request)
+    upload_urls = storage.generate_upload_urls(job_id=job.id)
+
     # 4. Dispatch to Celery — if this fails, the whole transaction rolls back
     try:
         task_result = run_simulation_task.delay(
@@ -92,6 +108,7 @@ async def create_job(
             credits_charged=credits,
             enrich_web=body.enrich_web,
             forecast_days=body.forecast_days,
+            upload_urls=upload_urls,
         )
     except Exception:
         await session.rollback()
@@ -103,6 +120,30 @@ async def create_job(
     await session.refresh(job)
 
     return job
+
+
+@router.get("/{job_id}/sim-data")
+async def get_sim_data(
+    request: Request,
+    job_id: int,
+    current_user: dict = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+):
+    """Return presigned download URLs for rich simulation data."""
+    user_id = current_user["user_id"]
+    result = await session.execute(
+        select(SimulationJob).where(SimulationJob.id == job_id, SimulationJob.user_id == user_id)
+    )
+    job = result.scalar_one_or_none()
+    if not job or not job.sim_data_available:
+        raise HTTPException(status_code=404, detail="Simulation data not available")
+
+    storage = _get_sim_data_storage(request)
+    urls = storage.generate_download_urls(job_id=job_id)
+    if not urls:
+        raise HTTPException(status_code=404, detail="Object storage not configured")
+
+    return {"job_id": job_id, "files": urls}
 
 
 @router.get("/{job_id}", response_model=JobResponse)
