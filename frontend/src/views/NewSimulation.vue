@@ -27,7 +27,7 @@
 
     <!-- Step 2 -->
     <div v-if="step === 2" class="step-anim">
-      <WizardGoal v-model:goal="goal" :seed-text="seedText" />
+      <WizardGoal v-model:goal="goal" v-model:forecastDays="forecastDays" :seed-text="seedText" />
       <div class="wizard-nav">
         <button @click="step = 1" class="btn-back">← Back</button>
         <button @click="step = 3" :disabled="!goal.trim()" class="btn-next">
@@ -38,7 +38,7 @@
 
     <!-- Step 3 -->
     <div v-if="step === 3" class="step-anim">
-      <WizardLaunch v-model:tier="selectedTier" />
+      <WizardLaunch v-model:tier="selectedTier" :forecastDays="forecastDays" />
       <div class="wizard-nav">
         <button @click="step = 2" class="btn-back">← Back</button>
         <button @click="handleSubmit" :disabled="!canSubmit || loading" class="btn-launch">
@@ -80,6 +80,7 @@ const seedText = ref('')
 const goal = ref('')
 const selectedTier = ref(null)
 const enrichWeb = ref(true)
+const forecastDays = ref(null)
 const loading = ref(false)
 const error = ref('')
 
@@ -133,6 +134,7 @@ async function handleSubmit() {
       goal: goal.value,
       tier: selectedTier.value,
       enrich_web: enrichWeb.value,
+      forecast_days: forecastDays.value,
     })
     creditsStore.deduct(creditsStore.getTierCost(selectedTier.value))
     router.push(`/sim/${job.id}`)

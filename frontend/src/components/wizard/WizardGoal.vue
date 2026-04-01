@@ -13,7 +13,9 @@
       class="w-full bg-ocean-abyss border border-mist-depth rounded-2xl p-5 text-base text-mist resize-none min-h-[140px] outline-none leading-relaxed transition-all focus:border-ocean-cyan focus:shadow-[0_0_0_3px_rgba(14,116,144,0.15)]"
     />
 
-    <GoalQualityMeter :goal="goal" />
+    <TimelineChips :modelValue="forecastDays" @update:modelValue="$emit('update:forecastDays', $event)" />
+
+    <GoalQualityMeter :goal="goal" :timelineDays="forecastDays" />
 
     <div class="mt-6">
       <GoalTemplateCards :seed-text="seedText" @select="onTemplateSelect" />
@@ -24,13 +26,15 @@
 <script setup>
 import GoalQualityMeter from './GoalQualityMeter.vue'
 import GoalTemplateCards from './GoalTemplateCards.vue'
+import TimelineChips from './TimelineChips.vue'
 
 const props = defineProps({
   goal: { type: String, default: '' },
   seedText: { type: String, default: '' },
+  forecastDays: { type: Number, default: null },
 })
 
-const emit = defineEmits(['update:goal'])
+const emit = defineEmits(['update:goal', 'update:forecastDays'])
 
 function onTemplateSelect(text) {
   emit('update:goal', text)

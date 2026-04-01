@@ -37,6 +37,7 @@ import { computed } from 'vue'
 
 const props = defineProps({
   goal: { type: String, default: '' },
+  timelineDays: { type: Number, default: null },
 })
 
 const TIMEFRAME_RE = /\b(\d+\s*(day|week|month|quarter|year)s?|over\s+\w+|within\s+\w+|next\s+\w+)\b/i
@@ -54,7 +55,7 @@ const score = computed(() => {
   if (wordCount(g) >= 25) s++
   if (g.includes('?')) s++
   if (STAKEHOLDER_RE.test(g)) s++
-  if (TIMEFRAME_RE.test(g)) s++
+  if (TIMEFRAME_RE.test(g) || props.timelineDays) s++
   if (CAUSAL_RE.test(g)) s++
   return s
 })
@@ -90,7 +91,7 @@ const activeTips = computed(() => {
   if (wordCount(g) < 25) tips.push('Tip: Add more detail — longer goals produce more targeted analysis.')
   if (!g.includes('?')) tips.push("Tip: Frame as a question — 'How will...' or 'What will...'")
   if (!STAKEHOLDER_RE.test(g)) tips.push("Tip: Mention specific stakeholders (e.g. 'retail investors, regulators, media')")
-  if (!TIMEFRAME_RE.test(g)) tips.push("Tip: Add a timeframe (e.g. 'over 30 days' or 'within the next quarter')")
+  if (!TIMEFRAME_RE.test(g) && !props.timelineDays) tips.push("Tip: Add a timeframe (e.g. 'over 30 days' or 'within the next quarter')")
   if (!CAUSAL_RE.test(g)) tips.push("Tip: Use cause-effect language — 'How will X react to Y?' or 'What shifts will emerge?'")
   return tips
 })

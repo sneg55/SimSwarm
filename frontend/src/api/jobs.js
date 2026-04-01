@@ -6,6 +6,7 @@ export async function createJob(payload) {
     goal: payload.goal,
     tier: payload.tier,
     enrich_web: payload.enrich_web ?? true,
+    forecast_days: payload.forecast_days ?? null,
   }
   const response = await api.post('/jobs', body)
   return response.data
