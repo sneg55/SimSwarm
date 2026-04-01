@@ -310,6 +310,31 @@ def _update_enrichment(job_id: int, enriched_text: str, citations_json: str) -> 
     _run_async(_do_update())
 
 
+def _update_sim_data_available(job_id: int, available: bool) -> None:
+    """Mark whether rich simulation data was uploaded to MinIO."""
+    import os
+    from sqlalchemy import create_engine, text
+
+    database_url = os.getenv("DATABASE_URL", "")
+    if not database_url:
+        logger.warning("DATABASE_URL not set; skipping sim_data_available update for job %d", job_id)
+        return
+
+    sync_url = database_url.replace("+asyncpg", "").replace("postgresql://", "postgresql+psycopg2://")
+    try:
+        engine = create_engine(sync_url)
+        with engine.connect() as conn:
+            conn.execute(
+                text("UPDATE simulation_jobs SET sim_data_available = :available WHERE id = :job_id"),
+                {"available": available, "job_id": job_id},
+            )
+            conn.commit()
+            logger.info("Set sim_data_available=%s for job %d", available, job_id)
+        engine.dispose()
+    except Exception as exc:
+        logger.warning("Could not update sim_data_available for job %d: %s", job_id, exc)
+
+
 def _update_job_retry(job_id: int, retry_count: int) -> None:
     """Update retry_count and reset status to PROVISIONING for a job being retried."""
     from sqlalchemy import text

@@ -17,6 +17,7 @@ from saas.workers.persistence import (
     _update_enrichment,
     _update_job_metadata,
     _update_job_retry,
+    _update_sim_data_available,
 )
 from saas.workers.refund import _refund_credits
 from saas.workers.cleanup import cleanup_orphaned_pods as _cleanup_orphaned_pods_impl
@@ -48,6 +49,7 @@ def run_simulation_task(
     credits_charged: int = 0,
     enrich_web: bool = True,
     forecast_days: int | None = None,
+    upload_urls: dict | None = None,
 ) -> dict:
     """
     Celery task that:
@@ -88,6 +90,7 @@ def run_simulation_task(
         neo4j_user=os.getenv("NEO4J_USER", "neo4j"),
         neo4j_password=os.getenv("NEO4J_PASSWORD", ""),
         forecast_days=forecast_days,
+        upload_urls=upload_urls,
     )
 
     gpu_provider = _get_gpu_provider()
@@ -134,6 +137,11 @@ def run_simulation_task(
         key_insight = _extract_key_insight(report)
 
         _save_job_results(job_id=job_id, report=report, chat_log=chat_log, graph_data=graph_data, key_insight=key_insight, structured=structured)
+
+        # Mark rich simulation data availability
+        sim_data_uploaded = result.get("sim_data_uploaded", False)
+        if sim_data_uploaded:
+            _update_sim_data_available(job_id, True)
 
         logger.info(
             "job.completed job_id=%d pod_id=%s provision_s=%s pipeline_s=%s",

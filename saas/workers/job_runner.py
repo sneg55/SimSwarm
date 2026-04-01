@@ -46,6 +46,7 @@ class JobConfig:
     neo4j_user: str
     neo4j_password: str
     forecast_days: int | None = None
+    upload_urls: dict | None = None
 
     @property
     def timeout_seconds(self) -> int:
@@ -262,6 +263,7 @@ class JobRunner:
                 "goal": config.goal,
                 "max_rounds": config.max_rounds,
                 "forecast_days": config.forecast_days,
+                "upload_urls": config.upload_urls,
             }, timeout=30)
             if resp.status_code != 200:
                 try:
@@ -375,6 +377,7 @@ class JobRunner:
             "chat_log": result.get("chat_log", "[]"),
             "graph_data": result.get("graph_data", "{}"),
             "structured": result.get("structured", "{}"),
+            "sim_data_uploaded": result.get("sim_data_uploaded", False),
             "status": "completed",
         }
 
