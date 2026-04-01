@@ -44,6 +44,7 @@ class JobResponse(BaseModel):
     enriched_seed: str | None = None
     enrichment_citations: str | None = None
     enrich_web: bool = True
+    sim_data_available: bool = False
     created_at: datetime
     completed_at: datetime | None
 
@@ -61,6 +62,7 @@ class JobSummary(BaseModel):
     error_message: str | None = None
     enrich_web: bool = True
     enriched_seed: str | None = None
+    sim_data_available: bool = False
     created_at: datetime
     completed_at: datetime | None = None
 
