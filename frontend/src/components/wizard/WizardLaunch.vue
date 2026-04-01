@@ -11,13 +11,13 @@
       <button
         v-for="tier in tiers" :key="tier.id"
         @click="selectTier(tier.id)"
-        :disabled="!creditsStore.canAfford(tier.id)"
+        :disabled="!creditsStore.canAfford(tier.id) || !tierFitsTimeline(tier.id)"
         class="relative overflow-hidden rounded-2xl border-2 p-5 text-center transition-all duration-350 ease-spring"
         :class="[
           selectedTier === tier.id
             ? 'border-[var(--border)] bg-ocean-abyss shadow-[0_0_24px_var(--glow)]'
             : 'border-mist-depth bg-ocean-deep hover:border-[var(--border)] hover:-translate-y-1',
-          !creditsStore.canAfford(tier.id) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
+          (!creditsStore.canAfford(tier.id) || !tierFitsTimeline(tier.id)) ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
         ]"
         :style="{ '--glow': tier.glow, '--border': tier.border, '--accent': tier.accent }"
       >
@@ -25,6 +25,9 @@
         <div class="font-mono text-[11px] text-mist-slate">{{ tier.range }}</div>
         <div class="text-2xl font-extrabold mt-3 transition-transform" :style="{ color: tier.accent }" :class="selectedTier === tier.id ? 'scale-105' : ''">{{ creditsStore.getTierCost(tier.id) }} cr</div>
         <div class="text-[11px] text-mist-slate mt-1">{{ tier.duration }}</div>
+        <div v-if="!tierFitsTimeline(tier.id)" class="text-[10px] text-coral/70 mt-1">
+          Needs {{ tier.id === 'small' ? 'Medium' : 'Large' }}+
+        </div>
       </button>
     </div>
 
@@ -68,9 +71,20 @@
 import { ref, computed } from 'vue'
 import { useCreditsStore } from '../../stores/credits.js'
 
+const props = defineProps({
+  forecastDays: { type: Number, default: null },
+})
+
 const creditsStore = useCreditsStore()
 
 const emit = defineEmits(['update:tier'])
+
+const TIER_MAX_DAYS = { small: 30, medium: 180, large: 365 }
+
+function tierFitsTimeline(tierId) {
+  if (!props.forecastDays) return true
+  return props.forecastDays <= TIER_MAX_DAYS[tierId]
+}
 
 const selectedTier = ref('medium')
 emit('update:tier', 'medium')
@@ -96,7 +110,7 @@ const balanceAfter = computed(() => {
 })
 
 function selectTier(id) {
-  if (!creditsStore.canAfford(id)) return
+  if (!creditsStore.canAfford(id) || !tierFitsTimeline(id)) return
   selectedTier.value = id
   emit('update:tier', id)
 }
