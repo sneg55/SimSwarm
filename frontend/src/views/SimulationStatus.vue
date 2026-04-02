@@ -61,6 +61,13 @@
               <span class="text-sm text-mist-drift">Estimated remaining</span>
               <span class="font-mono text-sm text-ocean-glow tabular-nums">{{ eta }}</span>
             </div>
+            <div v-if="liveRound !== null && job.pipeline_stage === 3 && !isLiveStale"
+              class="flex items-center justify-between">
+              <span class="text-sm text-mist-drift">Rounds</span>
+              <span class="font-mono text-sm text-mist-foam tabular-nums">
+                {{ liveRound }} <span class="text-mist-slate font-normal">/ {{ liveMaxRounds || '--' }}</span>
+              </span>
+            </div>
           </template>
 
           <!-- Pending state -->
@@ -95,6 +102,14 @@
           </template>
         </div>
       </div>
+
+      <!-- Live Activity feed (log lines + partial chat during run) -->
+      <LiveActivity
+        v-if="showLiveActivity"
+        :log-lines="liveLogLines"
+        :partial-chat="livePartialChat"
+        :stage="job.pipeline_stage || 0"
+      />
 
       <!-- Email notification banner -->
       <div v-if="isActive || job.status === 'PENDING'" class="flex items-center gap-3 px-5 py-3.5 rounded-xl bg-ocean-cyan/8 border border-ocean-cyan/15 text-ocean-glow text-sm">
@@ -175,6 +190,7 @@ import PipelineProgress from '../components/PipelineProgress.vue'
 import ChatReplay from '../components/ChatReplay.vue'
 import SkeletonCard from '../components/SkeletonCard.vue'
 import ReportViewer from '../components/ReportViewer.vue'
+import LiveActivity from '../components/LiveActivity.vue'
 import { getJob, retryJob, retryEnrichment } from '../api/jobs.js'
 
 const STAGE_NAMES = ['Seeding', 'Researching', 'Simulating', 'Analyzing', 'Generating report']
@@ -310,6 +326,21 @@ const chatMessages = computed(() => {
     return Array.isArray(parsed) ? parsed : []
   } catch { return [] }
 })
+
+const liveStatus = computed(() => job.value?.live_status || null)
+const liveLogLines = computed(() => liveStatus.value?.log_lines || [])
+const livePartialChat = computed(() => liveStatus.value?.partial_chat || [])
+const liveRound = computed(() => liveStatus.value?.round ?? null)
+const liveMaxRounds = computed(() => liveStatus.value?.max_rounds ?? null)
+const isLiveStale = computed(() => {
+  if (!liveStatus.value?.updated_at) return true
+  return (Date.now() / 1000 - liveStatus.value.updated_at) > 120
+})
+const showLiveActivity = computed(() =>
+  isActive.value &&
+  !isLiveStale.value &&
+  (liveLogLines.value.length > 0 || livePartialChat.value.length > 0)
+)
 
 const statusLabel = computed(() => {
   const map = {
