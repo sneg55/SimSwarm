@@ -5,6 +5,7 @@
       :title="job?.goal || 'Results'"
       :viewMode="viewMode"
       :showToggle="true"
+      :showData="simDataAvailable"
       @update:viewMode="viewMode = $event"
     />
 
@@ -62,6 +63,11 @@
                     :strength="c.strength" :color="c.color" />
                 </div>
               </div>
+              <!-- Compact simulation data cards -->
+              <div v-if="simDataAvailable" class="grid gap-4 md:grid-cols-2 mb-8" data-reveal>
+                <MarketCurveCompact :markets="compactMarkets" />
+                <EngagementCompact :data="compactEngagement" />
+              </div>
               <ReportViewer :content="job.result_report || ''" />
             </template>
             <template v-else>
@@ -94,8 +100,13 @@
         />
       </div>
 
+      <!-- ── Data View ── -->
+      <div v-else-if="viewMode === 'data'" class="overflow-hidden" style="min-height: calc(100vh - 140px)">
+        <DataDashboard :jobId="jobId" />
+      </div>
+
       <!-- ── Report View ── -->
-      <div v-else class="relative pt-[120px] pb-24">
+      <div v-else-if="viewMode === 'report'" class="relative pt-[120px] pb-24">
         <!-- Left TOC -->
         <ReportToc :items="tocItems" />
 
@@ -154,7 +165,10 @@ import CoalitionCard from '../components/results/CoalitionCard.vue'
 import ConfidenceGrid from '../components/results/ConfidenceGrid.vue'
 import { useScrollReveal } from '../composables/useScrollReveal.js'
 import { useSimulationData } from '../composables/useSimulationData.js'
-import { getJob, getJobGraph, createShareLink } from '../api/jobs.js'
+import { getJob, getJobGraph, createShareLink, getSimData } from '../api/jobs.js'
+import DataDashboard from '../components/data/DataDashboard.vue'
+import MarketCurveCompact from '../components/results/MarketCurveCompact.vue'
+import EngagementCompact from '../components/results/EngagementCompact.vue'
 
 const route = useRoute()
 const jobId = route.params.id
@@ -170,6 +184,10 @@ const graphData = ref(null)
 const graphLoading = ref(false)
 const graphError = ref(null)
 const hasGraph = ref(false)
+
+const simDataAvailable = ref(false)
+const compactMarkets = ref([])
+const compactEngagement = ref([])
 
 const pdfLoading = ref(false)
 
@@ -329,6 +347,23 @@ onMounted(async () => {
   try {
     job.value = await getJob(jobId)
     await fetchGraphData()
+
+    // Check for rich simulation data
+    simDataAvailable.value = job.value?.sim_data_available || false
+    if (simDataAvailable.value) {
+      try {
+        const sd = await getSimData(jobId)
+        const [mc, es] = await Promise.all([
+          fetch(sd.files['market_curves.json']).then(r => r.ok ? r.json() : []),
+          fetch(sd.files['engagement_summary.json']).then(r => r.ok ? r.json() : []),
+        ])
+        compactMarkets.value = mc || []
+        compactEngagement.value = es || []
+      } catch (err) {
+        console.warn('Sim data not available:', err)
+        simDataAvailable.value = false
+      }
+    }
   } catch (err) {
     console.error('Failed to load results:', err)
   } finally {

@@ -8,7 +8,7 @@
     </div>
     <div class="flex items-center gap-3 flex-shrink-0">
       <slot name="controls" />
-      <ViewModeToggle v-if="showToggle" :modelValue="viewMode" @update:modelValue="$emit('update:viewMode', $event)" />
+      <ViewModeToggle v-if="showToggle" :modelValue="viewMode" :showData="showData" @update:modelValue="$emit('update:viewMode', $event)" />
     </div>
     </div>
   </div>
@@ -23,6 +23,7 @@ defineProps({
   showToggle: { type: Boolean, default: true },
   backLink: { type: String, default: '/dashboard' },
   backLabel: { type: String, default: 'Dashboard' },
+  showData: { type: Boolean, default: false },
 })
 
 defineEmits(['update:viewMode'])
