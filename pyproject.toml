@@ -22,6 +22,7 @@ dependencies = [
     "slowapi>=0.1.9",
     "psycopg2-binary>=2.9.0",
     "openai>=1.60.0",
+    "minio>=7.2.0",
 ]
 
 [project.optional-dependencies]
