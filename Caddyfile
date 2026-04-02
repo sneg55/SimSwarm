@@ -32,7 +32,9 @@
 	# MinIO proxy for sim data (avoids mixed content - HTTPS -> HTTP)
 	handle /minio/* {
 		uri strip_prefix /minio
-		reverse_proxy 178.156.171.213:9000
+		reverse_proxy 178.156.171.213:9000 {
+			header_up Host 178.156.171.213:9000
+		}
 	}
 
 	# SPA fallback — serve index.html for all other routes
