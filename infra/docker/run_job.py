@@ -915,6 +915,23 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
         graph_data_str = json.dumps(graph_data, ensure_ascii=False, default=str)
         (out / "graph_data.json").write_text(graph_data_str, encoding="utf-8")
 
+        # Extract rich simulation data from SQLite DBs
+        try:
+            from sim_data_extractor import extract_all
+            from app.services.simulation_runner import SimulationRunner as _SRE
+            sim_dir = os.path.join(_SRE.RUN_STATE_DIR, simulation_id)
+            if os.path.isdir(sim_dir):
+                print(f"[run_job] Extracting rich simulation data from {sim_dir}", flush=True)
+                all_data = extract_all(sim_dir, chat_log)
+                for filename, data in all_data.items():
+                    fpath = out / filename
+                    fpath.write_text(json.dumps(data, ensure_ascii=False, default=str), encoding="utf-8")
+                    print(f"[run_job] Wrote {filename} ({fpath.stat().st_size} bytes)", flush=True)
+            else:
+                print(f"[run_job] WARNING: sim_dir not found for extraction: {sim_dir}", flush=True)
+        except Exception as exc:
+            print(f"[run_job] WARNING: rich data extraction failed: {exc}", flush=True)
+
     finally:
         # Always clean up Neo4j graph, even on failure
         try:

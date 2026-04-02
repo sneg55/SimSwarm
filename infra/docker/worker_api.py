@@ -25,35 +25,21 @@ _job = {
 _lock = threading.Lock()
 
 
-def _extract_and_upload(results_dir, chat_log_str, upload_urls):
-    """Extract data from SQLite DBs and upload to MinIO via presigned URLs."""
-    import json as _json
-    from sim_data_extractor import extract_all
+def _upload_sim_data(results_dir, upload_urls):
+    """Upload pre-extracted sim data JSON files to MinIO via presigned URLs.
 
-    summary_path = results_dir / "summary.json"
-    if not summary_path.exists():
-        print("[worker] No summary.json, skipping sim data extraction", flush=True)
-        return False
-
-    summary = _json.loads(summary_path.read_text())
-    sim_dir = summary.get("sim_dir", "")
-    if not sim_dir or not os.path.isdir(sim_dir):
-        print(f"[worker] sim_dir not found: {sim_dir}", flush=True)
-        return False
-
-    actions = _json.loads(chat_log_str) if isinstance(chat_log_str, str) else chat_log_str
-
-    print(f"[worker] Extracting simulation data from {sim_dir}", flush=True)
-    all_data = extract_all(sim_dir, actions)
+    The JSON files are written by run_job.py (via sim_data_extractor.extract_all).
+    This function just reads them from the results directory and uploads.
+    """
+    import requests as req
 
     uploaded = 0
     for filename, url in upload_urls.items():
-        if filename not in all_data:
+        filepath = results_dir / filename
+        if not filepath.exists():
             continue
-        data = all_data[filename]
-        body = _json.dumps(data, ensure_ascii=False, default=str).encode("utf-8")
+        body = filepath.read_bytes()
         try:
-            import requests as req
             resp = req.put(url, data=body, headers={"Content-Type": "application/json"}, timeout=60)
             if resp.status_code in (200, 204):
                 uploaded += 1
@@ -116,13 +102,13 @@ def _run_pipeline(seed_text, goal, max_rounds, forecast_days=None, upload_urls=N
         if (results_dir / "structured_results.json").exists():
             structured = (results_dir / "structured_results.json").read_text()
 
-        # Extract and upload rich simulation data to MinIO
+        # Upload rich simulation data files to MinIO (extracted by run_job.py)
         sim_data_uploaded = False
         if upload_urls:
             try:
-                sim_data_uploaded = _extract_and_upload(results_dir, chat_log, upload_urls)
+                sim_data_uploaded = _upload_sim_data(results_dir, upload_urls)
             except Exception as exc:
-                print(f"[worker] WARNING: sim data extraction/upload failed: {exc}", flush=True)
+                print(f"[worker] WARNING: sim data upload failed: {exc}", flush=True)
 
         with _lock:
             _job["status"] = "completed"
