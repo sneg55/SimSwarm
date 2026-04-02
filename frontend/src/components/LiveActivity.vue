@@ -47,9 +47,9 @@
         >
           <div
             class="text-[11px] font-semibold mb-1 flex items-center gap-1.5"
-            :style="{ color: agentColor(msg.agent || msg.agent_id) }"
+            :style="{ color: agentColor(msg.agent || msg.agent_name || String(msg.agent_id ?? '')) }"
           >
-            {{ msg.agent || msg.agent_id || 'Agent' }}
+            {{ msg.agent || msg.agent_name || String(msg.agent_id ?? '') || 'Agent' }}
             <span
               v-if="idx === partialChat.length - 1"
               data-testid="live-badge"
