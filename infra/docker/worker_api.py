@@ -11,6 +11,7 @@ from flask import Flask, request, jsonify
 import subprocess
 import os
 import threading
+import json
 from pathlib import Path
 
 app = Flask(__name__)
@@ -215,6 +216,25 @@ def logs():
         "total_lines": len(lines),
         "job_status": _job["status"],
     })
+
+
+@app.route("/partial_chat", methods=["GET"])
+def partial_chat():
+    """Return the last N chat messages from the in-progress pipeline.
+
+    Reads /tmp/results/chat_log.json which run_job.py writes incrementally.
+    Returns [] gracefully if the file doesn't exist or is mid-write (partial JSON).
+    """
+    tail = request.args.get("tail", 20, type=int)
+    path = Path("/tmp/results/chat_log.json")
+    if not path.exists():
+        return jsonify({"messages": []})
+    try:
+        data = json.loads(path.read_text())
+        messages = data[-tail:] if isinstance(data, list) else []
+    except Exception:
+        messages = []
+    return jsonify({"messages": messages})
 
 
 if __name__ == "__main__":
