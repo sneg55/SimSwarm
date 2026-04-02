@@ -10,7 +10,7 @@ from saas.workers.alerts import send_orphan_alert
 
 logger = logging.getLogger(__name__)
 
-GRACE_PERIOD_SECONDS = 180  # 3 minutes
+GRACE_PERIOD_SECONDS = 600  # 10 minutes — pods can take 5+ min to provision on spot
 
 
 def _pod_age_seconds(pod: dict) -> int:
