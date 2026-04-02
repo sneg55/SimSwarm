@@ -405,7 +405,7 @@ class JobRunner:
                         except Exception:
                             live["partial_chat"] = []
 
-                    live["updated_at"] = time.time()  # time is imported at the top of this method
+                    live["updated_at"] = time.time()
 
                     # Write to DB only when something has changed
                     new_round = live.get("round")
