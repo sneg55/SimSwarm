@@ -450,7 +450,7 @@ def prepare_simulation(project_id: str, graph_id: str, seed_text: str, goal: str
         graph_id=graph_id,
         enable_twitter=True,
         enable_reddit=True,
-        enable_polymarket=False,
+        enable_polymarket=True,
     )
     simulation_id = state.simulation_id
 
