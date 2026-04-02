@@ -11,6 +11,7 @@ import httpx
 
 from saas.gpu.provider import GPUProvider, GPUProviderConfig
 from saas.tiers import TIER_TIMEOUTS, TIER_MAX_COST_USD
+from saas.workers.persistence import _update_live_status_sync
 
 logger = logging.getLogger(__name__)
 
@@ -339,6 +340,9 @@ class JobRunner:
             max_polls = max(360, config.timeout_seconds // poll_interval)
             last_stage: int | None = None
             last_heartbeat_time = 0.0
+            _last_round: int | None = None
+            _last_log_lines: list[str] = []
+            _last_chat_count: int = 0
             for poll in range(max_polls):
                 await asyncio.sleep(poll_interval)
                 try:
@@ -359,32 +363,66 @@ class JobRunner:
                         pass
 
                 job_status = status_data.get("status", "unknown")
-                log_lines: list[str] = []
 
-                if poll % 6 == 0:  # Log every 60s
+                if poll % 2 == 0:  # Poll logs every ~20s
                     elapsed = int(time.monotonic() - poll_start)
                     logger.info(f"Pipeline status: {job_status} ({elapsed}s elapsed, poll {poll + 1}/{max_polls})")
-                    # Pull recent logs from the worker
+                    # Pull recent pipeline logs
+                    log_lines = []
                     try:
-                        log_resp = await http.get(f"{worker_url}/logs?tail=10", timeout=10)
+                        log_resp = await http.get(f"{worker_url}/logs?tail=20&source=pipeline", timeout=10)
                         if log_resp.status_code == 200:
                             log_data = log_resp.json()
                             log_lines = log_data.get("lines", [])
-                            for line in log_lines:
+                            for line in log_lines[-5:]:
                                 logger.info(f"  [worker] {line}")
                     except Exception:
                         pass
 
-                # Infer pipeline stage from logs and notify callback if changed
-                stage = _infer_pipeline_stage(log_lines)
-                if stage is not None and stage != last_stage:
-                    last_stage = stage
-                    logger.info(f"Pipeline stage updated to {stage}")
-                    if self._stage_callback is not None:
+                    # Infer pipeline stage from logs and notify callback if changed
+                    stage = _infer_pipeline_stage(log_lines)
+                    if stage is not None and stage != last_stage:
+                        last_stage = stage
+                        logger.info(f"Pipeline stage updated to {stage}")
+                        if self._stage_callback is not None:
+                            try:
+                                await self._stage_callback(config.job_id, stage)
+                            except Exception as cb_exc:
+                                logger.warning(f"Stage callback failed: {cb_exc}")
+
+                    # Build live_status from log data
+                    max_rounds = getattr(config, "max_rounds", None)
+                    live = _extract_live_status(log_lines, max_rounds=max_rounds)
+
+                    # Fetch partial chat when simulation stage is active
+                    if (last_stage or 0) >= 3:
                         try:
-                            await self._stage_callback(config.job_id, stage)
-                        except Exception as cb_exc:
-                            logger.warning(f"Stage callback failed: {cb_exc}")
+                            chat_resp = await http.get(
+                                f"{worker_url}/partial_chat?tail=10", timeout=10
+                            )
+                            if chat_resp.status_code == 200:
+                                live["partial_chat"] = chat_resp.json().get("messages", [])
+                        except Exception:
+                            live["partial_chat"] = []
+
+                    live["updated_at"] = time.time()  # time is imported at the top of this method
+
+                    # Write to DB only when something has changed
+                    new_round = live.get("round")
+                    new_log_lines = live.get("log_lines", [])
+                    new_chat_count = len(live.get("partial_chat", []))
+                    if (
+                        new_round != _last_round
+                        or new_log_lines != _last_log_lines
+                        or new_chat_count != _last_chat_count
+                    ):
+                        _last_round = new_round
+                        _last_log_lines = new_log_lines
+                        _last_chat_count = new_chat_count
+                        try:
+                            _update_live_status_sync(config.job_id, live)
+                        except Exception as exc:
+                            logger.warning("live_status write failed for job %d: %s", config.job_id, exc)
 
                 if job_status == "completed":
                     result = status_data
