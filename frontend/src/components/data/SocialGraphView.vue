@@ -1,11 +1,16 @@
 <template>
   <div class="bg-ocean-deep border border-mist-depth rounded-2xl p-5">
     <div class="text-xs font-semibold uppercase tracking-wider text-mist-slate mb-3">Social Graph</div>
-    <div ref="containerRef" class="relative" style="height: 300px;">
-      <canvas ref="canvasRef" class="w-full h-full" style="display:block;" />
-    </div>
-    <div class="flex gap-4 mt-2 text-[10px] text-mist-slate">
-      <span>Nodes = agents · Edges = follows · <span class="text-ocean-cyan">Bright edges</span> = mutual follows</span>
+    <template v-if="graph.edges && graph.edges.length">
+      <div ref="containerRef" class="relative" style="height: 300px;">
+        <canvas ref="canvasRef" class="w-full h-full" style="display:block;" />
+      </div>
+      <div class="flex gap-4 mt-2 text-[10px] text-mist-slate">
+        <span>Nodes = agents · Edges = follows · <span class="text-ocean-cyan">Bright edges</span> = mutual follows</span>
+      </div>
+    </template>
+    <div v-else class="flex items-center justify-center py-12 text-xs text-mist-slate">
+      No social connections detected — agents didn't follow each other in this simulation.
     </div>
   </div>
 </template>

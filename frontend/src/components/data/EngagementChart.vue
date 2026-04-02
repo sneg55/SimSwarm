@@ -49,7 +49,11 @@ const maxVal = computed(() => {
   }
   return m
 })
-const barW = computed(() => props.data.length ? Math.max(2, (W - PAD * 2) / props.data.length - 2) : 0)
+const barW = computed(() => {
+  if (!props.data.length) return 0
+  const maxBarW = 40  // cap width so single bars don't span the whole chart
+  return Math.min(maxBarW, Math.max(2, (W - PAD * 2) / props.data.length - 2))
+})
 function barX(i) { return props.data.length ? PAD + (i / props.data.length) * (W - PAD * 2) : 0 }
 function yScale(val) { return H - PAD - (val / maxVal.value) * (H - PAD * 2) }
 function barH(val) { return (val / maxVal.value) * (H - PAD * 2) }

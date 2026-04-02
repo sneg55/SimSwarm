@@ -1,7 +1,10 @@
 <template>
   <div class="bg-ocean-deep border border-mist-depth rounded-2xl p-5">
     <div class="text-xs font-semibold uppercase tracking-wider text-mist-slate mb-3">Agent Sentiment Over Time</div>
-    <div class="relative" @mousemove="onHover" @mouseleave="hovered = null">
+    <div v-if="!hasData" class="flex items-center justify-center py-12 text-xs text-mist-slate">
+      Insufficient sentiment data — agents posted too few opinion words to track shifts.
+    </div>
+    <div v-else class="relative" @mousemove="onHover" @mouseleave="hovered = null">
       <svg :viewBox="`0 0 ${W} ${H}`" class="w-full" style="overflow:visible;">
         <line :x1="PAD" :x2="W-PAD" :y1="yScale(0)" :y2="yScale(0)" stroke="#1E293B" stroke-dasharray="4" />
         <text :x="PAD-4" :y="yScale(1)+3" text-anchor="end" fill="#64748B" font-size="10">+1</text>
@@ -31,7 +34,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { getEntityColor } from '../graph/graphColors.js'
 
 const props = defineProps({
@@ -42,6 +45,15 @@ const W = 600
 const H = 180
 const PAD = 36
 const hovered = ref(null)
+
+const hasData = computed(() => {
+  for (const a of props.agents) {
+    for (const r of (a.rounds || [])) {
+      if (r.sentiment && r.sentiment !== 0) return true
+    }
+  }
+  return false
+})
 
 function yScale(val) { return PAD + (1 - (val + 1) / 2) * (H - PAD * 2) }
 function xScale(idx, total) {
