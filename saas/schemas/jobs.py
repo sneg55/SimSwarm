@@ -45,6 +45,7 @@ class JobResponse(BaseModel):
     enrichment_citations: str | None = None
     enrich_web: bool = True
     sim_data_available: bool = False
+    live_status: dict | None = None
     created_at: datetime
     completed_at: datetime | None
 

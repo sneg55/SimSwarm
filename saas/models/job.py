@@ -1,6 +1,6 @@
 import enum
 from datetime import datetime, timezone
-from sqlalchemy import String, Text, Integer, DateTime, Enum
+from sqlalchemy import String, Text, Integer, DateTime, Enum, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 from saas.models.base import Base
 
@@ -54,3 +54,4 @@ class SimulationJob(Base):
     enrichment_citations: Mapped[str | None] = mapped_column(Text, nullable=True)
     forecast_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
     sim_data_available: Mapped[bool] = mapped_column(default=False)
+    live_status: Mapped[dict | None] = mapped_column(JSON, nullable=True)
