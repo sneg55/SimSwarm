@@ -69,7 +69,7 @@
 <script setup>
 import { ref } from 'vue'
 
-const props = defineProps({
+defineProps({
   logLines: { type: Array, default: () => [] },
   partialChat: { type: Array, default: () => [] },
   stage: { type: Number, default: 0 },

@@ -65,7 +65,7 @@
               class="flex items-center justify-between">
               <span class="text-sm text-mist-drift">Rounds</span>
               <span class="font-mono text-sm text-mist-foam tabular-nums">
-                {{ liveRound }} <span class="text-mist-slate font-normal">/ {{ liveMaxRounds || '--' }}</span>
+                {{ liveRound }} <span class="text-mist-slate font-normal">/ {{ liveMaxRounds ?? '--' }}</span>
               </span>
             </div>
           </template>
