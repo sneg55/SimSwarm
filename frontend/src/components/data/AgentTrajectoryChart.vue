@@ -10,8 +10,13 @@
         <text :x="PAD-4" :y="yScale(1)+3" text-anchor="end" fill="#64748B" font-size="10">+1</text>
         <text :x="PAD-4" :y="yScale(0)+3" text-anchor="end" fill="#64748B" font-size="10">0</text>
         <text :x="PAD-4" :y="yScale(-1)+3" text-anchor="end" fill="#64748B" font-size="10">-1</text>
-        <path v-for="agent in agents" :key="agent.agent_id"
-          :d="agentPath(agent)" fill="none" :stroke="agentColor(agent)" stroke-width="1.5" opacity="0.7" />
+        <template v-for="agent in agents" :key="agent.agent_id">
+          <path v-if="(agent.rounds || []).length > 1"
+            :d="agentPath(agent)" fill="none" :stroke="agentColor(agent)" stroke-width="1.5" opacity="0.7" />
+          <circle v-else-if="(agent.rounds || []).length === 1"
+            :cx="xScale(0, 1)" :cy="yScale(agent.rounds[0].sentiment || 0)" r="4"
+            :fill="agentColor(agent)" opacity="0.8" />
+        </template>
       </svg>
       <div v-if="hovered"
         class="absolute pointer-events-none bg-ocean-abyss border border-mist-depth rounded-lg px-3 py-2 text-xs z-10"
@@ -23,7 +28,7 @@
         </div>
       </div>
     </div>
-    <div class="flex flex-wrap gap-3 mt-3">
+    <div v-if="hasData" class="flex flex-wrap gap-3 mt-3">
       <span v-for="agent in agents.slice(0, 10)" :key="agent.agent_id" class="text-[10px] text-mist-slate flex items-center gap-1">
         <span class="inline-block w-2 h-2 rounded-full" :style="{ background: agentColor(agent) }"></span>
         {{ agent.name }}
