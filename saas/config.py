@@ -41,6 +41,7 @@ class Settings(BaseSettings):
     MINIO_SECRET_KEY: str = ""
     MINIO_BUCKET: str = "simswarm"
     MINIO_SECURE: bool = True
+    MINIO_PROXY_BASE: str = ""  # e.g. "https://simswarm.xyz/minio" for HTTPS proxy
 
     # Worker image
     WORKER_IMAGE_REPO: str = "ghcr.io/sneg55/simswarm-worker"

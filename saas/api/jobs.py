@@ -28,6 +28,7 @@ def _get_sim_data_storage(request: Request) -> SimDataStorage:
         secret_key=settings.MINIO_SECRET_KEY,
         bucket=settings.MINIO_BUCKET,
         secure=settings.MINIO_SECURE,
+        proxy_base=settings.MINIO_PROXY_BASE,
     )
 
 
