@@ -1,5 +1,4 @@
 """Tests for live_status column and schema."""
-import pytest
 from saas.models.job import SimulationJob
 from saas.schemas.jobs import JobResponse
 
