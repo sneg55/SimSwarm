@@ -41,6 +41,7 @@ def test_generate_download_urls_returns_dict():
     storage._client = mock_client
     storage._bucket = "simswarm"
     storage._enabled = True
+    storage._proxy_base = ""
 
     urls = storage.generate_download_urls(job_id=42)
 
