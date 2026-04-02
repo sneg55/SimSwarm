@@ -917,7 +917,11 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
 
         # Extract rich simulation data from SQLite DBs
         try:
-            from sim_data_extractor import extract_all
+            import importlib.util
+            _spec = importlib.util.spec_from_file_location("sim_data_extractor", "/app/sim_data_extractor.py")
+            _mod = importlib.util.module_from_spec(_spec)
+            _spec.loader.exec_module(_mod)
+            extract_all = _mod.extract_all
             from app.services.simulation_runner import SimulationRunner as _SRE
             sim_dir = os.path.join(_SRE.RUN_STATE_DIR, simulation_id)
             if os.path.isdir(sim_dir):
