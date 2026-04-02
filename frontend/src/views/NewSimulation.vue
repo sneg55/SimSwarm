@@ -53,7 +53,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import WizardProgress from '../components/wizard/WizardProgress.vue'
 import WizardSeed from '../components/wizard/WizardSeed.vue'
@@ -126,6 +126,7 @@ function goToStep(n) {
 }
 
 async function handleSubmit() {
+  await nextTick() // ensure tier selection is processed
   loading.value = true
   error.value = ''
   try {
