@@ -50,7 +50,8 @@ def extract_posts(sim_dir: str) -> list[dict]:
             continue
         try:
             rows = _dict_rows(conn, """
-                SELECT p.post_id, p.user_id, u.agent_id, u.user_name AS agent_name,
+                SELECT p.post_id, p.user_id, u.agent_id,
+                       COALESCE(u.user_name, u.name, 'Agent ' || u.agent_id) AS agent_name,
                        p.content, p.created_at, p.num_likes, p.num_dislikes,
                        p.num_shares, p.num_reports, p.original_post_id
                 FROM post p JOIN user u ON p.user_id = u.user_id
@@ -71,7 +72,7 @@ def extract_trades(sim_dir: str) -> list[dict]:
         return []
     try:
         return _dict_rows(conn, """
-            SELECT t.trade_id, t.user_id, u.user_name AS agent_name, u.agent_id,
+            SELECT t.trade_id, t.user_id, COALESCE(u.user_name, u.name, 'Agent ' || u.agent_id) AS agent_name, u.agent_id,
                    t.market_id, t.side, t.outcome, t.shares, t.price, t.cost, t.created_at
             FROM trade t JOIN user u ON t.user_id = u.user_id
             ORDER BY t.created_at
@@ -145,7 +146,7 @@ def extract_agent_trajectories(sim_dir: str, actions: list[dict], round_window: 
             for row in _dict_rows(conn, "SELECT agent_id, user_name, name FROM user"):
                 aid = row["agent_id"]
                 if aid not in agents:
-                    agents[aid] = {"agent_id": aid, "name": row["user_name"] or row["name"], "rounds": []}
+                    agents[aid] = {"agent_id": aid, "name": row["user_name"] or row["name"] or f"Agent {aid}", "rounds": []}
         finally:
             conn.close()
 
@@ -205,7 +206,8 @@ def extract_top_posts(sim_dir: str, limit: int = 50) -> list[dict]:
             continue
         try:
             rows = _dict_rows(conn, f"""
-                SELECT p.post_id, u.agent_id, u.user_name AS agent_name,
+                SELECT p.post_id, u.agent_id,
+                       COALESCE(u.user_name, u.name, 'Agent ' || u.agent_id) AS agent_name,
                        p.content, p.created_at,
                        p.num_likes, p.num_dislikes, p.num_shares,
                        (p.num_likes + p.num_shares) AS engagement
