@@ -182,6 +182,36 @@ def _update_heartbeat_sync(job_id: int) -> None:
         engine.dispose()
 
 
+def _update_live_status_sync(job_id: int, live_status: dict) -> None:
+    """Write live_status JSONB for a running job (sync, for Celery).
+
+    Uses _get_sync_engine() / psycopg2 — never the shared async pool.
+    Silently skips if DATABASE_URL is unset (e.g. tests without DB).
+    """
+    import json
+    from sqlalchemy import text
+
+    engine = _get_sync_engine()
+    if engine is None:
+        logger.warning("DATABASE_URL not set; skipping live_status update for job %d", job_id)
+        return
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "UPDATE simulation_jobs "
+                    "SET live_status = CAST(:live_status AS JSONB) "
+                    "WHERE id = :job_id"
+                ),
+                {"live_status": json.dumps(live_status), "job_id": job_id},
+            )
+            conn.commit()
+    except Exception as exc:
+        logger.warning("Could not update live_status for job %d: %s", job_id, exc)
+    finally:
+        engine.dispose()
+
+
 def _update_pipeline_stage(job_id: int, stage: int) -> None:
     """Update pipeline_stage on a SimulationJob row."""
     _run_async(_async_update_pipeline_stage(job_id, stage))
