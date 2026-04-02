@@ -36,6 +36,7 @@ COPY vendor/miroshark/backend/ /app/miroshark/backend/
 # Copy our job runner and worker API
 COPY infra/docker/run_job.py /app/run_job.py
 COPY infra/docker/worker_api.py /app/worker_api.py
+COPY infra/docker/sim_data_extractor.py /app/sim_data_extractor.py
 COPY infra/docker/start.sh /app/start.sh
 RUN chmod +x /app/run_job.py /app/start.sh
 
