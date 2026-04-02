@@ -137,6 +137,15 @@ def recover_stale_jobs() -> dict:
                     if pod_alive and pod_id:
                         pod_status = _check_pod_status(pod_id)
                         if pod_status in ("running", "completed"):
+                            # Skip jobs that have already reached a terminal state in the DB
+                            from saas.workers.persistence import _get_job_status
+                            job_status = _get_job_status(job_id)
+                            if job_status in ('COMPLETED', 'FAILED', 'REFUNDED'):
+                                logger.info(
+                                    "recover.skipping_finished job_id=%d status=%s",
+                                    job_id, job_status,
+                                )
+                                continue
                             logger.info(
                                 "recover.resuming job_id=%d pod_id=%s pod_status=%s",
                                 job_id, pod_id, pod_status,

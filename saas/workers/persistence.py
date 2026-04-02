@@ -335,6 +335,29 @@ def _update_sim_data_available(job_id: int, available: bool) -> None:
         logger.warning("Could not update sim_data_available for job %d: %s", job_id, exc)
 
 
+def _get_job_status(job_id: int) -> str | None:
+    """Get current job status (sync, for Celery)."""
+    import os
+    from sqlalchemy import create_engine, text
+
+    database_url = os.getenv("DATABASE_URL", "")
+    if not database_url:
+        logger.warning("DATABASE_URL not set; skipping status check for job %d", job_id)
+        return None
+
+    sync_url = database_url.replace("+asyncpg", "").replace("postgresql://", "postgresql+psycopg2://")
+    engine = create_engine(sync_url)
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT status FROM simulation_jobs WHERE id = :job_id"),
+                {"job_id": job_id},
+            ).first()
+            return row[0] if row else None
+    finally:
+        engine.dispose()
+
+
 def _update_job_retry(job_id: int, retry_count: int) -> None:
     """Update retry_count and reset status to PROVISIONING for a job being retried."""
     from sqlalchemy import text

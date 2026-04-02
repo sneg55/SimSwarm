@@ -12,6 +12,7 @@ from saas.workers.persistence import (
     _async_update_pipeline_stage,
     _update_pod_id,
     _extract_key_insight,
+    _get_job_status,
     _mark_job_failed,
     _save_job_results,
     _update_enrichment,
@@ -192,6 +193,12 @@ def resume_simulation_task(
     Reconnects to a pod that was running a simulation when the worker died.
     Polls /status until complete, saves results, and terminates the pod.
     """
+    # Don't overwrite a job that already completed via the original task
+    current_status = _get_job_status(job_id)
+    if current_status in ('COMPLETED', 'REFUNDED'):
+        logger.info("resume.skipping_already_complete job_id=%d status=%s", job_id, current_status)
+        return {"job_id": job_id, "status": "already_completed", "skipped": True}
+
     gpu_provider = _get_gpu_provider()
 
     async def _stage_cb(j_id: int, stage: int) -> None:
