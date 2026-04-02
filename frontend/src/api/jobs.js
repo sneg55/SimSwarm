@@ -61,3 +61,8 @@ export async function revokeShareLink(jobId) {
   const resp = await api.delete(`/jobs/${jobId}/share`)
   return resp.data
 }
+
+export async function getSimData(jobId) {
+  const response = await api.get(`/jobs/${jobId}/sim-data`)
+  return response.data
+}

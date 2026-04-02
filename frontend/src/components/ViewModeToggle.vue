@@ -20,18 +20,23 @@ import { computed } from 'vue'
 const props = defineProps({
   modelValue: { type: String, default: 'story' },
   compact: { type: Boolean, default: false },
+  showData: { type: Boolean, default: false },
 })
 
 defineEmits(['update:modelValue'])
 
-const allModes = [
+const baseModes = [
   { value: 'story', label: 'Story' },
   { value: 'graph', label: 'Graph' },
   { value: 'report', label: 'Report' },
 ]
 
 const availableModes = computed(() => {
-  if (props.compact) return allModes.filter((m) => m.value !== 'dual')
-  return allModes
+  const modes = [...baseModes]
+  if (props.showData) {
+    modes.splice(2, 0, { value: 'data', label: 'Data' })
+  }
+  if (props.compact) return modes.filter((m) => m.value !== 'dual')
+  return modes
 })
 </script>
