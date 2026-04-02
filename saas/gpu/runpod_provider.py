@@ -27,7 +27,7 @@ class RunPodProvider(GPUProvider):
         self.api_key = api_key
         runpod.api_key = api_key
 
-    async def provision(self, config: GPUProviderConfig) -> GPUInstance:
+    async def provision(self, config: GPUProviderConfig, on_created=None) -> GPUInstance:
         """Create a RunPod pod, trying multiple datacenter volumes for availability."""
         logger.info(f"RunPod: provisioning {config.gpu_type} with image {config.docker_image}")
 
@@ -78,6 +78,12 @@ class RunPodProvider(GPUProvider):
 
         pod_id = pod["id"]
         logger.info(f"RunPod: pod {pod_id} created, waiting for it to be ready...")
+
+        if on_created:
+            try:
+                await on_created(pod_id)
+            except Exception as e:
+                logger.warning(f"on_created callback failed: {e}")
 
         # Poll until running — log every 30s with elapsed time
         import time

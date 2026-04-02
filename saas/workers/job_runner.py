@@ -130,8 +130,17 @@ class JobRunner:
         import time
 
         # Phase 1: Provision (own internal timeout via MAX_POLL_ATTEMPTS)
+        # on_created fires as soon as the pod is created (before the ready-wait
+        # loop) so cleanup can match the pod to a job and won't kill it as orphaned.
+        async def _on_pod_created(pid):
+            if self._pod_id_callback is not None:
+                try:
+                    await self._pod_id_callback(config.job_id, pid)
+                except Exception:
+                    logger.warning("Early pod_id_callback failed for job %d", config.job_id)
+
         provision_start = time.monotonic()
-        instance = await self.gpu_provider.provision(gpu_config)
+        instance = await self.gpu_provider.provision(gpu_config, on_created=_on_pod_created)
         provision_seconds = int(time.monotonic() - provision_start)
         pod_id = instance.instance_id
         logger.info(
@@ -140,13 +149,6 @@ class JobRunner:
             extra={"event": "gpu_provisioned", "job_id": config.job_id,
                    "pod_id": pod_id, "elapsed_s": provision_seconds},
         )
-
-        # Persist pod_id immediately so cleanup/recovery can find it
-        if self._pod_id_callback is not None:
-            try:
-                await self._pod_id_callback(config.job_id, pod_id)
-            except Exception:
-                logger.warning("pod_id_callback failed for job %d", config.job_id)
 
         # Phase 2: Pipeline (wrapped with tier timeout, teardown guaranteed)
         try:

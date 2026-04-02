@@ -25,7 +25,13 @@ def mock_gpu_provider():
     provider = AsyncMock()
     instance = MagicMock()
     instance.instance_id = "pod-abc123"
-    provider.provision.return_value = instance
+
+    async def _provision(config, on_created=None):
+        if on_created:
+            await on_created(instance.instance_id)
+        return instance
+
+    provider.provision.side_effect = _provision
     provider.terminate.return_value = None
     return provider
 
