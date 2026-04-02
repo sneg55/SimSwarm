@@ -124,6 +124,64 @@ def _mark_job_failed(job_id: int, error_message: str) -> None:
     _run_async(_do_fail())
 
 
+def _get_sync_engine():
+    """Return a fresh sync SQLAlchemy engine using psycopg2."""
+    import os
+    from sqlalchemy import create_engine
+
+    database_url = os.getenv("DATABASE_URL", "")
+    if not database_url:
+        return None
+    sync_url = database_url.replace("+asyncpg", "").replace("postgresql://", "postgresql+psycopg2://")
+    return create_engine(sync_url)
+
+
+def _update_pipeline_stage_sync(job_id: int, stage: int) -> None:
+    """Update pipeline_stage and set status to RUNNING (sync, for Celery)."""
+    from sqlalchemy import text
+
+    engine = _get_sync_engine()
+    if engine is None:
+        logger.warning("DATABASE_URL not set; skipping pipeline_stage update for job %d", job_id)
+        return
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "UPDATE simulation_jobs SET pipeline_stage = :stage, status = 'RUNNING' "
+                    "WHERE id = :job_id AND status != 'COMPLETED'"
+                ),
+                {"stage": stage, "job_id": job_id},
+            )
+            conn.commit()
+            logger.debug("Set pipeline_stage=%d for job %d", stage, job_id)
+    except Exception as exc:
+        logger.warning("Could not update pipeline_stage for job %d: %s", job_id, exc)
+    finally:
+        engine.dispose()
+
+
+def _update_heartbeat_sync(job_id: int) -> None:
+    """Update last_heartbeat timestamp (sync, for Celery)."""
+    from sqlalchemy import text
+
+    engine = _get_sync_engine()
+    if engine is None:
+        logger.warning("DATABASE_URL not set; skipping heartbeat update for job %d", job_id)
+        return
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text("UPDATE simulation_jobs SET last_heartbeat = now() WHERE id = :job_id"),
+                {"job_id": job_id},
+            )
+            conn.commit()
+    except Exception as exc:
+        logger.warning("Could not update heartbeat for job %d: %s", job_id, exc)
+    finally:
+        engine.dispose()
+
+
 def _update_pipeline_stage(job_id: int, stage: int) -> None:
     """Update pipeline_stage on a SimulationJob row."""
     _run_async(_async_update_pipeline_stage(job_id, stage))
