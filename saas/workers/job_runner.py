@@ -105,7 +105,7 @@ def _extract_live_status(log_lines: list[str], max_rounds: int | None = None) ->
 
     round_num: int | None = None
     for line in log_lines:
-        m = re.search(r'round[=\s]+(\d+)', line, re.IGNORECASE)
+        m = re.search(r'\bround[=\s]+(\d+)', line, re.IGNORECASE)
         if m:
             candidate = int(m.group(1))
             if round_num is None or candidate > round_num:

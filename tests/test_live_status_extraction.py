@@ -1,6 +1,7 @@
 """Tests for live_status column and schema."""
 from saas.models.job import SimulationJob
 from saas.schemas.jobs import JobResponse
+from saas.workers.job_runner import _extract_live_status
 
 
 def test_job_model_has_live_status_column():
@@ -14,9 +15,6 @@ def test_job_response_schema_includes_live_status():
     fields = JobResponse.model_fields
     assert "live_status" in fields
     assert fields["live_status"].is_required() is False
-
-
-from saas.workers.job_runner import _extract_live_status
 
 
 def test_extract_round_from_log_line():
@@ -75,3 +73,15 @@ def test_extract_includes_max_rounds_when_provided():
 def test_extract_no_max_rounds_when_not_provided():
     result = _extract_live_status(["[pipeline] round=5 done"])
     assert "max_rounds" not in result
+
+
+def test_extract_no_false_positive_from_surround():
+    """Word boundary ensures 'surround=5' is not extracted as round=5."""
+    lines = ["[pipeline] surround=5 agents detected here now"]
+    result = _extract_live_status(lines)
+    assert "round" not in result
+
+
+def test_extract_empty_input():
+    result = _extract_live_status([])
+    assert result == {"log_lines": []}
