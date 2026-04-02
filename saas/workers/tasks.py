@@ -19,7 +19,7 @@ from saas.workers.persistence import (
     _update_job_metadata,
     _update_job_retry,
     _update_sim_data_available,
-    _update_live_status_sync,
+    _update_live_status_sync,  # noqa: F401 — called in job_runner.py (Task 5)
 )
 from saas.workers.refund import _refund_credits
 from saas.workers.cleanup import cleanup_orphaned_pods as _cleanup_orphaned_pods_impl
