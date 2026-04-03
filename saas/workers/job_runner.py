@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 HEARTBEAT_INTERVAL_S = 60  # how often to update last_heartbeat during polling
 
 WORKER_IMAGE_REPO = "ghcr.io/sneg55/simswarm-worker"
-WORKER_IMAGE_DEFAULT_TAG = "v20260327155910"
+WORKER_IMAGE_DEFAULT_TAG = "v20260402201814"
 
 
 def get_worker_image() -> str:
