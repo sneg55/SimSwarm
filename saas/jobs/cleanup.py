@@ -6,7 +6,7 @@ import os
 import re
 from datetime import datetime, timezone
 
-from saas.workers.alerts import send_orphan_alert
+from saas.jobs.alerts import send_orphan_alert
 
 logger = logging.getLogger(__name__)
 

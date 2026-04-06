@@ -33,7 +33,12 @@ RUN python3 -c "import vllm; print(f'vLLM {vllm.__version__}')" && \
 # Copy MiroShark engine
 COPY vendor/miroshark/backend/ /app/miroshark/backend/
 
-# Copy our job runner and worker API
+# Copy our job runner modules and worker API
+COPY infra/docker/constants.py /app/constants.py
+COPY infra/docker/service_init.py /app/service_init.py
+COPY infra/docker/graph_ops.py /app/graph_ops.py
+COPY infra/docker/simulation.py /app/simulation.py
+COPY infra/docker/results.py /app/results.py
 COPY infra/docker/run_job.py /app/run_job.py
 COPY infra/docker/worker_api.py /app/worker_api.py
 COPY infra/docker/sim_data_extractor.py /app/sim_data_extractor.py

@@ -1,9 +1,15 @@
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from saas.database import get_session
-from saas.schemas.health import HealthResponse
+
+
+class HealthResponse(BaseModel):
+    status: str
+    version: str
+    database: str
 
 router = APIRouter()
 

@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import text, select, func
 
-from saas.models.credit_entry import CreditEntry
+from saas.billing.models import CreditEntry
 
 
 async def _do_refund_via_session(session, job_id: int, user_id: str, credits: int) -> bool:

@@ -5,9 +5,9 @@ import logging
 import os
 
 from saas.workers.celery_app import celery_app
-from saas.workers.job_runner import JobConfig, JobRunner
+from saas.jobs.runner import JobConfig, JobRunner
 from saas.workers.utils import _run_async, _get_gpu_provider
-from saas.workers.persistence import (
+from saas.jobs.persistence import (
     _update_pipeline_stage_sync,
     _update_heartbeat_sync,
     _update_pod_id,
@@ -20,10 +20,10 @@ from saas.workers.persistence import (
     _update_job_retry,
     _update_sim_data_available,
 )
-from saas.workers.refund import _refund_credits
-from saas.workers.cleanup import cleanup_orphaned_pods as _cleanup_orphaned_pods_impl
-from saas.workers.cleanup import _get_active_job_pod_ids  # noqa: F401 — re-export
-from saas.workers.recovery import recover_stale_jobs as _recover_stale_jobs_impl
+from saas.jobs.refund import _refund_credits
+from saas.jobs.cleanup import cleanup_orphaned_pods as _cleanup_orphaned_pods_impl
+from saas.jobs.cleanup import _get_active_job_pod_ids  # noqa: F401 — re-export
+from saas.jobs.recovery import recover_stale_jobs as _recover_stale_jobs_impl
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +67,7 @@ def run_simulation_task(
     # Enrich seed text if enabled
     enriched_seed_text = seed_text
     if enrich_web:
-        from saas.workers.enrichment import enrich_seed
+        from saas.jobs.enrichment import enrich_seed
         import json as _json
         enrichment = enrich_seed(seed_text, goal)
         if enrichment:
@@ -249,7 +249,7 @@ def resume_simulation_task(
 @celery_app.task(name="fishcloud.enrich_retry")
 def enrich_retry_task(job_id: int, seed_text: str, goal: str) -> dict:
     """Retry enrichment for a job that failed enrichment initially."""
-    from saas.workers.enrichment import enrich_seed
+    from saas.jobs.enrichment import enrich_seed
     import json as _json
 
     enrichment = enrich_seed(seed_text, goal)

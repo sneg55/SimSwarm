@@ -1,4 +1,4 @@
-from saas.models.job import SimulationJob, JobStatus
+from saas.jobs.models import SimulationJob, JobStatus
 
 
 async def _create_completed_job(db_session, user_id):
@@ -52,7 +52,7 @@ async def test_invalid_share_token_returns_404(client):
 async def test_shared_result_includes_structured_data(client, auth_headers, db_session):
     """Shared result includes structured data when present."""
     import json
-    from saas.models.job import SimulationJob, JobStatus
+    from saas.jobs.models import SimulationJob, JobStatus
     structured = json.dumps({"brief": "Test brief", "findings": []})
     job = SimulationJob(
         user_id=auth_headers["_user_id"],
@@ -81,7 +81,7 @@ async def test_shared_result_includes_structured_data(client, auth_headers, db_s
 async def test_shared_graph_endpoint(client, auth_headers, db_session):
     """Shared graph endpoint returns graph data."""
     import json
-    from saas.models.job import SimulationJob, JobStatus
+    from saas.jobs.models import SimulationJob, JobStatus
     graph = json.dumps({"nodes": [{"uuid": "n1", "name": "A"}], "edges": [], "metadata": {"total_nodes": 1, "total_edges": 0}})
     job = SimulationJob(
         user_id=auth_headers["_user_id"],

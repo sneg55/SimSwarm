@@ -6,16 +6,16 @@ from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from saas.database import get_session
-from saas.models.job import SimulationJob, JobStatus
-from saas.models.model_routing import ModelRouting
-from saas.schemas.jobs import JobCreate, JobResponse, JobListResponse
-from saas.tiers import TIER_CREDITS
+from saas.jobs.models import SimulationJob, JobStatus
+from saas.jobs.models import ModelRouting
+from saas.jobs.schemas import JobCreate, JobResponse, JobListResponse
+from saas.constants.tiers import TIER_CREDITS
 from saas.billing.ledger import CreditLedger, InsufficientCreditsError
 from saas.auth.dependencies import get_current_user
 from saas.storage.minio_client import SimDataStorage
 import os
 
-from saas.workers.tasks import run_simulation_task
+from saas.jobs.tasks import run_simulation_task
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 
@@ -192,7 +192,7 @@ async def retry_job(
     if original.status not in (JobStatus.FAILED, JobStatus.REFUNDED):
         raise HTTPException(status_code=400, detail="Only failed jobs can be retried")
 
-    from saas.schemas.jobs import TierEnum
+    from saas.jobs.schemas import TierEnum
     body = JobCreate(seed_text=original.seed_text, goal=original.goal, tier=TierEnum(original.tier))
     new_job = await create_job(request, body, current_user, session)
 
@@ -218,7 +218,7 @@ async def retry_enrichment(
     if job.user_id != current_user["user_id"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    from saas.workers.tasks import enrich_retry_task
+    from saas.jobs.tasks import enrich_retry_task
     enrich_retry_task.delay(job_id=job.id, seed_text=job.seed_text, goal=job.goal)
     return {"status": "retrying"}
 

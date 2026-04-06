@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from saas.auth.service import hash_password, verify_password, create_token
 from saas.auth.email import generate_token, send_verification_email, send_password_reset_email
 from saas.database import get_session
-from saas.models.user import User
-from saas.schemas.auth import (
+from saas.auth.models import User
+from saas.auth.schemas import (
     AuthResponse,
     LoginRequest,
     RegisterRequest,

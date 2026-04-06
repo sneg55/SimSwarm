@@ -2,7 +2,7 @@
 import pytest
 from sqlalchemy import select
 
-from saas.models.model_routing import ModelRouting
+from saas.jobs.models import ModelRouting
 from saas.gpu.provider import GPUProviderConfig
 
 

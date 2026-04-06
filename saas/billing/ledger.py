@@ -1,7 +1,7 @@
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from saas.models.credit_entry import CreditEntry
+from saas.billing.models import CreditEntry
 
 
 class InsufficientCreditsError(Exception):

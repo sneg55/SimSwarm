@@ -4,11 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sess
 
 from saas.config import Settings
 from saas.models.base import Base
-from saas.models import CreditEntry  # noqa: F401 — registers table in metadata
-from saas.models import User  # noqa: F401 — registers table in metadata
-from saas.models.model_routing import ModelRouting  # noqa: F401 — registers table in metadata
-from saas.models.job import SimulationJob  # noqa: F401 — registers table in metadata
-from saas.models.credit_pack import CreditPack  # noqa: F401 — registers table in metadata
+from saas.billing.models import CreditEntry, CreditPack  # noqa: F401 — registers table in metadata
+from saas.auth.models import User  # noqa: F401 — registers table in metadata
+from saas.jobs.models import SimulationJob, ModelRouting  # noqa: F401 — registers table in metadata
 from saas.database import get_session
 
 

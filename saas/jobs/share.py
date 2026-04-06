@@ -6,7 +6,7 @@ import json
 import html as html_mod
 
 from saas.database import get_session
-from saas.models.job import SimulationJob, JobStatus
+from saas.jobs.models import SimulationJob, JobStatus
 
 router = APIRouter(prefix="/share", tags=["share"])
 

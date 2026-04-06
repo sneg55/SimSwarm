@@ -1,5 +1,5 @@
-from saas.models.job import SimulationJob, JobStatus
-from saas.models.model_routing import ModelRouting
+from saas.jobs.models import SimulationJob, JobStatus
+from saas.jobs.models import ModelRouting
 
 
 async def test_create_simulation_job(db_session):

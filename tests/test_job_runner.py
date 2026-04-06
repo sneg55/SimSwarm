@@ -2,7 +2,7 @@
 import pytest
 from unittest.mock import AsyncMock
 
-from saas.workers.job_runner import JobConfig, JobRunner, TIER_TIMEOUTS
+from saas.jobs.runner import JobConfig, JobRunner, TIER_TIMEOUTS
 from saas.gpu.provider import GPUInstance
 
 

@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from saas.auth.dependencies import get_current_user
 from saas.auth.service import hash_password, verify_password
 from saas.database import get_session
-from saas.models.user import User
+from saas.auth.models import User
 
 router = APIRouter(prefix="/profile", tags=["profile"])
 

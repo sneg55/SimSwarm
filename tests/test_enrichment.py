@@ -41,7 +41,7 @@ def _make_mock_response(text, citations=None):
 
 def test_enrich_seed_returns_none_when_no_api_key(monkeypatch):
     monkeypatch.setenv("XAI_API_KEY", "")
-    from saas.workers.enrichment import enrich_seed
+    from saas.jobs.enrichment import enrich_seed
     result = enrich_seed("some seed", "some goal")
     assert result is None
 
@@ -52,7 +52,7 @@ def test_enrich_seed_returns_none_on_api_error(monkeypatch):
     openai_cls.return_value.responses.create.side_effect = Exception("API error")
     monkeypatch.setitem(sys.modules, "openai", openai_mod)
 
-    from saas.workers.enrichment import enrich_seed
+    from saas.jobs.enrichment import enrich_seed
     result = enrich_seed("some seed", "some goal")
     assert result is None
 
@@ -71,7 +71,7 @@ def test_enrich_seed_returns_result_with_citations(monkeypatch):
     openai_cls.return_value.responses.create.return_value = mock_response
     monkeypatch.setitem(sys.modules, "openai", openai_mod)
 
-    from saas.workers.enrichment import enrich_seed
+    from saas.jobs.enrichment import enrich_seed
     result = enrich_seed("seed text", "research goal")
 
     assert result is not None
@@ -96,7 +96,7 @@ def test_enrich_seed_deduplicates_citation_urls(monkeypatch):
     openai_cls.return_value.responses.create.return_value = mock_response
     monkeypatch.setitem(sys.modules, "openai", openai_mod)
 
-    from saas.workers.enrichment import enrich_seed
+    from saas.jobs.enrichment import enrich_seed
     result = enrich_seed("seed", "goal")
 
     assert result is not None
@@ -111,7 +111,7 @@ def test_enrich_seed_returns_none_on_empty_summary(monkeypatch):
     openai_cls.return_value.responses.create.return_value = mock_response
     monkeypatch.setitem(sys.modules, "openai", openai_mod)
 
-    from saas.workers.enrichment import enrich_seed
+    from saas.jobs.enrichment import enrich_seed
     result = enrich_seed("seed", "goal")
     assert result is None
 
@@ -122,7 +122,7 @@ def test_enrich_seed_returns_none_on_empty_summary(monkeypatch):
 )
 def test_enrich_seed_live_api():
     """End-to-end test against real xAI API. Only runs when XAI_API_KEY is set."""
-    from saas.workers.enrichment import enrich_seed
+    from saas.jobs.enrichment import enrich_seed
 
     result = enrich_seed(
         "The European Union passed the AI Act regulating artificial intelligence systems.",

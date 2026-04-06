@@ -3,14 +3,14 @@ from datetime import datetime, timezone, timedelta
 
 import pytest
 
-from saas.workers.recovery import _is_stale
+from saas.jobs.recovery import _is_stale
 
 
 def test_recovery_raises_when_no_database_url(monkeypatch):
     """recover_stale_jobs must raise RuntimeError when DATABASE_URL is unset."""
     monkeypatch.setenv("DATABASE_URL", "")
 
-    from saas.workers.recovery import recover_stale_jobs
+    from saas.jobs.recovery import recover_stale_jobs
 
     with pytest.raises(RuntimeError, match="DATABASE_URL not set"):
         recover_stale_jobs()

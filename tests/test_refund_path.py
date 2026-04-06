@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 
 
 def test_refund_credits_uses_credit_entries_table():
-    from saas.workers.tasks import _refund_credits
+    from saas.jobs.tasks import _refund_credits
     source = inspect.getsource(_refund_credits)
     assert "credit_entries" in source
     assert "credit_ledger" not in source
@@ -13,7 +13,7 @@ def test_refund_credits_uses_credit_entries_table():
 async def test_job_dispatch_passes_credits_charged(client, auth_headers, funded_user, seeded_routing):
     mock_task = MagicMock()
     mock_task.id = "celery-mock"
-    with patch("saas.api.jobs.run_simulation_task.delay", return_value=mock_task) as mock_delay:
+    with patch("saas.jobs.api.run_simulation_task.delay", return_value=mock_task) as mock_delay:
         resp = await client.post(
             "/api/jobs",
             headers=auth_headers,

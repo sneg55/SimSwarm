@@ -2,7 +2,7 @@
 from unittest.mock import AsyncMock, patch, MagicMock
 
 from saas.workers.celery_app import celery_app
-import saas.workers.tasks  # noqa: F401 — registers tasks with celery_app
+import saas.jobs.tasks  # noqa: F401 — registers tasks with celery_app
 from saas.gpu.provider import GPUInstance
 
 
@@ -25,7 +25,7 @@ def test_task_is_registered():
 
 def test_task_calls_runner():
     """run_simulation_task calls JobRunner.run with the correct config."""
-    from saas.workers.tasks import run_simulation_task
+    from saas.jobs.tasks import run_simulation_task
 
     instance = _make_instance()
     mock_result = {
@@ -51,10 +51,10 @@ def test_task_calls_runner():
     mock_provider.terminate = fake_terminate
 
     # Mock JobRunner.run to return a canned result (avoids real HTTP polling)
-    with patch("saas.workers.tasks._get_gpu_provider", return_value=mock_provider), \
-         patch("saas.workers.tasks.JobRunner.run", new_callable=AsyncMock, return_value=mock_result), \
-         patch("saas.workers.tasks._save_job_results"), \
-         patch("saas.workers.tasks._update_job_metadata"):
+    with patch("saas.jobs.tasks._get_gpu_provider", return_value=mock_provider), \
+         patch("saas.jobs.tasks.JobRunner.run", new_callable=AsyncMock, return_value=mock_result), \
+         patch("saas.jobs.tasks._save_job_results"), \
+         patch("saas.jobs.tasks._update_job_metadata"):
         result = run_simulation_task(
             job_id=1,
             user_id="user-test",

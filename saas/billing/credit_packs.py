@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from saas.tiers import TIER_CREDITS
+from saas.constants.tiers import TIER_CREDITS
 
 
 @dataclass(frozen=True)

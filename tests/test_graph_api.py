@@ -5,7 +5,7 @@ import json
 
 from sqlalchemy import text
 
-from saas.models.job import SimulationJob, JobStatus
+from saas.jobs.models import SimulationJob, JobStatus
 
 
 # ---------------------------------------------------------------------------

@@ -145,7 +145,7 @@ def _create_job_row(user_id: str, seed_text: str, goal: str, tier: str) -> int:
 
 def dispatch_demo(config: dict, dry_run: bool = False) -> str | None:
     """Dispatch a demo simulation via Celery with a real job row. Returns task ID or None."""
-    from saas.workers.tasks import run_simulation_task
+    from saas.jobs.tasks import run_simulation_task
 
     slug = config["slug"]
     tier = config["tier"]

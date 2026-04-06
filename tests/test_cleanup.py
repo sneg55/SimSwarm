@@ -2,7 +2,7 @@
 import pytest
 from unittest.mock import patch, MagicMock
 
-from saas.workers.cleanup import cleanup_orphaned_pods
+from saas.jobs.cleanup import cleanup_orphaned_pods
 
 
 def test_cleanup_raises_when_no_runpod_api_key(monkeypatch):
@@ -22,7 +22,7 @@ def _make_pod(pod_id="pod-1", name="fishcloud-sim", uptime_seconds=600, gpu="L40
     }
 
 
-@patch("saas.workers.cleanup._get_active_job_pod_ids")
+@patch("saas.jobs.cleanup._get_active_job_pod_ids")
 def test_cleanup_skips_young_pods(mock_get_ids):
     """Pods younger than 3 minutes should not be terminated."""
     mock_get_ids.return_value = set()
@@ -39,7 +39,7 @@ def test_cleanup_skips_young_pods(mock_get_ids):
     mock_runpod.terminate_pod.assert_not_called()
 
 
-@patch("saas.workers.cleanup._get_active_job_pod_ids")
+@patch("saas.jobs.cleanup._get_active_job_pod_ids")
 def test_cleanup_skips_entirely_on_db_error(mock_get_ids):
     """When DB is unreachable, cleanup should skip entirely."""
     mock_get_ids.return_value = None
@@ -57,7 +57,7 @@ def test_cleanup_skips_entirely_on_db_error(mock_get_ids):
     assert result.get("skipped") == "db_unreachable"
 
 
-@patch("saas.workers.cleanup._get_active_job_pod_ids")
+@patch("saas.jobs.cleanup._get_active_job_pod_ids")
 def test_cleanup_terminates_old_orphan(mock_get_ids):
     """Pod older than grace period with no matching job should be terminated."""
     mock_get_ids.return_value = set()

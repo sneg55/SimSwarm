@@ -164,18 +164,18 @@ class TestBuildStructuredResultsEmpty:
 
 class TestJobResponseSchema:
     def test_result_structured_in_job_response(self):
-        from saas.schemas.jobs import JobResponse
+        from saas.jobs.schemas import JobResponse
         fields = JobResponse.model_fields
         assert "result_structured" in fields
 
     def test_result_structured_defaults_to_none(self):
-        from saas.schemas.jobs import JobResponse
+        from saas.jobs.schemas import JobResponse
         field = JobResponse.model_fields["result_structured"]
         assert field.default is None
 
     def test_result_structured_null_for_old_jobs(self):
         """Simulate an old job that has no result_structured — should default to None."""
-        from saas.schemas.jobs import JobResponse
+        from saas.jobs.schemas import JobResponse
         job_data = {
             "id": 1,
             "user_id": "u1",

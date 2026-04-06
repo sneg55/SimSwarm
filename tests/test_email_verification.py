@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 import pytest
 from sqlalchemy import select
 
-from saas.models.user import User
+from saas.auth.models import User
 
 
 REGISTER_URL = "/api/auth/register"

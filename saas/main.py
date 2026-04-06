@@ -4,7 +4,7 @@ from fastapi import FastAPI, Request
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from saas.api.router import api_router
+from saas.router import api_router
 from saas.config import Settings
 from saas.database import init_db
 from saas.limiter import limiter

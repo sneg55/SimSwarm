@@ -1,7 +1,7 @@
 """Tests for live_status column and schema."""
-from saas.models.job import SimulationJob
-from saas.schemas.jobs import JobResponse
-from saas.workers.job_runner import _extract_live_status
+from saas.jobs.models import SimulationJob
+from saas.jobs.schemas import JobResponse
+from saas.jobs.runner import _extract_live_status
 
 
 def test_job_model_has_live_status_column():

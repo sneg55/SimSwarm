@@ -8,7 +8,7 @@ from saas.database import get_session
 from saas.billing.ledger import CreditLedger
 from saas.billing.credit_packs import get_pack, CREDIT_PACKS
 from saas.billing.stripe_service import StripeService
-from saas.schemas.billing import (
+from saas.billing.schemas import (
     BalanceResponse,
     PurchaseRequest,
     PurchaseResponse,
@@ -33,7 +33,7 @@ def _get_stripe_service(request: Request) -> StripeService:
 
 @router.get("/packs")
 async def list_packs(session: AsyncSession = Depends(get_session)):
-    from saas.models.credit_pack import CreditPack as CreditPackModel
+    from saas.billing.models import CreditPack as CreditPackModel
     result = await session.execute(
         select(CreditPackModel)
         .where(CreditPackModel.active == True)  # noqa: E712
@@ -69,7 +69,7 @@ async def purchase_credits(
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    from saas.models.credit_pack import CreditPack as CreditPackModel
+    from saas.billing.models import CreditPack as CreditPackModel
     result = await session.execute(
         select(CreditPackModel).where(
             CreditPackModel.slug == body.pack_id,
@@ -126,7 +126,7 @@ async def stripe_webhook(
             return {"status": "ok"}
 
         # Validate pack_id and resolve credits from DB (primary) or hardcoded fallback
-        from saas.models.credit_pack import CreditPack as CreditPackModel
+        from saas.billing.models import CreditPack as CreditPackModel
         pack_result = await session.execute(
             select(CreditPackModel).where(
                 CreditPackModel.slug == pack_id,

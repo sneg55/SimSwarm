@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from saas.workers.job_runner import JobRunner, JobConfig
+from saas.jobs.runner import JobRunner, JobConfig
 
 
 def _make_config(**overrides):

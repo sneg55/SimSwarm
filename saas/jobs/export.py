@@ -6,7 +6,7 @@ from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from saas.database import get_session
-from saas.models.job import SimulationJob
+from saas.jobs.models import SimulationJob
 from saas.auth.dependencies import get_current_user
 
 router = APIRouter(prefix="/jobs", tags=["export"])

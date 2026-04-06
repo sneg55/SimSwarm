@@ -13,7 +13,7 @@ async def log_error_event(request, exc):
     """
     try:
         from saas.database import async_session_factory
-        from saas.models.error_event import ErrorEvent
+        from saas.jobs.models import ErrorEvent
 
         if async_session_factory is None:
             return

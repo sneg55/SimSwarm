@@ -13,12 +13,20 @@ import pytest
 
 @pytest.fixture(scope="module")
 def run_job_module():
-    """Import run_job.py constants + functions via exec (avoids MiroFish deps)."""
-    spec_path = Path(__file__).resolve().parent.parent / "infra" / "docker" / "run_job.py"
-    source = spec_path.read_text()
-    ns = {"__builtins__": __builtins__}
-    exec(compile(source, str(spec_path), "exec"), ns)
-    return ns
+    """Import results.py via sys.path (avoids MiroFish deps)."""
+    import importlib
+    import sys
+
+    docker_dir = str(Path(__file__).resolve().parent.parent / "infra" / "docker")
+    added = docker_dir not in sys.path
+    if added:
+        sys.path.insert(0, docker_dir)
+    try:
+        mod = importlib.import_module("results")
+        return vars(mod)
+    finally:
+        if added:
+            sys.path.remove(docker_dir)
 
 
 @pytest.fixture()
@@ -160,12 +168,12 @@ class TestEmptyGraphNodes:
 class TestGraphNodeSchemaHasSentiment:
     def test_graphnode_sentiment_defaults_to_zero(self):
         """GraphNode pydantic model has sentiment field defaulting to 0.0."""
-        from saas.schemas.graph import GraphNode
+        from saas.jobs.schemas import GraphNode
         node = GraphNode(uuid="n1", name="Test")
         assert node.sentiment == 0.0
 
     def test_graphnode_accepts_sentiment_value(self):
         """GraphNode pydantic model accepts a custom sentiment value."""
-        from saas.schemas.graph import GraphNode
+        from saas.jobs.schemas import GraphNode
         node = GraphNode(uuid="n1", name="Test", sentiment=-0.75)
         assert node.sentiment == -0.75

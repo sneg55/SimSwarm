@@ -1,5 +1,6 @@
 import inspect
-from saas.workers.job_runner import TIER_TIMEOUTS, JobRunner
+from saas.jobs.runner import TIER_TIMEOUTS
+from saas.jobs.pipeline import poll_until_complete
 
 
 def test_small_tier_polling_within_timeout():
@@ -15,5 +16,5 @@ def test_large_tier_polling_within_timeout():
     assert timeout // 10 >= 4320
 
 def test_polling_not_hardcoded_to_one_hour():
-    source = inspect.getsource(JobRunner._poll_until_complete)
+    source = inspect.getsource(poll_until_complete)
     assert "max_polls = 360" not in source

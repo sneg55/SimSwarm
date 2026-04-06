@@ -18,7 +18,7 @@ def _mock_celery_delay():
     """Return a context manager that patches run_simulation_task.delay."""
     mock_task = MagicMock()
     mock_task.id = "celery-task-mock"
-    return patch("saas.api.jobs.run_simulation_task.delay", return_value=mock_task)
+    return patch("saas.jobs.api.run_simulation_task.delay", return_value=mock_task)
 
 
 # ---------------------------------------------------------------------------

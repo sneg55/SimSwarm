@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock
 def _mock_delay():
     mock_task = MagicMock()
     mock_task.id = "celery-mock-id"
-    return patch("saas.api.jobs.run_simulation_task.delay", return_value=mock_task)
+    return patch("saas.jobs.api.run_simulation_task.delay", return_value=mock_task)
 
 
 async def test_no_credits_returns_402(client, auth_headers, seeded_routing):

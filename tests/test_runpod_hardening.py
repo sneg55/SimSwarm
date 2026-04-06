@@ -7,8 +7,8 @@ import pytest
 
 from saas.gpu.errors import TransientGPUError, PermanentGPUError, classify_gpu_error
 from saas.gpu.provider import GPUInstance
-from saas.models.job import SimulationJob
-from saas.workers.job_runner import JobConfig, JobRunner, get_worker_image
+from saas.jobs.models import SimulationJob
+from saas.jobs.runner import JobConfig, JobRunner, get_worker_image
 
 
 # ── Task 1: DB Schema — New Columns on SimulationJob ──
@@ -127,7 +127,7 @@ async def test_job_runner_result_includes_pod_id():
 
 
 def test_task_has_max_retries_1():
-    from saas.workers.tasks import run_simulation_task
+    from saas.jobs.tasks import run_simulation_task
     assert run_simulation_task.max_retries == 1
 
 
@@ -135,22 +135,22 @@ def test_task_has_max_retries_1():
 
 
 def test_cleanup_terminates_pod_not_in_active_jobs():
-    from saas.workers.tasks import cleanup_orphaned_pods
+    from saas.jobs.tasks import cleanup_orphaned_pods
     mock_pods = [{"id": "pod_orphan", "name": "fishcloud-sim", "machine": {"gpuDisplayName": "A100"}, "runtime": {"uptimeInSeconds": 600}}]
     with patch.dict(os.environ, {"RUNPOD_API_KEY": "test-key", "DATABASE_URL": ""}):
         with patch("runpod.get_pods", return_value=mock_pods):
             with patch("runpod.terminate_pod") as mock_terminate:
-                with patch("saas.workers.cleanup._get_active_job_pod_ids", return_value=set()):
+                with patch("saas.jobs.cleanup._get_active_job_pod_ids", return_value=set()):
                     cleanup_orphaned_pods()
     mock_terminate.assert_called_once_with("pod_orphan")
 
 
 def test_cleanup_preserves_pod_with_active_job():
-    from saas.workers.tasks import cleanup_orphaned_pods
+    from saas.jobs.tasks import cleanup_orphaned_pods
     mock_pods = [{"id": "pod_active", "name": "fishcloud-sim", "machine": {"gpuDisplayName": "A100"}}]
     with patch.dict(os.environ, {"RUNPOD_API_KEY": "test-key", "DATABASE_URL": ""}):
         with patch("runpod.get_pods", return_value=mock_pods):
             with patch("runpod.terminate_pod") as mock_terminate:
-                with patch("saas.workers.cleanup._get_active_job_pod_ids", return_value={"pod_active"}):
+                with patch("saas.jobs.cleanup._get_active_job_pod_ids", return_value={"pod_active"}):
                     cleanup_orphaned_pods()
     mock_terminate.assert_not_called()

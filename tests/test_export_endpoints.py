@@ -3,7 +3,7 @@ import pytest
 
 @pytest.mark.asyncio
 async def test_export_pdf_returns_pdf(client, auth_headers, db_session):
-    from saas.models.job import SimulationJob, JobStatus
+    from saas.jobs.models import SimulationJob, JobStatus
 
     job = SimulationJob(
         user_id=auth_headers["_user_id"],
@@ -25,7 +25,7 @@ async def test_export_pdf_returns_pdf(client, auth_headers, db_session):
 
 @pytest.mark.asyncio
 async def test_export_json_returns_json(client, auth_headers, db_session):
-    from saas.models.job import SimulationJob, JobStatus
+    from saas.jobs.models import SimulationJob, JobStatus
 
     job = SimulationJob(
         user_id=auth_headers["_user_id"],
@@ -50,7 +50,7 @@ async def test_export_json_returns_json(client, auth_headers, db_session):
 
 @pytest.mark.asyncio
 async def test_export_json_forbidden_for_other_user(client, auth_headers, db_session):
-    from saas.models.job import SimulationJob, JobStatus
+    from saas.jobs.models import SimulationJob, JobStatus
 
     job = SimulationJob(
         user_id="other-user-id",
@@ -71,7 +71,7 @@ async def test_export_json_forbidden_for_other_user(client, auth_headers, db_ses
 
 @pytest.mark.asyncio
 async def test_export_json_no_results(client, auth_headers, db_session):
-    from saas.models.job import SimulationJob, JobStatus
+    from saas.jobs.models import SimulationJob, JobStatus
 
     job = SimulationJob(
         user_id=auth_headers["_user_id"],

@@ -17,7 +17,7 @@ async def test_missing_routing_does_not_charge_credits(client, auth_headers, fun
 
 async def test_dispatch_failure_does_not_charge_credits(client, auth_headers, funded_user, seeded_routing):
     """If Celery dispatch fails, credits must not be deducted."""
-    with patch("saas.api.jobs.run_simulation_task.delay", side_effect=Exception("broker down")):
+    with patch("saas.jobs.api.run_simulation_task.delay", side_effect=Exception("broker down")):
         resp = await client.post(
             "/api/jobs",
             headers=auth_headers,

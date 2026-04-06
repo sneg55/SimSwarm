@@ -5,7 +5,7 @@ import logging
 import os
 from datetime import datetime, timezone
 
-from saas.workers.alerts import send_orphan_alert
+from saas.jobs.alerts import send_orphan_alert
 
 logger = logging.getLogger(__name__)
 
@@ -113,13 +113,13 @@ def recover_stale_jobs() -> dict:
             return {"stale_jobs": 0, "recovered": 0}
 
         # Tier timeout + 10 min buffer
-        from saas.tiers import TIER_TIMEOUTS
+        from saas.constants.tiers import TIER_TIMEOUTS
         now = datetime.now(timezone.utc)
         recovered = []
         resumed = []
 
         # Import resume task lazily to avoid circular imports
-        from saas.workers.tasks import resume_simulation_task
+        from saas.jobs.tasks import resume_simulation_task
 
         with engine.connect() as conn:
             for row in stale_jobs:
@@ -138,7 +138,7 @@ def recover_stale_jobs() -> dict:
                         pod_status = _check_pod_status(pod_id)
                         if pod_status in ("running", "completed"):
                             # Skip jobs that have already reached a terminal state in the DB
-                            from saas.workers.persistence import _get_job_status
+                            from saas.jobs.persistence import _get_job_status
                             job_status = _get_job_status(job_id)
                             if job_status in ('COMPLETED', 'FAILED', 'REFUNDED'):
                                 logger.info(

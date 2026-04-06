@@ -6,7 +6,7 @@ refunded on failure, and that status transitions are properly persisted.
 """
 from unittest.mock import patch, MagicMock
 
-from saas.models.job import SimulationJob, JobStatus
+from saas.jobs.models import SimulationJob, JobStatus
 
 
 async def test_failed_job_gets_refund(client, auth_headers, funded_user, seeded_routing, db_session):
@@ -14,7 +14,7 @@ async def test_failed_job_gets_refund(client, auth_headers, funded_user, seeded_
     # Create job
     mock_task = MagicMock()
     mock_task.id = "mock-task-1"
-    with patch("saas.api.jobs.run_simulation_task.delay", return_value=mock_task):
+    with patch("saas.jobs.api.run_simulation_task.delay", return_value=mock_task):
         resp = await client.post(
             "/api/jobs",
             headers=auth_headers,
@@ -64,7 +64,7 @@ async def test_job_status_transitions(client, auth_headers, funded_user, seeded_
     """Job goes through valid status transitions."""
     mock_task = MagicMock()
     mock_task.id = "mock-task-2"
-    with patch("saas.api.jobs.run_simulation_task.delay", return_value=mock_task):
+    with patch("saas.jobs.api.run_simulation_task.delay", return_value=mock_task):
         resp = await client.post(
             "/api/jobs",
             headers=auth_headers,

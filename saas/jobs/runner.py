@@ -1,0 +1,198 @@
+"""Job runner: bridges Celery tasks to GPU provider + MiroShark pipeline."""
+from __future__ import annotations
+
+import asyncio
+import logging
+
+import httpx
+
+from saas.gpu.provider import GPUProvider, GPUProviderConfig
+from saas.constants.tiers import TIER_TIMEOUTS, TIER_MAX_COST_USD  # re-export
+from saas.jobs.config import JobConfig, get_worker_image  # re-export
+from saas.jobs.status import _extract_live_status  # re-export
+from saas.jobs.pipeline import (
+    wait_for_worker_health,
+    submit_job,
+    poll_until_complete,
+    log_worker_output,
+)
+
+logger = logging.getLogger(__name__)
+
+
+class JobRunner:
+    """Manages the full lifecycle of a simulation job on a GPU instance."""
+
+    def __init__(self, gpu_provider: GPUProvider, stage_callback=None,
+                 pod_id_callback=None, heartbeat_callback=None):
+        self.gpu_provider = gpu_provider
+        # Optional async callable(job_id, stage) invoked when pipeline_stage changes
+        self._stage_callback = stage_callback
+        # Optional async callable(job_id, pod_id) invoked right after GPU provisioning
+        self._pod_id_callback = pod_id_callback
+        # Optional async callable(job_id) invoked periodically during polling
+        self._heartbeat_callback = heartbeat_callback
+
+    async def run(self, config: JobConfig) -> dict:
+        """Provision a GPU, run the pipeline, then terminate the instance.
+
+        Provisioning runs with its own internal timeout (MAX_POLL_ATTEMPTS).
+        The tier timeout wraps only pipeline execution, ensuring the finally
+        block always has a valid pod_id to terminate.
+        """
+        gpu_config = GPUProviderConfig(
+            gpu_type=config.gpu_type,
+            docker_image=get_worker_image(),
+            max_cost_per_hour_usd=TIER_MAX_COST_USD.get(config.tier, 4.00),
+            timeout_seconds=config.timeout_seconds,
+            env_vars=config.to_worker_env(),
+        )
+
+        if self._stage_callback is not None:
+            try:
+                await self._stage_callback(config.job_id, 0)
+            except Exception:
+                pass
+
+        timeout = getattr(config, "_timeout_override", None) or config.timeout_seconds
+        logger.info(f"Job {config.job_id}: starting with {timeout}s tier timeout ({config.tier})")
+
+        return await self._run_inner(gpu_config, config, timeout)
+
+    async def _run_inner(self, gpu_config, config: JobConfig, timeout: int | float) -> dict:
+        """Provision GPU, run pipeline with tier timeout, guarantee teardown."""
+        import time
+
+        # Phase 1: Provision (own internal timeout via MAX_POLL_ATTEMPTS)
+        # on_created fires as soon as the pod is created (before the ready-wait
+        # loop) so cleanup can match the pod to a job and won't kill it as orphaned.
+        async def _on_pod_created(pid):
+            if self._pod_id_callback is not None:
+                try:
+                    await self._pod_id_callback(config.job_id, pid)
+                except Exception:
+                    logger.warning("Early pod_id_callback failed for job %d", config.job_id)
+
+        provision_start = time.monotonic()
+        instance = await self.gpu_provider.provision(gpu_config, on_created=_on_pod_created)
+        provision_seconds = int(time.monotonic() - provision_start)
+        pod_id = instance.instance_id
+        logger.info(
+            "job.gpu_provisioned job_id=%d pod_id=%s provision_seconds=%d",
+            config.job_id, pod_id, provision_seconds,
+            extra={"event": "gpu_provisioned", "job_id": config.job_id,
+                   "pod_id": pod_id, "elapsed_s": provision_seconds},
+        )
+
+        # Phase 2: Pipeline (wrapped with tier timeout, teardown guaranteed)
+        try:
+            pipeline_start = time.monotonic()
+            result = await asyncio.wait_for(
+                self._execute_pipeline(pod_id, config),
+                timeout=timeout,
+            )
+            pipeline_seconds = int(time.monotonic() - pipeline_start)
+            result["pod_id"] = pod_id
+            result["provision_seconds"] = provision_seconds
+            result["pipeline_seconds"] = pipeline_seconds
+            return result
+        except asyncio.TimeoutError:
+            raise TimeoutError(
+                f"Job {config.job_id} exceeded {config.tier} tier timeout of {timeout}s"
+            )
+        except Exception as e:
+            logger.error(f"Pipeline failed for pod {pod_id}: {e}")
+            try:
+                worker_url = f"https://{pod_id}-5000.proxy.runpod.net"
+                async with httpx.AsyncClient(timeout=10) as client:
+                    status_resp = await client.get(f"{worker_url}/status")
+                    if status_resp.status_code == 200:
+                        logger.error(f"Worker status at failure: {status_resp.json()}")
+            except Exception:
+                logger.warning("Could not retrieve worker status before termination")
+            raise
+        finally:
+            await self.gpu_provider.terminate(pod_id)
+
+    async def _execute_pipeline(self, instance_id: str, config: JobConfig) -> dict:
+        """Execute the MiroShark pipeline via the worker pod's HTTP API.
+
+        Steps:
+          1. Poll /health until the worker API (and vLLM) is ready
+          2. POST /job with seed_text, goal, max_rounds -- blocks until complete
+          3. Return report + chat_log to be saved in the DB
+
+        A single httpx.AsyncClient is reused for all HTTP requests to avoid
+        connection churn (TLS handshake per request).
+        """
+        worker_url = f"https://{instance_id}-5000.proxy.runpod.net"
+
+        async with httpx.AsyncClient(timeout=15) as client:
+            await wait_for_worker_health(worker_url, client)
+            await submit_job(worker_url, config, client)
+            return await poll_until_complete(
+                worker_url, instance_id, config, client=client,
+                stage_callback=self._stage_callback,
+                heartbeat_callback=self._heartbeat_callback,
+            )
+
+    async def resume(self, pod_id: str, job_id: int) -> dict:
+        """Reconnect to an existing pod and poll until complete.
+
+        Used after worker restart to pick up jobs that were running on pods
+        that are still alive.
+        """
+        worker_url = f"https://{pod_id}-5000.proxy.runpod.net"
+        logger.info(
+            "job.resuming job_id=%d pod_id=%s url=%s",
+            job_id, pod_id, worker_url,
+        )
+
+        # Quick health check -- is the pod actually responding?
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                resp = await client.get(f"{worker_url}/status")
+                status_data = resp.json()
+                job_status = status_data.get("status", "unknown")
+                logger.info("job.resume_status job_id=%d pod_status=%s", job_id, job_status)
+        except Exception as e:
+            raise RuntimeError(f"Cannot reach pod {pod_id} for resume: {e}")
+
+        # If already completed, return result immediately
+        if job_status == "completed":
+            logger.info("job.resume_already_complete job_id=%d", job_id)
+            return {
+                "job_id": job_id,
+                "instance_id": pod_id,
+                "report": status_data.get("report", ""),
+                "chat_log": status_data.get("chat_log", "[]"),
+                "graph_data": status_data.get("graph_data", "{}"),
+                "structured": status_data.get("structured", "{}"),
+                "status": "completed",
+            }
+
+        if job_status == "failed":
+            error_msg = status_data.get("error", "Unknown error")
+            raise RuntimeError(f"Pod pipeline already failed: {error_msg}")
+
+        if job_status == "idle":
+            raise RuntimeError(
+                f"Pod {pod_id} is idle -- pipeline was never started or already reset")
+
+        # Still running -- create a minimal config for the polling loop
+        minimal_config = type("MinimalConfig", (), {
+            "job_id": job_id,
+            "timeout_seconds": TIER_TIMEOUTS.get("medium", 18000),
+        })()
+
+        try:
+            result = await poll_until_complete(
+                worker_url, pod_id, minimal_config,
+                stage_callback=self._stage_callback,
+                heartbeat_callback=self._heartbeat_callback,
+            )
+            return result
+        finally:
+            # Terminate pod after resume completes (success or failure)
+            logger.info("job.resume_terminating pod_id=%s", pod_id)
+            await self.gpu_provider.terminate(pod_id)
