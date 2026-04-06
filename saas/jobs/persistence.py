@@ -1,33 +1,49 @@
-"""DB write helpers for SimulationJob persistence."""
+"""DB write helpers for SimulationJob persistence.
+
+This module is a re-export shim. Implementation lives in:
+  - persistence_engine.py  — engine/session factory helpers
+  - persistence_sync.py    — sync (psycopg2) helpers for Celery tasks
+  - persistence_async.py   — async helpers for async contexts
+
+_claim_resume and _release_resume are defined here so that
+patch("saas.jobs.persistence._get_sync_engine") correctly intercepts them
+in tests.
+"""
 from __future__ import annotations
 
 import logging
-import os
-from datetime import datetime, timezone
 
-from saas.workers.utils import _run_async
+# Engine helpers (imported first — used by functions defined below)
+from saas.jobs.persistence_engine import (
+    _get_sync_engine,
+    _get_worker_session_factory,
+)
+
+# Sync helpers (psycopg2 / Celery-safe)
+from saas.jobs.persistence_sync import (
+    _save_job_results,
+    _update_pipeline_stage_sync,
+    _update_heartbeat_sync,
+    _update_live_status_sync,
+    _update_pod_id,
+    _update_sim_data_available,
+    _get_job_status,
+)
+
+# Async helpers
+from saas.jobs.persistence_async import (
+    _mark_job_failed,
+    _update_pipeline_stage,
+    _async_update_pipeline_stage,
+    _async_update_pod_id,
+    _update_job_metadata,
+    _update_heartbeat,
+    _async_update_heartbeat,
+    _update_enrichment,
+    _update_job_retry,
+)
 
 logger = logging.getLogger(__name__)
-
-# ---------------------------------------------------------------------------
-# Module-level lazy DB engine — avoids creating a new engine per helper call
-# ---------------------------------------------------------------------------
-_engine = None
-_session_factory = None
-
-
-def _get_worker_session_factory():
-    """Return a shared async_sessionmaker, creating the engine on first call."""
-    global _engine, _session_factory
-    if _session_factory is None:
-        from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
-
-        database_url = os.getenv("DATABASE_URL", "")
-        if not database_url:
-            return None
-        _engine = create_async_engine(database_url, pool_size=2, max_overflow=3)
-        _session_factory = async_sessionmaker(_engine, class_=AsyncSession, expire_on_commit=False)
-    return _session_factory
 
 
 def _extract_key_insight(report: str) -> str | None:
@@ -35,7 +51,6 @@ def _extract_key_insight(report: str) -> str | None:
     if not report:
         return None
     lines = [line.strip() for line in report.split('\n') if line.strip()]
-    # Skip markdown headings, find first content line
     insight_line = next(
         (line for line in lines if not line.startswith('#') and len(line) > 30),
         None
@@ -45,430 +60,79 @@ def _extract_key_insight(report: str) -> str | None:
     return None
 
 
-def _save_job_results(job_id: int, report: str, chat_log: str, graph_data: str = "{}", key_insight: str | None = None, structured: str | None = None) -> None:
-    """Persist pipeline results to the SimulationJob row.
-
-    Uses a sync connection to avoid asyncpg InterfaceError — this is the most
-    critical save in the pipeline and MUST succeed.
-    """
-    import os
-    from sqlalchemy import create_engine, text
-
-    database_url = os.getenv("DATABASE_URL", "")
-    if not database_url:
-        logger.warning("DATABASE_URL not set; skipping result save for job %d", job_id)
-        return
-
-    sync_url = database_url.replace("+asyncpg", "").replace("postgresql://", "postgresql+psycopg2://")
-    try:
-        engine = create_engine(sync_url)
-        with engine.connect() as conn:
-            conn.execute(
-                text(
-                    "UPDATE simulation_jobs "
-                    "SET status = 'COMPLETED', "
-                    "    result_report = :report, "
-                    "    result_chat_log = :chat_log, "
-                    "    result_graph = :graph_data, "
-                    "    key_insight = :key_insight, "
-                    "    result_structured = :structured, "
-                    "    completed_at = :completed_at "
-                    "WHERE id = :job_id"
-                ),
-                {
-                    "report": report,
-                    "chat_log": chat_log,
-                    "graph_data": graph_data,
-                    "key_insight": key_insight,
-                    "structured": structured,
-                    "completed_at": datetime.now(timezone.utc),
-                    "job_id": job_id,
-                },
-            )
-            conn.commit()
-            logger.info("Saved results for job %d", job_id)
-        engine.dispose()
-    except Exception as exc:
-        logger.warning("Could not save results for job %d: %s", job_id, exc)
-
-
-def _mark_job_failed(job_id: int, error_message: str) -> None:
-    """Mark a SimulationJob row as failed with the given error message."""
-    from sqlalchemy import text
-
-    factory = _get_worker_session_factory()
-    if factory is None:
-        return
-
-    async def _do_fail():
-        async with factory() as session:
-            try:
-                await session.execute(
-                    text(
-                        "UPDATE simulation_jobs "
-                        "SET status = 'FAILED', "
-                        "    error_message = :error_message, "
-                        "    completed_at = :completed_at "
-                        "WHERE id = :job_id"
-                    ),
-                    {
-                        "error_message": error_message[:4096],
-                        "completed_at": datetime.now(timezone.utc),
-                        "job_id": job_id,
-                    },
-                )
-                await session.commit()
-            except Exception as exc:
-                logger.warning("Could not mark job %d failed: %s", job_id, exc)
-
-    _run_async(_do_fail())
-
-
-def _get_sync_engine():
-    """Return a fresh sync SQLAlchemy engine using psycopg2."""
-    import os
-    from sqlalchemy import create_engine
-
-    database_url = os.getenv("DATABASE_URL", "")
-    if not database_url:
-        return None
-    sync_url = database_url.replace("+asyncpg", "").replace("postgresql://", "postgresql+psycopg2://")
-    return create_engine(sync_url)
-
-
-def _update_pipeline_stage_sync(job_id: int, stage: int) -> None:
-    """Update pipeline_stage and set status to RUNNING (sync, for Celery)."""
+def _claim_resume(job_id: int, task_id: str) -> bool:
+    """Atomically claim a job for resume. Returns True if claimed, False if already taken."""
     from sqlalchemy import text
 
     engine = _get_sync_engine()
     if engine is None:
-        logger.warning("DATABASE_URL not set; skipping pipeline_stage update for job %d", job_id)
-        return
-    try:
-        with engine.connect() as conn:
-            conn.execute(
-                text(
-                    "UPDATE simulation_jobs SET pipeline_stage = :stage, status = 'RUNNING' "
-                    "WHERE id = :job_id AND status != 'COMPLETED'"
-                ),
-                {"stage": stage, "job_id": job_id},
-            )
-            conn.commit()
-            logger.debug("Set pipeline_stage=%d for job %d", stage, job_id)
-    except Exception as exc:
-        logger.warning("Could not update pipeline_stage for job %d: %s", job_id, exc)
-    finally:
-        engine.dispose()
-
-
-def _update_heartbeat_sync(job_id: int) -> None:
-    """Update last_heartbeat timestamp (sync, for Celery)."""
-    from sqlalchemy import text
-
-    engine = _get_sync_engine()
-    if engine is None:
-        logger.warning("DATABASE_URL not set; skipping heartbeat update for job %d", job_id)
-        return
-    try:
-        with engine.connect() as conn:
-            conn.execute(
-                text("UPDATE simulation_jobs SET last_heartbeat = now() WHERE id = :job_id"),
-                {"job_id": job_id},
-            )
-            conn.commit()
-    except Exception as exc:
-        logger.warning("Could not update heartbeat for job %d: %s", job_id, exc)
-    finally:
-        engine.dispose()
-
-
-def _update_live_status_sync(job_id: int, live_status: dict) -> None:
-    """Write live_status JSONB for a running job (sync, for Celery).
-
-    Uses _get_sync_engine() / psycopg2 — never the shared async pool.
-    Silently skips if DATABASE_URL is unset (e.g. tests without DB).
-    """
-    import json
-    from sqlalchemy import text
-
-    engine = _get_sync_engine()
-    if engine is None:
-        logger.warning("DATABASE_URL not set; skipping live_status update for job %d", job_id)
-        return
-    try:
-        with engine.connect() as conn:
-            conn.execute(
-                text(
-                    "UPDATE simulation_jobs "
-                    "SET live_status = CAST(:live_status AS JSONB) "
-                    "WHERE id = :job_id"
-                ),
-                {"live_status": json.dumps(live_status), "job_id": job_id},
-            )
-            conn.commit()
-    except Exception as exc:
-        logger.warning("Could not update live_status for job %d: %s", job_id, exc)
-    finally:
-        engine.dispose()
-
-
-def _update_pipeline_stage(job_id: int, stage: int) -> None:
-    """Update pipeline_stage on a SimulationJob row."""
-    _run_async(_async_update_pipeline_stage(job_id, stage))
-
-
-async def _async_update_pipeline_stage(job_id: int, stage: int) -> None:
-    """Async impl of _update_pipeline_stage — safe to await from async callbacks.
-
-    Also transitions status to RUNNING on the first real pipeline stage (>= 1).
-    """
-    from sqlalchemy import text
-
-    factory = _get_worker_session_factory()
-    if factory is None:
-        return
-    async with factory() as session:
-        try:
-            if stage >= 1:
-                await session.execute(
-                    text(
-                        "UPDATE simulation_jobs "
-                        "SET pipeline_stage = :stage, status = 'RUNNING' "
-                        "WHERE id = :job_id"
-                    ),
-                    {"stage": stage, "job_id": job_id},
-                )
-            else:
-                await session.execute(
-                    text("UPDATE simulation_jobs SET pipeline_stage = :stage WHERE id = :job_id"),
-                    {"stage": stage, "job_id": job_id},
-                )
-            await session.commit()
-            logger.debug("Set pipeline_stage=%d for job %d", stage, job_id)
-        except Exception as exc:
-            logger.warning("Could not update pipeline_stage for job %d: %s", job_id, exc)
-
-
-def _update_pod_id(job_id: int, pod_id: str, gpu_provider: str = "runpod") -> None:
-    """Persist pod_id to the SimulationJob row immediately after GPU provisioning.
-
-    Uses a sync connection to avoid asyncpg InterfaceError when the async pool
-    is busy with concurrent operations (enrichment, heartbeat, etc.).
-    """
-    import os
-    from sqlalchemy import create_engine, text
-
-    database_url = os.getenv("DATABASE_URL", "")
-    if not database_url:
-        logger.warning("DATABASE_URL not set; skipping pod_id update for job %d", job_id)
-        return
-
-    sync_url = database_url.replace("+asyncpg", "").replace("postgresql://", "postgresql+psycopg2://")
-    try:
-        engine = create_engine(sync_url)
-        with engine.connect() as conn:
-            conn.execute(
-                text(
-                    "UPDATE simulation_jobs SET pod_id = :pod_id, status = 'PROVISIONING', "
-                    "gpu_provider = :gpu_provider WHERE id = :job_id"
-                ),
-                {"pod_id": pod_id, "gpu_provider": gpu_provider, "job_id": job_id},
-            )
-            conn.commit()
-            logger.info("Saved pod_id=%s for job %d (status → PROVISIONING)", pod_id, job_id)
-        engine.dispose()
-    except Exception as exc:
-        logger.warning("Could not save pod_id for job %d: %s", job_id, exc)
-
-
-async def _async_update_pod_id(job_id: int, pod_id: str, gpu_provider: str = "runpod") -> None:
-    """Async impl of _update_pod_id — safe to await from async callbacks."""
-    from sqlalchemy import text
-
-    factory = _get_worker_session_factory()
-    if factory is None:
-        logger.warning("DATABASE_URL not set; skipping pod_id update for job %d", job_id)
-        return
-    async with factory() as session:
-        try:
-            await session.execute(
-                text(
-                    "UPDATE simulation_jobs "
-                    "SET pod_id = :pod_id, gpu_provider = :gpu_provider, status = 'PROVISIONING' "
-                    "WHERE id = :job_id"
-                ),
-                {"pod_id": pod_id, "gpu_provider": gpu_provider, "job_id": job_id},
-            )
-            await session.commit()
-            logger.info(
-                "Saved pod_id=%s gpu_provider=%s for job %d (status → PROVISIONING)",
-                pod_id,
-                gpu_provider,
-                job_id,
-            )
-        except Exception as exc:
-            logger.warning("Could not save pod_id for job %d: %s", job_id, exc)
-
-
-def _update_job_metadata(job_id: int, pod_id: str, provision_seconds: int | None = None, pipeline_seconds: int | None = None) -> None:
-    """Persist pod_id and timing metadata to the SimulationJob row."""
-    from sqlalchemy import text
-
-    factory = _get_worker_session_factory()
-    if factory is None:
-        logger.warning("DATABASE_URL not set; skipping metadata update for job %d", job_id)
-        return
-
-    async def _do_update():
-        async with factory() as session:
-            try:
-                await session.execute(
-                    text(
-                        "UPDATE simulation_jobs "
-                        "SET pod_id = :pod_id, "
-                        "    provision_seconds = :provision_seconds, "
-                        "    pipeline_seconds = :pipeline_seconds "
-                        "WHERE id = :job_id"
-                    ),
-                    {
-                        "pod_id": pod_id,
-                        "provision_seconds": provision_seconds,
-                        "pipeline_seconds": pipeline_seconds,
-                        "job_id": job_id,
-                    },
-                )
-                await session.commit()
-                logger.info("Updated metadata for job %d (pod_id=%s)", job_id, pod_id)
-            except Exception as exc:
-                logger.warning("Could not update metadata for job %d: %s", job_id, exc)
-
-    _run_async(_do_update())
-
-
-def _update_heartbeat(job_id: int) -> None:
-    """Update last_heartbeat timestamp on a SimulationJob row."""
-    _run_async(_async_update_heartbeat(job_id))
-
-
-async def _async_update_heartbeat(job_id: int) -> None:
-    """Async impl of _update_heartbeat — safe to await from async callbacks."""
-    from sqlalchemy import text
-
-    factory = _get_worker_session_factory()
-    if factory is None:
-        return
-    async with factory() as session:
-        try:
-            await session.execute(
-                text(
-                    "UPDATE simulation_jobs SET last_heartbeat = :now "
-                    "WHERE id = :job_id"
-                ),
-                {"now": datetime.now(timezone.utc), "job_id": job_id},
-            )
-            await session.commit()
-        except Exception as exc:
-            logger.warning("Could not update heartbeat for job %d: %s", job_id, exc)
-
-
-def _update_enrichment(job_id: int, enriched_text: str, citations_json: str) -> None:
-    """Persist enrichment results to the SimulationJob row."""
-    from sqlalchemy import text
-
-    factory = _get_worker_session_factory()
-    if factory is None:
-        return
-
-    async def _do_update():
-        async with factory() as session:
-            try:
-                await session.execute(
-                    text(
-                        "UPDATE simulation_jobs "
-                        "SET enriched_seed = :enriched, enrichment_citations = :citations "
-                        "WHERE id = :job_id"
-                    ),
-                    {"enriched": enriched_text, "citations": citations_json, "job_id": job_id},
-                )
-                await session.commit()
-                logger.info("Saved enrichment for job %d (%d chars)", job_id, len(enriched_text))
-            except Exception as exc:
-                logger.warning("Could not save enrichment for job %d: %s", job_id, exc)
-
-    _run_async(_do_update())
-
-
-def _update_sim_data_available(job_id: int, available: bool) -> None:
-    """Mark whether rich simulation data was uploaded to MinIO."""
-    import os
-    from sqlalchemy import create_engine, text
-
-    database_url = os.getenv("DATABASE_URL", "")
-    if not database_url:
-        logger.warning("DATABASE_URL not set; skipping sim_data_available update for job %d", job_id)
-        return
-
-    sync_url = database_url.replace("+asyncpg", "").replace("postgresql://", "postgresql+psycopg2://")
-    try:
-        engine = create_engine(sync_url)
-        with engine.connect() as conn:
-            conn.execute(
-                text("UPDATE simulation_jobs SET sim_data_available = :available WHERE id = :job_id"),
-                {"available": available, "job_id": job_id},
-            )
-            conn.commit()
-            logger.info("Set sim_data_available=%s for job %d", available, job_id)
-        engine.dispose()
-    except Exception as exc:
-        logger.warning("Could not update sim_data_available for job %d: %s", job_id, exc)
-
-
-def _get_job_status(job_id: int) -> str | None:
-    """Get current job status (sync, for Celery)."""
-    import os
-    from sqlalchemy import create_engine, text
-
-    database_url = os.getenv("DATABASE_URL", "")
-    if not database_url:
-        logger.warning("DATABASE_URL not set; skipping status check for job %d", job_id)
-        return None
-
-    sync_url = database_url.replace("+asyncpg", "").replace("postgresql://", "postgresql+psycopg2://")
-    engine = create_engine(sync_url)
+        return False
     try:
         with engine.connect() as conn:
             row = conn.execute(
-                text("SELECT status FROM simulation_jobs WHERE id = :job_id"),
-                {"job_id": job_id},
+                text(
+                    "UPDATE simulation_jobs "
+                    "SET resume_task_id = :task_id "
+                    "WHERE id = :job_id "
+                    "  AND status NOT IN ('COMPLETED', 'FAILED', 'REFUNDED') "
+                    "  AND resume_task_id IS NULL "
+                    "RETURNING id"
+                ),
+                {"task_id": task_id, "job_id": job_id},
             ).first()
-            return row[0] if row else None
+            conn.commit()
+            if row:
+                logger.info("resume.claimed job_id=%d task_id=%s", job_id, task_id)
+                return True
+            logger.info("resume.claim_rejected job_id=%d task_id=%s", job_id, task_id)
+            return False
+    except Exception as exc:
+        logger.warning("resume.claim_error job_id=%d: %s", job_id, exc)
+        return False
     finally:
         engine.dispose()
 
 
-def _update_job_retry(job_id: int, retry_count: int) -> None:
-    """Update retry_count and reset status to PROVISIONING for a job being retried."""
+def _release_resume(job_id: int) -> None:
+    """Clear resume_task_id after resume completes (success or failure)."""
     from sqlalchemy import text
 
-    factory = _get_worker_session_factory()
-    if factory is None:
+    engine = _get_sync_engine()
+    if engine is None:
         return
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text("UPDATE simulation_jobs SET resume_task_id = NULL WHERE id = :job_id"),
+                {"job_id": job_id},
+            )
+            conn.commit()
+    except Exception as exc:
+        logger.warning("resume.release_error job_id=%d: %s", job_id, exc)
+    finally:
+        engine.dispose()
 
-    async def _do_update():
-        async with factory() as session:
-            try:
-                await session.execute(
-                    text(
-                        "UPDATE simulation_jobs "
-                        "SET retry_count = :retry_count, "
-                        "    status = 'PROVISIONING' "
-                        "WHERE id = :job_id"
-                    ),
-                    {"retry_count": retry_count, "job_id": job_id},
-                )
-                await session.commit()
-                logger.info("Set retry_count=%d for job %d", retry_count, job_id)
-            except Exception as exc:
-                logger.warning("Could not update retry_count for job %d: %s", job_id, exc)
 
-    _run_async(_do_update())
+__all__ = [
+    "_extract_key_insight",
+    "_get_sync_engine",
+    "_get_worker_session_factory",
+    "_save_job_results",
+    "_update_pipeline_stage_sync",
+    "_update_heartbeat_sync",
+    "_update_live_status_sync",
+    "_update_pod_id",
+    "_update_sim_data_available",
+    "_get_job_status",
+    "_claim_resume",
+    "_release_resume",
+    "_mark_job_failed",
+    "_update_pipeline_stage",
+    "_async_update_pipeline_stage",
+    "_async_update_pod_id",
+    "_update_job_metadata",
+    "_update_heartbeat",
+    "_async_update_heartbeat",
+    "_update_enrichment",
+    "_update_job_retry",
+]
