@@ -2,7 +2,8 @@
   <div ref="containerRef" class="bg-ocean-deep border border-mist-depth rounded-2xl p-7">
     <div v-for="bar in bars" :key="bar.label" class="flex items-center gap-4 mb-4 last:mb-0">
       <span class="text-sm font-medium text-mist-drift min-w-[120px]">{{ bar.label }}</span>
-      <div class="flex-1 h-2 bg-ocean-abyss rounded-full overflow-hidden">
+      <div class="flex-1 h-2 bg-ocean-abyss rounded-full overflow-hidden"
+        :style="{ opacity: bar.width === 0 ? 0.3 : 1 }">
         <div class="h-full rounded-full transition-[width] duration-[1.5s] ease-smooth"
           :style="{ width: (visible ? bar.width : 0) + '%', background: bar.gradient }" />
       </div>

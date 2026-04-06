@@ -37,11 +37,11 @@ export function useSimulationData(job) {
     return structured.value.sentiment.map(s => ({
       label: s.label,
       width: s.value,
-      value: `${s.value}%`,
+      value: s.value === 0 ? 'N/A' : `${s.value}%`,
       gradient: s.direction === 'positive'
         ? 'linear-gradient(90deg, #22D3EE, #6EE7B7)'
         : 'linear-gradient(90deg, #FF6B6B, #F97316)',
-      valueColor: s.direction === 'positive' ? '#6EE7B7' : '#FF6B6B',
+      valueColor: s.value === 0 ? '#64748B' : (s.direction === 'positive' ? '#6EE7B7' : '#FF6B6B'),
     }))
   })
 

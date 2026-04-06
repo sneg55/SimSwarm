@@ -1,5 +1,5 @@
 <template>
-  <div class="pt-[80px] pb-24 px-4 md:px-8">
+  <div class="pb-24 px-4 md:px-8">
     <div class="max-w-[960px] mx-auto">
       <div v-if="loading" class="flex items-center justify-center py-20">
         <div class="text-mist-slate text-sm">Loading simulation data…</div>

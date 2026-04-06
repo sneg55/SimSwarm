@@ -22,10 +22,8 @@
     <template v-else>
       <!-- ── Story View ── -->
       <div v-if="viewMode === 'story'" class="relative pt-[120px] pb-24">
-        <!-- Left TOC -->
         <ReportToc :items="storySections" />
 
-        <!-- Content -->
         <div class="max-w-[800px] mx-auto pl-12 pr-4 xl:pl-16 space-y-12">
           <!-- Simulation header -->
           <div id="story-header" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
@@ -54,7 +52,6 @@
                     :metric="f.metric" :accent-color="f.accentColor" />
                 </div>
               </div>
-              <SentimentBars v-if="sentimentBars.length" :bars="sentimentBars" class="mb-8" />
               <div v-if="structured.coalitions?.length" class="mb-8">
                 <h2 class="text-lg font-bold text-mist-foam mb-4">Agent Coalitions</h2>
                 <div class="grid gap-4 md:grid-cols-2">
@@ -64,10 +61,11 @@
                 </div>
               </div>
               <!-- Compact simulation data cards -->
-              <div v-if="simDataAvailable" class="grid gap-4 md:grid-cols-2 mb-8" data-reveal>
+              <div v-if="simDataAvailable" class="grid gap-4 md:grid-cols-2 mb-6" data-reveal>
                 <MarketCurveCompact :markets="compactMarkets" />
                 <EngagementCompact :data="compactEngagement" />
               </div>
+              <div v-if="simDataAvailable" class="border-t border-mist-depth pt-6 mb-2"></div>
               <ReportViewer :content="job.result_report || ''" />
             </template>
             <template v-else>
@@ -80,9 +78,6 @@
             <h2 class="text-lg font-bold text-mist-foam mb-4">Sources & Background</h2>
             <ReportViewer :content="job.enriched_seed" />
           </div>
-
-          <!-- Chat replay -->
-          <!-- Chat replay only in Report view, not Story -->
         </div>
       </div>
 
@@ -101,18 +96,15 @@
       </div>
 
       <!-- ── Data View ── -->
-      <div v-else-if="viewMode === 'data'" class="overflow-hidden" style="min-height: calc(100vh - 140px)">
+      <div v-else-if="viewMode === 'data'" class="pt-[120px] overflow-hidden" style="min-height: calc(100vh - 140px)">
         <DataDashboard :jobId="jobId" />
       </div>
 
       <!-- ── Report View ── -->
       <div v-else-if="viewMode === 'report'" class="relative pt-[120px] pb-24">
-        <!-- Left TOC -->
         <ReportToc :items="tocItems" />
 
-        <!-- Content shifted right on xl screens -->
         <div class="max-w-[800px] mx-auto pl-12 pr-4 xl:pl-16 space-y-12">
-          <!-- Simulation header -->
           <div id="report-header" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
             <h1 class="text-2xl font-bold text-mist-foam mb-2">{{ job.goal }}</h1>
             <p class="text-sm text-mist-slate capitalize">
@@ -122,12 +114,10 @@
             </p>
           </div>
 
-          <!-- Report -->
           <div id="report-content" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
             <ReportViewer :content="job.result_report || job.report || 'No report available.'" />
           </div>
 
-          <!-- Chat replay -->
           <div v-if="chatMessages.length > 0" id="report-chat">
             <ChatReplay :messages="chatMessages" />
           </div>
@@ -157,15 +147,14 @@ import ChatReplay from '../components/ChatReplay.vue'
 import GraphVisualization from '../components/graph/GraphVisualization.vue'
 import ResultsToolbar from '../components/results/ResultsToolbar.vue'
 import ResultsBottomBar from '../components/results/ResultsBottomBar.vue'
-import StoryTimeline from '../components/results/StoryTimeline.vue'
 import ReportToc from '../components/results/ReportToc.vue'
 import FindingCard from '../components/results/FindingCard.vue'
-import SentimentBars from '../components/results/SentimentBars.vue'
 import CoalitionCard from '../components/results/CoalitionCard.vue'
 import ConfidenceGrid from '../components/results/ConfidenceGrid.vue'
 import { useScrollReveal } from '../composables/useScrollReveal.js'
 import { useSimulationData } from '../composables/useSimulationData.js'
-import { getJob, getJobGraph, createShareLink, getSimData } from '../api/jobs.js'
+import { useResultsExport } from '../composables/useResultsExport.js'
+import { getJob, getJobGraph, getSimData } from '../api/jobs.js'
 import DataDashboard from '../components/data/DataDashboard.vue'
 import MarketCurveCompact from '../components/results/MarketCurveCompact.vue'
 import EngagementCompact from '../components/results/EngagementCompact.vue'
@@ -189,18 +178,12 @@ const simDataAvailable = ref(false)
 const compactMarkets = ref([])
 const compactEngagement = ref([])
 
-const pdfLoading = ref(false)
-
 const isSmallScreen = ref(window.innerWidth < 768)
 
 // ── Computed ──────────────────────────────────────────────────────────────────
 
-const { chatLog, chatMessages, structured, sentimentBars, buildNodeRelationships } = useSimulationData(job)
-
-const enrichmentCitations = computed(() => {
-  if (!job.value?.enrichment_citations) return []
-  try { return JSON.parse(job.value.enrichment_citations) } catch { return [] }
-})
+const { chatLog, chatMessages, structured, buildNodeRelationships } = useSimulationData(job)
+const { pdfLoading, shareStatus, handleExport, handleShare } = useResultsExport(jobId, job, chatMessages, graphVizRef)
 
 const storySections = computed(() => {
   const sections = [
@@ -246,96 +229,6 @@ function onNodeSelected(_entityName) {
   // In three-view mode there's no split pane; graph view is fullscreen.
 }
 
-// ── Export handlers ───────────────────────────────────────────────────────────
-
-async function handleExport(format) {
-  if (format === 'pdf') {
-    await exportPDF()
-  } else if (format === 'json') {
-    exportJSON()
-  } else if (format === 'csv') {
-    exportCSV()
-  } else if (format === 'png') {
-    exportPNG()
-  }
-}
-
-async function exportPDF() {
-  pdfLoading.value = true
-  try {
-    const token = localStorage.getItem('auth_token')
-    const resp = await fetch(`/api/jobs/${jobId}/export/pdf`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (!resp.ok) {
-      const err = await resp.json().catch(() => ({}))
-      alert(`PDF export failed: ${err.detail || resp.statusText}`)
-      return
-    }
-    const blob = await resp.blob()
-    triggerDownload(blob, `simulation-${jobId}.pdf`)
-  } catch (err) {
-    console.error('PDF export error:', err)
-    alert('PDF export failed. Please try again.')
-  } finally {
-    pdfLoading.value = false
-  }
-}
-
-function exportJSON() {
-  const data = {
-    jobId,
-    report: job.value?.result_report || job.value?.report,
-    messages: chatMessages.value,
-    exportedAt: new Date().toISOString(),
-  }
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-  triggerDownload(blob, `simswarm-${jobId}.json`)
-}
-
-function exportCSV() {
-  const messages = chatMessages.value
-  const rows = [['role', 'agent', 'content', 'timestamp']]
-  messages.forEach((msg) => {
-    rows.push([msg.role || '', msg.agent || '', (msg.content || '').replace(/,/g, ';'), msg.timestamp || ''])
-  })
-  const csv = rows.map((r) => r.map((c) => `"${c}"`).join(',')).join('\n')
-  const blob = new Blob([csv], { type: 'text/csv' })
-  triggerDownload(blob, `simswarm-${jobId}.csv`)
-}
-
-function exportPNG() {
-  if (graphVizRef.value) {
-    graphVizRef.value.exportImage()
-  }
-}
-
-function triggerDownload(blob, filename) {
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = filename
-  a.click()
-  URL.revokeObjectURL(url)
-}
-
-const shareStatus = ref('')
-
-async function handleShare() {
-  try {
-    shareStatus.value = 'generating'
-    const data = await createShareLink(jobId)
-    const publicUrl = `${window.location.origin}/s/${data.share_token}`
-    await navigator.clipboard.writeText(publicUrl)
-    shareStatus.value = 'copied'
-    setTimeout(() => { shareStatus.value = '' }, 3000)
-  } catch (err) {
-    console.error('Failed to create share link:', err)
-    shareStatus.value = 'error'
-    setTimeout(() => { shareStatus.value = '' }, 3000)
-  }
-}
-
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
 function onResize() {
@@ -348,7 +241,6 @@ onMounted(async () => {
     job.value = await getJob(jobId)
     await fetchGraphData()
 
-    // Check for rich simulation data
     simDataAvailable.value = job.value?.sim_data_available || false
     if (simDataAvailable.value) {
       try {
@@ -374,8 +266,6 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', onResize)
 })
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatDate(dateStr) {
   if (!dateStr) return ''

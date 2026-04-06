@@ -175,10 +175,12 @@ def extract_agent_trajectories(sim_dir: str, actions: list[dict], round_window: 
     return list(agents.values())
 
 
-def extract_engagement_summary(actions: list[dict], round_window: int = 10) -> list[dict]:
+def extract_engagement_summary(actions: list[dict], round_window: int | None = None) -> list[dict]:
     if not actions:
         return []
     max_round = max((a.get("round_num", a.get("round", 0)) or 0 for a in actions), default=0)
+    if round_window is None:
+        round_window = max(1, (max_round + 1) // 8)
     summary = []
     for win_start in range(0, max_round + 1, round_window):
         win_end = win_start + round_window
@@ -273,16 +275,12 @@ def extract_profiles(sim_dir: str) -> list[dict]:
     if os.path.exists(twitter_path):
         import csv
         with open(twitter_path, "r", encoding="utf-8") as f:
-            reader = csv.DictReader(f)
-            for row in reader:
+            name_map = {p.get("user_name") or p.get("name", ""): p for p in profiles}
+            for row in csv.DictReader(f):
                 agent_name = row.get("user_name", row.get("name", ""))
-                matched = False
-                for p in profiles:
-                    if p.get("user_name") == agent_name or p.get("name") == agent_name:
-                        p["twitter_profile"] = row
-                        matched = True
-                        break
-                if not matched:
+                if agent_name in name_map:
+                    name_map[agent_name]["twitter_profile"] = row
+                else:
                     profiles.append({"name": agent_name, "twitter_profile": row})
 
     return profiles
