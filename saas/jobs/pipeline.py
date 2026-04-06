@@ -125,6 +125,8 @@ async def poll_until_complete(
             async with httpx.AsyncClient(timeout=15) as _c:
                 yield _c
 
+    MAX_CONSECUTIVE_FAILURES = 5
+
     async with _ensure_client() as http:
         poll_start = time.monotonic()
         poll_interval = 10
@@ -134,13 +136,20 @@ async def poll_until_complete(
         _last_round: int | None = None
         _last_log_lines: list[str] = []
         _last_chat_count: int = 0
+        consecutive_failures = 0
         for poll in range(max_polls):
             await asyncio.sleep(poll_interval)
             try:
                 status_resp = await http.get(f"{worker_url}/status")
                 status_data = status_resp.json()
+                consecutive_failures = 0
             except Exception as e:
+                consecutive_failures += 1
                 logger.warning(f"Status poll {poll + 1} failed: {e}")
+                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                    raise RuntimeError(
+                        f"Pod unreachable: {MAX_CONSECUTIVE_FAILURES} consecutive poll failures"
+                    )
                 continue
 
             # Update heartbeat periodically
