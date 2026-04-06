@@ -6,27 +6,6 @@ VLLM_URL = "http://localhost:8000/v1"
 MIROSHARK_BACKEND = "/app/miroshark/backend"
 
 # ---------------------------------------------------------------------------
-# Platform-specific profile style instructions
-# ---------------------------------------------------------------------------
-
-TWITTER_STYLE = (
-    "\n\nPLATFORM BEHAVIOR (Twitter): You are posting on Twitter. "
-    "Keep posts under 280 characters. Be punchy and direct. "
-    "Use hashtags sparingly. React to trending topics. "
-    "Your tone should be conversational, opinionated, and concise. "
-    "Do NOT write long paragraphs — tweets are short takes."
-)
-
-REDDIT_STYLE = (
-    "\n\nPLATFORM BEHAVIOR (Reddit): You are posting on Reddit. "
-    "Write detailed, substantive posts and comments. "
-    "Provide reasoning, evidence, or personal experience. "
-    "Use paragraph form. Reddit rewards depth over brevity. "
-    "Your tone should be analytical and discussion-oriented. "
-    "Do NOT write short one-liners — Reddit expects thoughtful contributions."
-)
-
-# ---------------------------------------------------------------------------
 # Sentiment word sets
 # ---------------------------------------------------------------------------
 

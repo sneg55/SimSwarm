@@ -38,7 +38,7 @@ from service_init import (
     _apply_config_overrides,
 )
 from graph_ops import build_graph
-from simulation import prepare_simulation, _patch_platform_profiles, run_and_wait
+from simulation import prepare_simulation, run_and_wait
 from results import (
     generate_report,
     collect_chat_log,
@@ -65,12 +65,6 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
     project_id, graph_id = build_graph(seed_text, goal, storage)
     try:
         simulation_id = prepare_simulation(project_id, graph_id, seed_text, goal, storage)
-
-        # Patch profiles with platform-specific style
-        try:
-            _patch_platform_profiles(simulation_id)
-        except Exception as exc:
-            print(f"[run_job] WARNING: platform profile patching failed: {exc}", flush=True)
 
         run_and_wait(simulation_id, max_rounds)
         report_md = generate_report(graph_id, simulation_id, goal, storage)
