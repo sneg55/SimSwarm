@@ -19,11 +19,15 @@ from saas.jobs.persistence import (
     _update_job_metadata,
     _update_job_retry,
     _update_sim_data_available,
+    _claim_resume,
+    _release_resume,
 )
 from saas.jobs.refund import _refund_credits
 from saas.jobs.cleanup import cleanup_orphaned_pods as _cleanup_orphaned_pods_impl
 from saas.jobs.cleanup import _get_active_job_pod_ids  # noqa: F401 — re-export
 from saas.jobs.recovery import recover_stale_jobs as _recover_stale_jobs_impl
+# Import maintenance tasks so Celery autodiscovers them via this module
+from saas.jobs.tasks_maintenance import prune_error_events  # noqa: F401 — re-export
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +141,10 @@ def run_simulation_task(
         # Extract key insight (first substantive sentence from report, max 200 chars)
         key_insight = _extract_key_insight(report)
 
-        _save_job_results(job_id=job_id, report=report, chat_log=chat_log, graph_data=graph_data, key_insight=key_insight, structured=structured)
+        _save_job_results(
+            job_id=job_id, report=report, chat_log=chat_log,
+            graph_data=graph_data, key_insight=key_insight, structured=structured,
+        )
 
         # Mark rich simulation data availability
         sim_data_uploaded = result.get("sim_data_uploaded", False)
@@ -199,6 +206,12 @@ def resume_simulation_task(
         logger.info("resume.skipping_already_complete job_id=%d status=%s", job_id, current_status)
         return {"job_id": job_id, "status": "already_completed", "skipped": True}
 
+    # Atomic claim — prevents duplicate resume tasks from racing
+    task_id = self.request.id or "unknown"
+    if not _claim_resume(job_id, task_id):
+        logger.info("resume.skipping_already_claimed job_id=%d task_id=%s", job_id, task_id)
+        return {"job_id": job_id, "status": "already_claimed", "skipped": True}
+
     gpu_provider = _get_gpu_provider()
 
     async def _stage_cb(j_id: int, stage: int) -> None:
@@ -221,7 +234,10 @@ def resume_simulation_task(
         graph_data = result.get("graph_data", "{}")
         structured = result.get("structured", "{}")
 
-        _save_job_results(job_id=job_id, report=report, chat_log=chat_log, graph_data=graph_data, structured=structured)
+        _save_job_results(
+            job_id=job_id, report=report, chat_log=chat_log,
+            graph_data=graph_data, structured=structured,
+        )
 
         logger.info(
             "job.resumed_completed job_id=%d pod_id=%s report_chars=%d",
@@ -244,6 +260,9 @@ def resume_simulation_task(
             pass
 
         raise
+
+    finally:
+        _release_resume(job_id)
 
 
 @celery_app.task(name="fishcloud.enrich_retry")
@@ -269,38 +288,3 @@ def cleanup_orphaned_pods() -> dict:
 def recover_stale_jobs() -> dict:
     """Find jobs stuck in RUNNING/PROVISIONING after a worker restart and fail+refund them."""
     return _recover_stale_jobs_impl()
-
-
-@celery_app.task(name="fishcloud.prune_error_events")
-def prune_error_events() -> dict:
-    """Delete error_events rows older than 30 days."""
-    import os
-    from datetime import datetime, timedelta, timezone
-
-    from sqlalchemy import create_engine, text
-
-    database_url = os.getenv("DATABASE_URL", "")
-    if not database_url:
-        logger.warning("prune_error_events: DATABASE_URL not set, skipping")
-        return {"deleted": 0}
-
-    sync_url = (
-        database_url
-        .replace("+asyncpg", "")
-        .replace("postgresql://", "postgresql+psycopg2://")
-    )
-
-    cutoff = datetime.now(timezone.utc) - timedelta(days=30)
-    engine = create_engine(sync_url)
-    try:
-        with engine.connect() as conn:
-            result = conn.execute(
-                text("DELETE FROM error_events WHERE timestamp < :cutoff"),
-                {"cutoff": cutoff},
-            )
-            conn.commit()
-            deleted = result.rowcount
-        logger.info("prune_error_events: deleted=%d rows older than 30d", deleted)
-        return {"deleted": deleted}
-    finally:
-        engine.dispose()
