@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     # MiroShark engine config
     LLM_API_KEY: str
     LLM_BASE_URL: str = "http://localhost:8000/v1"
-    LLM_MODEL_NAME: str = "Qwen/Qwen2.5-32B-Instruct-AWQ"
+    LLM_MODEL_NAME: str = "Qwen/Qwen3-14B"
     OPENAI_API_KEY: str = ""
 
     # Neo4j graph database

@@ -13,7 +13,7 @@ def _make_job_config(tier: str = "medium") -> JobConfig:
         seed_text="The world is warming.",
         goal="Analyze climate opinions",
         tier=tier,
-        model_id="Qwen2.5-32B-Instruct-AWQ",
+        model_id="Qwen/Qwen3-14B",
         gpu_type="RTX4090",
         max_rounds=200,
         vllm_args="--max-model-len 16384",
@@ -69,7 +69,7 @@ def test_to_worker_env_includes_required_keys():
     assert env["LLM_API_KEY"] == "sk-test"
     assert env["NEO4J_URI"] == "bolt://localhost:7687"
     assert env["WONDERWALL_DEFAULT_MAX_ROUNDS"] == "200"
-    assert env["LLM_MODEL_NAME"] == "Qwen2.5-32B-Instruct-AWQ"
+    assert env["LLM_MODEL_NAME"] == "Qwen/Qwen3-14B"
 
 
 @pytest.mark.asyncio

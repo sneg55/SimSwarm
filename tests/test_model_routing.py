@@ -11,22 +11,22 @@ def _seed_defaults(session_sync):
     defaults = [
         ModelRouting(
             sim_tier="small",
-            model_id="Qwen2.5-7B-Instruct-AWQ",
-            gpu_type="RTX4090",
+            model_id="Qwen/Qwen3-14B",
+            gpu_type="NVIDIA L40S",
             max_rounds=100,
-            vllm_args="--max-model-len 8192",
+            vllm_args="--max-model-len 32768",
         ),
         ModelRouting(
             sim_tier="medium",
-            model_id="Qwen2.5-32B-Instruct-AWQ",
-            gpu_type="RTX4090",
+            model_id="Qwen/Qwen3-14B",
+            gpu_type="NVIDIA L40S",
             max_rounds=200,
-            vllm_args="--max-model-len 16384",
+            vllm_args="--max-model-len 32768",
         ),
         ModelRouting(
             sim_tier="large",
-            model_id="Qwen2.5-72B-Instruct-AWQ",
-            gpu_type="A100",
+            model_id="Qwen/Qwen3-14B",
+            gpu_type="NVIDIA L40S",
             max_rounds=500,
             vllm_args="--max-model-len 32768",
         ),
@@ -57,8 +57,8 @@ async def test_get_routing_for_tier(db_session):
     result = await db_session.execute(stmt)
     row = result.scalar_one()
 
-    assert row.model_id == "Qwen2.5-32B-Instruct-AWQ"
-    assert row.gpu_type == "RTX4090"
+    assert row.model_id == "Qwen/Qwen3-14B"
+    assert row.gpu_type == "NVIDIA L40S"
     assert row.max_rounds == 200
 
 
@@ -79,5 +79,5 @@ async def test_routing_to_gpu_config(db_session):
         timeout_seconds=43200,
     )
 
-    assert gpu_config.gpu_type == "A100"
+    assert gpu_config.gpu_type == "NVIDIA L40S"
     assert gpu_config.timeout_seconds == 43200

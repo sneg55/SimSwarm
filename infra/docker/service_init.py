@@ -53,7 +53,7 @@ def setup_miroshark_config(max_rounds: int) -> None:
     env_values = {
         "LLM_API_KEY": os.getenv("LLM_API_KEY", "not-needed"),
         "LLM_BASE_URL": VLLM_URL,
-        "LLM_MODEL_NAME": os.getenv("LLM_MODEL_NAME", "Qwen2.5-32B-Instruct-AWQ"),
+        "LLM_MODEL_NAME": os.getenv("LLM_MODEL_NAME", "Qwen3-14B"),
         "NEO4J_URI": os.getenv("NEO4J_URI", "bolt://localhost:7687"),
         "NEO4J_USER": os.getenv("NEO4J_USER", "neo4j"),
         "NEO4J_PASSWORD": os.getenv("NEO4J_PASSWORD", ""),
@@ -81,7 +81,7 @@ def _apply_config_overrides(max_rounds: int) -> None:
 
     Config.LLM_API_KEY = os.getenv("LLM_API_KEY", "not-needed")
     Config.LLM_BASE_URL = VLLM_URL
-    Config.LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "Qwen2.5-32B-Instruct-AWQ")
+    Config.LLM_MODEL_NAME = os.getenv("LLM_MODEL_NAME", "Qwen3-14B")
     Config.NEO4J_URI = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     Config.NEO4J_USER = os.getenv("NEO4J_USER", "neo4j")
     Config.NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD", "")

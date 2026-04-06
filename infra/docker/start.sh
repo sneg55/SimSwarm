@@ -12,9 +12,9 @@ echo "[start.sh] DOWNLOAD_DIR=${DOWNLOAD_DIR}"
 # Start vLLM in background, log to file
 python3 -m vllm.entrypoints.openai.api_server \
     --host 0.0.0.0 --port 8000 \
-    --model ${MODEL_ID:-Qwen/Qwen2.5-32B-Instruct-AWQ} \
+    --model ${MODEL_ID:-Qwen/Qwen3-14B} \
     --download-dir ${DOWNLOAD_DIR} \
-    ${VLLM_ARGS:---quantization awq --max-model-len 32768} \
+    ${VLLM_ARGS:---max-model-len 32768} \
     > /tmp/vllm.log 2>&1 &
 
 VLLM_PID=$!

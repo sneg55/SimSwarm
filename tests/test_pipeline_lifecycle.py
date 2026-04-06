@@ -23,7 +23,7 @@ def _make_job_config(**overrides) -> JobConfig:
         seed_text="Climate change is accelerating.",
         goal="Analyse public opinion about climate",
         tier="medium",
-        model_id="Qwen2.5-32B-Instruct-AWQ",
+        model_id="Qwen/Qwen3-14B",
         gpu_type="RTX4090",
         max_rounds=50,
         vllm_args="",

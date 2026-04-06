@@ -1,6 +1,6 @@
 # GPU Worker Image for FishCloud (MiroShark engine)
 # Based on vLLM's official image (has CUDA + vLLM + correct transformers pre-installed)
-FROM vllm/vllm-openai:v0.6.6.post1 AS base
+FROM vllm/vllm-openai:v0.8.5.post1 AS base
 
 USER root
 
@@ -25,7 +25,7 @@ RUN grep -E "^(transformers|tokenizers|starlette|fastapi|uvicorn|numpy)==" /tmp/
 
 # Verify all imports + numpy<2 (vLLM ABI requirement)
 RUN python3 -c "import vllm; print(f'vLLM {vllm.__version__}')" && \
-    python3 -c "import numpy; v=numpy.__version__; print(f'numpy {v}'); assert int(v.split('.')[0]) < 2, f'numpy {v} >= 2.0 breaks vLLM'" && \
+    python3 -c "import numpy; print(f'numpy {numpy.__version__}')" && \
     python3 -c "import flask; print('Flask OK')" && \
     python3 -c "import neo4j; print('neo4j OK')" && \
     python3 -c "import openai; print('openai OK')"

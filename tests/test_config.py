@@ -28,7 +28,7 @@ def test_settings_has_defaults(monkeypatch):
         _env_file=None,
     )
     assert settings.LLM_BASE_URL == "http://localhost:8000/v1"
-    assert settings.LLM_MODEL_NAME == "Qwen/Qwen2.5-32B-Instruct-AWQ"
+    assert settings.LLM_MODEL_NAME == "Qwen/Qwen3-14B"
 
 
 def test_test_database_url_override():

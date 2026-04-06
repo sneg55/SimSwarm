@@ -36,8 +36,9 @@ class RunPodProvider(GPUProvider):
         env["TRANSFORMERS_CACHE"] = "/models/huggingface"
 
         # GPU types to try in order of preference
-        # Only GPUs with >= 40GB VRAM (32B AWQ model needs ~18GB weights + KV cache)
-        gpu_types = [config.gpu_type, "NVIDIA L40S", "NVIDIA A40", "NVIDIA RTX A6000"]
+        # Qwen3-14B needs ~28GB VRAM (weights + KV cache), fits on 40GB+ GPUs
+        # L40S (48GB) is the sweet spot for price/performance
+        gpu_types = [config.gpu_type, "NVIDIA L40S", "NVIDIA A40", "NVIDIA RTX A6000", "NVIDIA A100 40GB"]
         # Deduplicate while preserving order
         seen = set()
         gpu_types = [g for g in gpu_types if not (g in seen or seen.add(g))]

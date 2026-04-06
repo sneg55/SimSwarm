@@ -53,7 +53,7 @@ def test_adapter_build_env_from_config_and_routing():
     config = MiroFishConfig(
         llm_api_key="key",
         llm_base_url="http://vllm:8000/v1",
-        llm_model_name="Qwen2.5-32B-Instruct-AWQ",
+        llm_model_name="Qwen3-14B",
         zep_api_key="zep",
         seed_text="seed",
         goal="goal",
@@ -62,4 +62,4 @@ def test_adapter_build_env_from_config_and_routing():
     env = adapter.build_env(config)
     assert env["LLM_API_KEY"] == "key"
     assert env["LLM_BASE_URL"] == "http://vllm:8000/v1"
-    assert env["LLM_MODEL_NAME"] == "Qwen2.5-32B-Instruct-AWQ"
+    assert env["LLM_MODEL_NAME"] == "Qwen3-14B"

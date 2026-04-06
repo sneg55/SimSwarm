@@ -61,7 +61,7 @@ def test_task_calls_runner():
             seed_text="Test seed",
             goal="Test goal",
             tier="small",
-            model_id="Qwen2.5-7B-Instruct-AWQ",
+            model_id="Qwen/Qwen3-14B",
             gpu_type="RTX4090",
             max_rounds=100,
             vllm_args="",

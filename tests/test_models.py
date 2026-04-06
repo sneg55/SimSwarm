@@ -24,10 +24,10 @@ async def test_create_simulation_job(db_session):
 async def test_create_model_routing(db_session):
     routing = ModelRouting(
         sim_tier="small",
-        model_id="Qwen2.5-32B-Instruct-AWQ",
-        gpu_type="a100-40gb",
+        model_id="Qwen/Qwen3-14B",
+        gpu_type="NVIDIA L40S",
         max_rounds=200,
-        vllm_args="--quantization awq",
+        vllm_args="--max-model-len 32768",
     )
     db_session.add(routing)
     await db_session.commit()
@@ -35,7 +35,7 @@ async def test_create_model_routing(db_session):
 
     assert routing.id is not None
     assert routing.sim_tier == "small"
-    assert routing.model_id == "Qwen2.5-32B-Instruct-AWQ"
+    assert routing.model_id == "Qwen/Qwen3-14B"
 
 
 async def test_job_status_transitions(db_session):
