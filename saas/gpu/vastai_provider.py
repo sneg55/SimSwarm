@@ -22,7 +22,7 @@ class VastAIProvider(GPUProvider):
         self.api_key = api_key
         self._headers = {"Accept": "application/json"}
 
-    async def provision(self, config: GPUProviderConfig) -> GPUInstance:
+    async def provision(self, config: GPUProviderConfig, on_created=None) -> GPUInstance:
         """Find a suitable Vast.ai offer and create an instance."""
         logger.info(f"Vast.ai: searching for {config.gpu_type}")
 
@@ -70,6 +70,9 @@ class VastAIProvider(GPUProvider):
             instance_id = str(data.get("new_contract"))
 
             logger.info(f"Vast.ai: instance {instance_id} created, polling...")
+
+            if on_created is not None:
+                await on_created(instance_id)
 
             # Poll until ready
             for _ in range(MAX_POLL_ATTEMPTS):

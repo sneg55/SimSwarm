@@ -33,21 +33,7 @@ def _run_async(coro) -> object:
 
 
 def _get_gpu_provider():
-    """Build a FailoverGPUProvider from environment configuration."""
-    from saas.gpu.failover import FailoverGPUProvider
+    """Return the RunPod GPU provider."""
+    from saas.gpu.runpod_provider import RunPodProvider
 
-    runpod_key = os.getenv("RUNPOD_API_KEY", "")
-    vastai_key = os.getenv("VASTAI_API_KEY", "")
-
-    # Import providers lazily to handle optional runpod package
-    try:
-        from saas.gpu.runpod_provider import RunPodProvider
-        primary = RunPodProvider(api_key=runpod_key)
-    except ImportError:
-        from saas.gpu.vastai_provider import VastAIProvider
-        primary = VastAIProvider(api_key=vastai_key)
-
-    from saas.gpu.vastai_provider import VastAIProvider
-    fallback = VastAIProvider(api_key=vastai_key)
-
-    return FailoverGPUProvider(primary=primary, fallback=fallback)
+    return RunPodProvider(api_key=os.getenv("RUNPOD_API_KEY", ""))
