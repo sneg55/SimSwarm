@@ -44,7 +44,7 @@ def _save_job_results(
                     "    key_insight = :key_insight, "
                     "    result_structured = :structured, "
                     "    completed_at = :completed_at "
-                    "WHERE id = :job_id"
+                    "WHERE id = :job_id AND status != 'COMPLETED'"
                 ),
                 {
                     "report": report,

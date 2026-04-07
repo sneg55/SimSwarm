@@ -21,13 +21,13 @@ def _mark_job_failed(job_id: int, error_message: str) -> None:
     async def _do_fail():
         async with factory() as session:
             try:
-                await session.execute(
+                result = await session.execute(
                     text(
                         "UPDATE simulation_jobs "
                         "SET status = 'FAILED', "
                         "    error_message = :error_message, "
                         "    completed_at = :completed_at "
-                        "WHERE id = :job_id"
+                        "WHERE id = :job_id AND status NOT IN ('COMPLETED', 'REFUNDED')"
                     ),
                     {
                         "error_message": error_message[:4096],
@@ -36,6 +36,8 @@ def _mark_job_failed(job_id: int, error_message: str) -> None:
                     },
                 )
                 await session.commit()
+                if result.rowcount == 0:
+                    logger.info("Skipped marking job %d as FAILED — already terminal", job_id)
             except Exception as exc:
                 logger.warning("Could not mark job %d failed: %s", job_id, exc)
 

@@ -157,9 +157,13 @@ class JobRunner:
         except Exception as e:
             raise RuntimeError(f"Cannot reach pod {pod_id} for resume: {e}")
 
-        # If already completed, return result immediately
+        # If already completed, return result immediately and clean up pod
         if job_status == "completed":
             logger.info("job.resume_already_complete job_id=%d", job_id)
+            try:
+                await self.gpu_provider.terminate(pod_id)
+            except Exception as term_exc:
+                logger.warning("job.resume_terminate_failed pod_id=%s error=%s", pod_id, term_exc)
             return {
                 "job_id": job_id,
                 "instance_id": pod_id,
@@ -193,5 +197,8 @@ class JobRunner:
             return result
         finally:
             # Terminate pod after resume completes (success or failure)
-            logger.info("job.resume_terminating pod_id=%s", pod_id)
-            await self.gpu_provider.terminate(pod_id)
+            try:
+                logger.info("job.resume_terminating pod_id=%s", pod_id)
+                await self.gpu_provider.terminate(pod_id)
+            except Exception as term_exc:
+                logger.warning("job.resume_terminate_failed pod_id=%s error=%s", pod_id, term_exc)
