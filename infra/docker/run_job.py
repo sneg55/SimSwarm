@@ -53,6 +53,9 @@ from results import (
 # Main pipeline
 # ---------------------------------------------------------------------------
 
+MIN_GRAPH_ENTITIES = 5
+
+
 def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) -> dict:
     """Run the complete MiroShark pipeline and write results to output_dir."""
     out = Path(output_dir)
@@ -64,6 +67,15 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
 
     project_id, graph_id = build_graph(seed_text, goal, storage)
     try:
+        # Guard: fail early if graph is too small for a meaningful simulation
+        info = storage.get_graph_info(graph_id)
+        node_count = info.get("node_count", 0)
+        if node_count < MIN_GRAPH_ENTITIES:
+            raise RuntimeError(
+                f"GRAPH_TOO_SMALL: only {node_count} entities extracted "
+                f"(minimum {MIN_GRAPH_ENTITIES})"
+            )
+
         simulation_id = prepare_simulation(project_id, graph_id, seed_text, goal, storage)
 
         run_and_wait(simulation_id, max_rounds)
