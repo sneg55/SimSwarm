@@ -3,7 +3,7 @@
     <div class="text-xs font-semibold uppercase tracking-wider text-mist-slate mb-3">Activity Over Time</div>
     <div class="relative" @mousemove="onHover" @mouseleave="hovered = null">
       <svg :viewBox="`0 0 ${W} ${H}`" class="w-full">
-        <g v-for="(entry, i) in data" :key="i">
+        <g v-for="(entry, i) in activeData" :key="i">
           <rect :x="barX(i)" :y="yScale(entry.total_posts + entry.total_likes + entry.total_comments)"
             :width="barW" :height="barH(entry.total_posts + entry.total_likes + entry.total_comments)"
             fill="#22D3EE" opacity="0.8" rx="2" />
@@ -41,29 +41,33 @@ const props = defineProps({ data: { type: Array, default: () => [] } })
 const W = 600, H = 140, PAD = 8
 const hovered = ref(null)
 
+const activeData = computed(() =>
+  props.data.filter(e => (e.total_posts || 0) + (e.total_likes || 0) + (e.total_comments || 0) > 0)
+)
+
 const maxVal = computed(() => {
   let m = 1
-  for (const e of props.data) {
+  for (const e of activeData.value) {
     const total = (e.total_posts || 0) + (e.total_likes || 0) + (e.total_comments || 0)
     if (total > m) m = total
   }
   return m
 })
 const barW = computed(() => {
-  if (!props.data.length) return 0
-  const maxBarW = 40  // cap width so single bars don't span the whole chart
-  return Math.min(maxBarW, Math.max(2, (W - PAD * 2) / props.data.length - 2))
+  if (!activeData.value.length) return 0
+  const maxBarW = 40
+  return Math.min(maxBarW, Math.max(8, (W - PAD * 2) / activeData.value.length - 2))
 })
-function barX(i) { return props.data.length ? PAD + (i / props.data.length) * (W - PAD * 2) : 0 }
+function barX(i) { return activeData.value.length ? PAD + (i / activeData.value.length) * (W - PAD * 2) : 0 }
 function yScale(val) { return H - PAD - (val / maxVal.value) * (H - PAD * 2) }
 function barH(val) { return (val / maxVal.value) * (H - PAD * 2) }
 
 function onHover(e) {
   const rect = e.currentTarget.getBoundingClientRect()
   const mouseX = e.clientX - rect.left
-  const idx = Math.floor((mouseX / rect.width) * props.data.length)
-  if (idx < 0 || idx >= props.data.length) return
-  const entry = props.data[idx]
+  const idx = Math.floor((mouseX / rect.width) * activeData.value.length)
+  if (idx < 0 || idx >= activeData.value.length) return
+  const entry = activeData.value[idx]
   hovered.value = { x: mouseX, round: entry.round, posts: entry.total_posts, likes: entry.total_likes, comments: entry.total_comments, agents: entry.active_agents }
 }
 </script>

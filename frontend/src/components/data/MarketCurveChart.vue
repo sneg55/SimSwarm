@@ -21,9 +21,16 @@
         </defs>
         <line v-for="pct in [25, 50, 75]" :key="pct" :x1="PAD" :x2="W - PAD" :y1="yScale(pct)" :y2="yScale(pct)" stroke="#1E293B" stroke-dasharray="4" />
         <text v-for="pct in [0, 25, 50, 75, 100]" :key="'y'+pct" :x="PAD - 4" :y="yScale(pct) + 3" text-anchor="end" fill="#64748B" font-size="10">{{ pct }}%</text>
-        <path :d="areaPath(market, 'yes')" :fill="`url(#gGrad-${market.market_id})`" />
-        <path :d="linePath(market, 'yes')" fill="none" stroke="#4ADE80" stroke-width="2" />
-        <path :d="linePath(market, 'no')" fill="none" stroke="#F87171" stroke-width="1.5" stroke-dasharray="6,3" />
+        <template v-if="(market.points || []).length > 1">
+          <path :d="areaPath(market, 'yes')" :fill="`url(#gGrad-${market.market_id})`" />
+          <path :d="linePath(market, 'yes')" fill="none" stroke="#4ADE80" stroke-width="2" />
+          <path :d="linePath(market, 'no')" fill="none" stroke="#F87171" stroke-width="1.5" stroke-dasharray="6,3" />
+        </template>
+        <template v-else-if="(market.points || []).length === 1">
+          <line :x1="PAD" :x2="W - PAD" :y1="yScale(market.points[0].price_yes * 100)" :y2="yScale(market.points[0].price_yes * 100)" stroke="#4ADE80" stroke-width="1.5" stroke-dasharray="6,3" />
+          <circle :cx="(W - PAD * 2) / 2 + PAD" :cy="yScale(market.points[0].price_yes * 100)" r="5" fill="#4ADE80" stroke="#0B1426" stroke-width="2" />
+          <text :x="(W - PAD * 2) / 2 + PAD" :y="yScale(market.points[0].price_yes * 100) - 12" text-anchor="middle" fill="#94A3B8" font-size="11">Only 1 trade</text>
+        </template>
         <circle v-if="hovered && hovered.marketId === market.market_id" :cx="hovered.cx" :cy="hovered.cy" r="4" fill="#4ADE80" stroke="#0B1426" stroke-width="2" />
       </svg>
       <div v-if="hovered && hovered.marketId === market.market_id"

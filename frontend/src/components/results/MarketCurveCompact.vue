@@ -6,10 +6,16 @@
         <span class="text-green-400">{{ currentYes }}%</span> YES
       </div>
     </div>
-    <div class="text-xs text-mist-drift mb-3 line-clamp-1">{{ market.question }}</div>
+    <div class="text-sm text-mist mb-3 line-clamp-2">{{ market.question }}</div>
     <svg :viewBox="`0 0 ${W} ${H}`" class="w-full">
-      <path :d="yesPath" fill="none" stroke="#4ADE80" stroke-width="2" />
-      <path :d="noPath" fill="none" stroke="#F87171" stroke-width="1" stroke-dasharray="4,2" />
+      <template v-if="(market?.points || []).length > 1">
+        <path :d="yesPath" fill="none" stroke="#4ADE80" stroke-width="2" />
+        <path :d="noPath" fill="none" stroke="#F87171" stroke-width="1" stroke-dasharray="4,2" />
+      </template>
+      <template v-else-if="(market?.points || []).length === 1">
+        <line x1="0" :x2="W" :y1="yS(market.points[0].price_yes)" :y2="yS(market.points[0].price_yes)" stroke="#4ADE80" stroke-width="1" stroke-dasharray="4,2" />
+        <circle :cx="W / 2" :cy="yS(market.points[0].price_yes)" r="3" fill="#4ADE80" />
+      </template>
     </svg>
   </div>
 </template>
