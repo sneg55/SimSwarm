@@ -72,11 +72,15 @@ def run_simulation_task(
     enriched_seed_text = seed_text
     if enrich_web:
         from saas.jobs.enrichment import enrich_seed
+        from saas.jobs.alerts import send_enrichment_alert
         import json as _json
         enrichment = enrich_seed(seed_text, goal)
         if enrichment:
             _update_enrichment(job_id, enrichment.summary, _json.dumps(enrichment.citations))
             enriched_seed_text = seed_text + "\n\n--- Background Research ---\n" + enrichment.summary
+        else:
+            logger.warning("job.enrichment_empty job_id=%d", job_id)
+            send_enrichment_alert(job_id=job_id, goal=goal)
 
     config = JobConfig(
         job_id=job_id,

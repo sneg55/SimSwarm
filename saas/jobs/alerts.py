@@ -54,3 +54,22 @@ def send_orphan_alert(
         )
     except Exception as e:
         logger.warning("alert.send_failed error=%s", e)
+
+
+def send_enrichment_alert(job_id: int, goal: str) -> None:
+    """Alert when enrichment was requested but returned nothing. Never raises."""
+    webhook_url = os.getenv("ALERT_WEBHOOK_URL", "")
+    if not webhook_url:
+        return
+
+    text = (
+        f":warning: *Enrichment Failed*\n"
+        f"• Job: {job_id}\n"
+        f"• Goal: {goal[:100]}\n"
+        f"• Enrichment was requested but returned empty"
+    )
+
+    try:
+        httpx.post(webhook_url, json={"text": text}, timeout=10)
+    except Exception as e:
+        logger.warning("alert.enrichment_failed error=%s", e)
