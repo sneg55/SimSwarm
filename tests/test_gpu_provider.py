@@ -1,5 +1,6 @@
 """Tests for GPU provider abstraction layer."""
 from saas.gpu.provider import GPUProviderConfig, GPUInstance
+from saas.gpu.errors import classify_gpu_error
 
 
 def test_gpu_instance_creation():
@@ -71,3 +72,13 @@ def test_gpu_provider_config_env_vars_optional():
         timeout_seconds=7200,
     )
     assert config.env_vars is None
+
+
+class TestClassifyGpuError:
+    def test_graph_too_small_is_permanent(self):
+        exc = RuntimeError("GRAPH_TOO_SMALL: only 3 entities extracted (minimum 5)")
+        assert classify_gpu_error(exc) == "permanent"
+
+    def test_transient_patterns_still_work(self):
+        exc = RuntimeError("No RunPod GPUs available for L40S")
+        assert classify_gpu_error(exc) == "transient"
