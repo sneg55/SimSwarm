@@ -56,6 +56,60 @@ from results import (
 MIN_GRAPH_ENTITIES = 5
 
 
+def _patch_sim_config(simulation_id: str, max_rounds: int) -> None:
+    """Patch the generated simulation_config.json to ensure enough rounds run
+    and agents are active across all time periods.
+
+    The MiroFish engine treats max_rounds as a ceiling:
+        total_rounds = min(total_hours * 60 / minutes_per_round, max_rounds)
+    If the LLM-generated time_config produces fewer rounds than max_rounds,
+    the simulation ends early. Fix by increasing total_simulation_hours.
+
+    The off_peak_activity_multiplier (default 0.05) makes agents virtually
+    inactive during simulated midnight hours. Clamp to 0.3 minimum.
+    """
+    from app.services.simulation_runner import SimulationRunner
+
+    sim_dir = os.path.join(SimulationRunner.RUN_STATE_DIR, simulation_id)
+    config_path = os.path.join(sim_dir, "simulation_config.json")
+
+    with open(config_path, "r", encoding="utf-8") as f:
+        config = json.load(f)
+
+    tc = config.get("time_config", {})
+    minutes_per_round = tc.get("minutes_per_round", 60)
+    total_hours = tc.get("total_simulation_hours", 72)
+    config_rounds = (total_hours * 60) // minutes_per_round
+
+    patched = False
+
+    # Ensure enough rounds: increase total_simulation_hours if needed
+    if config_rounds < max_rounds:
+        needed_hours = (max_rounds * minutes_per_round + 59) // 60  # ceiling division
+        tc["total_simulation_hours"] = needed_hours
+        print(
+            f"[run_job] Patched total_simulation_hours: {total_hours} -> {needed_hours} "
+            f"({config_rounds} rounds -> {max_rounds}+)",
+            flush=True,
+        )
+        patched = True
+
+    # Clamp off-peak activity multiplier to ensure agents stay active
+    off_peak = tc.get("off_peak_activity_multiplier", 0.05)
+    if off_peak < 0.3:
+        tc["off_peak_activity_multiplier"] = 0.3
+        print(
+            f"[run_job] Patched off_peak_activity_multiplier: {off_peak} -> 0.3",
+            flush=True,
+        )
+        patched = True
+
+    if patched:
+        config["time_config"] = tc
+        with open(config_path, "w", encoding="utf-8") as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+
+
 def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) -> dict:
     """Run the complete MiroShark pipeline and write results to output_dir."""
     out = Path(output_dir)
@@ -77,6 +131,8 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
             )
 
         simulation_id = prepare_simulation(project_id, graph_id, seed_text, goal, storage)
+
+        _patch_sim_config(simulation_id, max_rounds)
 
         run_and_wait(simulation_id, max_rounds)
         report_md = generate_report(graph_id, simulation_id, goal, storage)
