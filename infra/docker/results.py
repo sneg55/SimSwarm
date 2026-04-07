@@ -238,10 +238,16 @@ def build_structured_results(outline, section_contents, chat_log, graph_data):
             ci += 1
 
     meta = graph_data.get("metadata", {})
+    max_round = max((a.get("round_num", 0) for a in chat_log), default=0)
+    trade_count = sum(
+        1 for a in chat_log
+        if a.get("platform") == "polymarket" and a.get("action_type") in ("BUY", "SELL")
+    )
     confidence = [
         {"label": "Agents", "value": str(len(agent_names)), "color": "#22D3EE"},
-        {"label": "Rounds", "value": str(len(chat_log)), "color": "#A78BFA"},
+        {"label": "Rounds", "value": str(max_round), "color": "#A78BFA"},
         {"label": "Graph Entities", "value": str(meta.get("total_nodes", 0)), "color": "#6EE7B7"},
+        {"label": "Trades", "value": str(trade_count), "color": "#F97316"},
     ]
 
     return {"brief": brief, "findings": findings, "sentiment": sentiment, "coalitions": coalitions, "confidence": confidence}

@@ -14,15 +14,25 @@ import pytest
 
 @pytest.fixture(scope="module")
 def run_job_module():
-    """Import only the constants + build_structured_results from run_job."""
-    spec_path = Path(__file__).resolve().parent.parent / "infra" / "docker" / "run_job.py"
-    # We only need the pure-Python helpers; skip executing the full module
-    # which would try to import MiroFish. Instead, exec the source and
-    # extract what we need.
-    source = spec_path.read_text()
-    # Execute in a namespace that has the needed builtins
+    """Import build_structured_results from results.py without triggering MiroFish imports."""
+    docker_dir = Path(__file__).resolve().parent.parent / "infra" / "docker"
+    results_path = docker_dir / "results.py"
+    constants_path = docker_dir / "constants.py"
+    # Build a namespace that pre-loads the constants module so results.py can
+    # resolve `from constants import ...` without needing sys.path manipulation.
+    import importlib.util as _ilu
+    import sys as _sys
+
+    # Load constants module into the namespace
+    spec = _ilu.spec_from_file_location("constants", constants_path)
+    constants_mod = _ilu.module_from_spec(spec)
+    spec.loader.exec_module(constants_mod)
+    _sys.modules.setdefault("constants", constants_mod)
+
+    # Now exec results.py; it will find 'constants' via sys.modules
+    source = results_path.read_text()
     ns = {"__builtins__": __builtins__}
-    exec(compile(source, str(spec_path), "exec"), ns)
+    exec(compile(source, str(results_path), "exec"), ns)
     return ns
 
 
@@ -51,12 +61,12 @@ SAMPLE_SECTION_CONTENTS = {
 }
 
 SAMPLE_CHAT_LOG = [
-    {"agent_name": "Alice", "platform": "twitter", "action_type": "CREATE_POST", "action_args": {}},
-    {"agent_name": "Bob", "platform": "twitter", "action_type": "LIKE_POST", "action_args": {}},
-    {"agent_name": "Alice", "platform": "twitter", "action_type": "FOLLOW", "action_args": {"target": "Bob"}},
-    {"agent_name": "Bob", "platform": "twitter", "action_type": "FOLLOW", "action_args": {"target": "Alice"}},
-    {"agent_name": "Carol", "platform": "reddit", "action_type": "IDLE", "action_args": {}},
-    {"agent_name": "Carol", "platform": "reddit", "action_type": "COMMENT", "action_args": {}},
+    {"agent_name": "Alice", "platform": "twitter", "action_type": "CREATE_POST", "action_args": {}, "round_num": 5},
+    {"agent_name": "Bob", "platform": "twitter", "action_type": "LIKE_POST", "action_args": {}, "round_num": 10},
+    {"agent_name": "Alice", "platform": "twitter", "action_type": "FOLLOW", "action_args": {"target": "Bob"}, "round_num": 15},
+    {"agent_name": "Bob", "platform": "twitter", "action_type": "FOLLOW", "action_args": {"target": "Alice"}, "round_num": 15},
+    {"agent_name": "Carol", "platform": "reddit", "action_type": "IDLE", "action_args": {}, "round_num": 20},
+    {"agent_name": "Carol", "platform": "reddit", "action_type": "COMMENT", "action_args": {}, "round_num": 25},
 ]
 
 SAMPLE_GRAPH_DATA = {
@@ -120,15 +130,37 @@ class TestBuildStructuredResults:
     def test_confidence_metrics(self, build_fn):
         result = build_fn(SAMPLE_OUTLINE, SAMPLE_SECTION_CONTENTS, SAMPLE_CHAT_LOG, SAMPLE_GRAPH_DATA)
         confidence = result["confidence"]
-        assert len(confidence) == 3
+        assert len(confidence) == 4
         labels = {c["label"] for c in confidence}
-        assert labels == {"Agents", "Rounds", "Graph Entities"}
+        assert labels == {"Agents", "Rounds", "Graph Entities", "Trades"}
         # 3 agents: Alice, Bob, Carol
         agents_entry = next(c for c in confidence if c["label"] == "Agents")
         assert agents_entry["value"] == "3"
         # Graph has 2 nodes
         graph_entry = next(c for c in confidence if c["label"] == "Graph Entities")
         assert graph_entry["value"] == "2"
+
+    def test_rounds_shows_max_round_num_not_action_count(self, build_fn):
+        result = build_fn(SAMPLE_OUTLINE, SAMPLE_SECTION_CONTENTS, SAMPLE_CHAT_LOG, SAMPLE_GRAPH_DATA)
+        rounds_entry = next(c for c in result["confidence"] if c["label"] == "Rounds")
+        # max round_num is 25, not len(chat_log) which is 6
+        assert rounds_entry["value"] == "25"
+
+    def test_trades_count_in_confidence(self, build_fn):
+        chat_with_trades = SAMPLE_CHAT_LOG + [
+            {"agent_name": "Alice", "platform": "polymarket", "action_type": "BUY", "action_args": {}, "round_num": 12},
+            {"agent_name": "Bob", "platform": "polymarket", "action_type": "SELL", "action_args": {}, "round_num": 18},
+            {"agent_name": "Carol", "platform": "polymarket", "action_type": "CREATE_MARKET", "action_args": {}, "round_num": 5},
+        ]
+        result = build_fn(SAMPLE_OUTLINE, SAMPLE_SECTION_CONTENTS, chat_with_trades, SAMPLE_GRAPH_DATA)
+        trades_entry = next(c for c in result["confidence"] if c["label"] == "Trades")
+        # Only BUY and SELL count, not CREATE_MARKET
+        assert trades_entry["value"] == "2"
+
+    def test_trades_zero_when_no_polymarket_trades(self, build_fn):
+        result = build_fn(SAMPLE_OUTLINE, SAMPLE_SECTION_CONTENTS, SAMPLE_CHAT_LOG, SAMPLE_GRAPH_DATA)
+        trades_entry = next(c for c in result["confidence"] if c["label"] == "Trades")
+        assert trades_entry["value"] == "0"
 
 
 # ---------------------------------------------------------------------------
@@ -142,7 +174,7 @@ class TestBuildStructuredResultsEmpty:
         assert result["findings"] == []
         assert result["sentiment"] == []
         assert result["coalitions"] == []
-        assert len(result["confidence"]) == 3
+        assert len(result["confidence"]) == 4
 
     def test_empty_outline_no_findings(self, build_fn):
         result = build_fn({}, {}, [], {"metadata": {}})
