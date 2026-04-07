@@ -37,6 +37,7 @@ class JobConfig:
     neo4j_user: str
     neo4j_password: str
     forecast_days: int | None = None
+    target_agents: int = 5
     upload_urls: dict | None = None
 
     @property

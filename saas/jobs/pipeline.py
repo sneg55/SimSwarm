@@ -93,6 +93,7 @@ async def submit_job(worker_url: str, config, client: httpx.AsyncClient) -> None
         "goal": config.goal,
         "max_rounds": config.max_rounds,
         "forecast_days": config.forecast_days,
+        "target_agents": config.target_agents,
         "upload_urls": config.upload_urls,
     }, timeout=30)
     if resp.status_code != 200:

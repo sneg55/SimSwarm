@@ -1,5 +1,3 @@
-import secrets
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from sqlalchemy import select, func, text
@@ -13,11 +11,13 @@ from saas.constants.tiers import TIER_CREDITS
 from saas.billing.ledger import CreditLedger, InsufficientCreditsError
 from saas.auth.dependencies import get_current_user
 from saas.storage.minio_client import SimDataStorage
+from saas.jobs.api_share import router as _share_router
 import os
 
 from saas.jobs.tasks import run_simulation_task
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
+router.include_router(_share_router)
 
 
 def _get_sim_data_storage(request: Request) -> SimDataStorage:
@@ -109,6 +109,7 @@ async def create_job(
             credits_charged=credits,
             enrich_web=body.enrich_web,
             forecast_days=body.forecast_days,
+            target_agents=routing.target_agents,
             upload_urls=upload_urls,
         )
     except Exception:
@@ -278,38 +279,3 @@ async def list_jobs(
     return JobListResponse(jobs=jobs, total=total, page=page, per_page=per_page)
 
 
-@router.post("/{job_id}/share")
-async def create_share_link(
-    job_id: int,
-    current_user: dict = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-):
-    job = await session.get(SimulationJob, job_id)
-    if not job:
-        raise HTTPException(status_code=404)
-    if job.user_id != current_user["user_id"]:
-        raise HTTPException(status_code=403)
-    if job.status.value != "COMPLETED":
-        raise HTTPException(status_code=400, detail="Can only share completed jobs")
-
-    if not job.share_token:
-        job.share_token = secrets.token_urlsafe(32)
-        await session.commit()
-
-    return {"share_token": job.share_token, "share_url": f"/s/{job.share_token}"}
-
-
-@router.delete("/{job_id}/share")
-async def revoke_share_link(
-    job_id: int,
-    current_user: dict = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-):
-    job = await session.get(SimulationJob, job_id)
-    if not job:
-        raise HTTPException(status_code=404)
-    if job.user_id != current_user["user_id"]:
-        raise HTTPException(status_code=403)
-    job.share_token = None
-    await session.commit()
-    return {"status": "revoked"}

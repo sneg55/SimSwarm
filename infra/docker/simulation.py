@@ -7,7 +7,7 @@ import os
 import time
 
 
-def prepare_simulation(project_id: str, graph_id: str, seed_text: str, goal: str, storage) -> str:
+def prepare_simulation(project_id: str, graph_id: str, seed_text: str, goal: str, storage, target_agents: int = 5) -> str:
     """
     Step 3: Create simulation state and prepare (entities -> profiles -> config).
     Returns simulation_id.
@@ -35,6 +35,7 @@ def prepare_simulation(project_id: str, graph_id: str, seed_text: str, goal: str
         use_llm_for_profiles=True,
         progress_callback=_progress,
         storage=storage,
+        target_agents=target_agents,
     )
 
     print(f"[run_job] Simulation prepared: {simulation_id}", flush=True)

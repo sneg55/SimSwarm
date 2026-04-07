@@ -54,6 +54,7 @@ def run_simulation_task(
     credits_charged: int = 0,
     enrich_web: bool = True,
     forecast_days: int | None = None,
+    target_agents: int = 5,
     upload_urls: dict | None = None,
 ) -> dict:
     """
@@ -99,6 +100,7 @@ def run_simulation_task(
         neo4j_user=os.getenv("NEO4J_USER", "neo4j"),
         neo4j_password=os.getenv("NEO4J_PASSWORD", ""),
         forecast_days=forecast_days,
+        target_agents=target_agents,
         upload_urls=upload_urls,
     )
 

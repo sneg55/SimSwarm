@@ -56,7 +56,7 @@ from results import (
 MIN_GRAPH_ENTITIES = 5
 
 
-def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) -> dict:
+def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str, target_agents: int = 5) -> dict:
     """Run the complete MiroShark pipeline and write results to output_dir."""
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -76,7 +76,7 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str) ->
                 f"(minimum {MIN_GRAPH_ENTITIES})"
             )
 
-        simulation_id = prepare_simulation(project_id, graph_id, seed_text, goal, storage)
+        simulation_id = prepare_simulation(project_id, graph_id, seed_text, goal, storage, target_agents)
 
         run_and_wait(simulation_id, max_rounds)
         report_md = generate_report(graph_id, simulation_id, goal, storage)
@@ -185,6 +185,7 @@ def main() -> None:
     parser.add_argument("--goal", required=True)
     parser.add_argument("--max-rounds", type=int, default=200)
     parser.add_argument("--output-dir", default="/tmp/results")
+    parser.add_argument("--target-agents", type=int, default=5)
     parser.add_argument("--skip-vllm-wait", action="store_true")
     args = parser.parse_args()
 
@@ -207,7 +208,7 @@ def main() -> None:
         wait_for_vllm()
 
     # 6. Run the pipeline
-    run_pipeline(seed_text, args.goal, args.max_rounds, args.output_dir)
+    run_pipeline(seed_text, args.goal, args.max_rounds, args.output_dir, args.target_agents)
 
 
 if __name__ == "__main__":

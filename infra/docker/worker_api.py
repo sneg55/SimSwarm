@@ -54,7 +54,7 @@ def _upload_sim_data(results_dir, upload_urls):
     return uploaded > 0
 
 
-def _run_pipeline(seed_text, goal, max_rounds, forecast_days=None, upload_urls=None):
+def _run_pipeline(seed_text, goal, max_rounds, forecast_days=None, upload_urls=None, target_agents=5):
     """Run MiroFish pipeline in background, stream output to log file."""
     try:
         seed_file = Path("/tmp/seed.txt")
@@ -70,6 +70,7 @@ def _run_pipeline(seed_text, goal, max_rounds, forecast_days=None, upload_urls=N
                     "--seed-file", str(seed_file),
                     "--goal", goal,
                     "--max-rounds", str(max_rounds),
+                    "--target-agents", str(target_agents),
                     "--output-dir", "/tmp/results",
                     # Do NOT skip vLLM wait — verify localhost:8000 is actually serving
                 ],
@@ -158,6 +159,7 @@ def submit_job():
     max_rounds = data.get("max_rounds", 200)
     forecast_days = data.get("forecast_days")
     upload_urls = data.get("upload_urls")
+    target_agents = data.get("target_agents", 5)
 
     with _lock:
         if _job["status"] == "running":
@@ -170,7 +172,7 @@ def submit_job():
 
     thread = threading.Thread(
         target=_run_pipeline,
-        args=(seed_text, goal, max_rounds, forecast_days, upload_urls),
+        args=(seed_text, goal, max_rounds, forecast_days, upload_urls, target_agents),
         daemon=True,
     )
     thread.start()
