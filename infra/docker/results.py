@@ -3,7 +3,6 @@ Result collection, report generation, graph extraction, and structured output.
 """
 from __future__ import annotations
 
-import json
 import re
 import traceback
 

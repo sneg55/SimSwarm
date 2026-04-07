@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-import os
 
 
 def _make_config(total_hours=72, minutes_per_round=60, off_peak=0.05):
