@@ -11,7 +11,7 @@ echo "[start.sh] DOWNLOAD_DIR=${DOWNLOAD_DIR}"
 
 # Clear stale model cache if config.json is missing model_type
 # (network volumes may have corrupt downloads from older transformers)
-MODEL_CACHE="${DOWNLOAD_DIR}/models--${MODEL_ID//\//-}"
+MODEL_CACHE="${DOWNLOAD_DIR}/models--${MODEL_ID//\//--}"
 if [ -d "$MODEL_CACHE" ]; then
     CONFIG=$(find "$MODEL_CACHE" -name "config.json" -path "*/snapshots/*" | head -1)
     if [ -n "$CONFIG" ] && ! python3 -c "import json; c=json.load(open('$CONFIG')); assert 'model_type' in c" 2>/dev/null; then
