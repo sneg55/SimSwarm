@@ -105,7 +105,7 @@ async def seeded_routing(db_session):
             gpu_type="NVIDIA L40S",
             max_rounds=25,
             target_agents=10,
-            vllm_args="--max-model-len 8192 --enable-auto-tool-choice --tool-call-parser hermes",
+            vllm_args="--max-model-len 16384 --enable-auto-tool-choice --tool-call-parser hermes",
         ),
         ModelRouting(
             sim_tier="medium",
@@ -113,7 +113,7 @@ async def seeded_routing(db_session):
             gpu_type="NVIDIA L40S",
             max_rounds=100,
             target_agents=20,
-            vllm_args="--max-model-len 8192 --enable-auto-tool-choice --tool-call-parser hermes",
+            vllm_args="--max-model-len 16384 --enable-auto-tool-choice --tool-call-parser hermes",
         ),
         ModelRouting(
             sim_tier="large",
@@ -121,7 +121,7 @@ async def seeded_routing(db_session):
             gpu_type="NVIDIA L40S",
             max_rounds=200,
             target_agents=35,
-            vllm_args="--max-model-len 8192 --enable-auto-tool-choice --tool-call-parser hermes",
+            vllm_args="--max-model-len 16384 --enable-auto-tool-choice --tool-call-parser hermes",
         ),
     ]
     for row in rows:

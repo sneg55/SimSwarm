@@ -27,7 +27,7 @@ async def test_create_model_routing(db_session):
         model_id="Qwen/Qwen3-14B",
         gpu_type="NVIDIA L40S",
         max_rounds=200,
-        vllm_args="--max-model-len 8192 --enable-auto-tool-choice --tool-call-parser hermes",
+        vllm_args="--max-model-len 16384 --enable-auto-tool-choice --tool-call-parser hermes",
     )
     db_session.add(routing)
     await db_session.commit()

@@ -58,5 +58,5 @@ class JobConfig:
             "EMBEDDING_DIMENSIONS": "1536",
             "WONDERWALL_DEFAULT_MAX_ROUNDS": str(self.max_rounds),
             "MODEL_ID": self.model_id,
-            "VLLM_ARGS": self.vllm_args or "--max-model-len 8192 --enable-auto-tool-choice --tool-call-parser hermes",
+            "VLLM_ARGS": self.vllm_args or "--max-model-len 16384 --enable-auto-tool-choice --tool-call-parser hermes",
         }

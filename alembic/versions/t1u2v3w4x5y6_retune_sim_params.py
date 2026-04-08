@@ -13,7 +13,7 @@ depends_on = None
 
 # With tool calling active, rounds take ~80s each (8K context, L40S).
 # Budget: timeout / 80s, with 20% headroom for report generation.
-TOOL_CALL_VLLM = "--max-model-len 8192 --enable-auto-tool-choice --tool-call-parser hermes"
+TOOL_CALL_VLLM = "--max-model-len 16384 --enable-auto-tool-choice --tool-call-parser hermes"
 OLD_VLLM = "--max-model-len 32768 --enable-auto-tool-choice --tool-call-parser hermes"
 
 

@@ -25,7 +25,7 @@ python3 -m vllm.entrypoints.openai.api_server \
     --host 0.0.0.0 --port 8000 \
     --model ${MODEL_ID:-Qwen/Qwen3-14B} \
     --download-dir ${DOWNLOAD_DIR} \
-    ${VLLM_ARGS:---max-model-len 8192 --enable-auto-tool-choice --tool-call-parser hermes} \
+    ${VLLM_ARGS:---max-model-len 16384 --enable-auto-tool-choice --tool-call-parser hermes} \
     > /tmp/vllm.log 2>&1 &
 
 VLLM_PID=$!
