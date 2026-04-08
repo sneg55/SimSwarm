@@ -13,7 +13,7 @@ def _seed_defaults(session_sync):
             sim_tier="small",
             model_id="Qwen/Qwen3-14B",
             gpu_type="NVIDIA L40S",
-            max_rounds=25,
+            max_rounds=15,
             target_agents=10,
             vllm_args="--max-model-len 16384 --enable-auto-tool-choice --tool-call-parser hermes",
         ),

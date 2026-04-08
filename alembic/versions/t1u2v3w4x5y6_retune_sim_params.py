@@ -20,7 +20,7 @@ OLD_VLLM = "--max-model-len 32768 --enable-auto-tool-choice --tool-call-parser h
 def upgrade() -> None:
     op.execute(f"""
         UPDATE model_routing
-        SET max_rounds = 25, target_agents = 10,
+        SET max_rounds = 15, target_agents = 10,
             vllm_args = '{TOOL_CALL_VLLM}'
         WHERE sim_tier = 'small';
     """)
