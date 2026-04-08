@@ -13,22 +13,25 @@ def _seed_defaults(session_sync):
             sim_tier="small",
             model_id="Qwen/Qwen3-14B",
             gpu_type="NVIDIA L40S",
-            max_rounds=100,
-            vllm_args="--max-model-len 32768",
+            max_rounds=25,
+            target_agents=10,
+            vllm_args="--max-model-len 8192 --enable-auto-tool-choice --tool-call-parser hermes",
         ),
         ModelRouting(
             sim_tier="medium",
             model_id="Qwen/Qwen3-14B",
             gpu_type="NVIDIA L40S",
-            max_rounds=200,
-            vllm_args="--max-model-len 32768",
+            max_rounds=100,
+            target_agents=20,
+            vllm_args="--max-model-len 8192 --enable-auto-tool-choice --tool-call-parser hermes",
         ),
         ModelRouting(
             sim_tier="large",
             model_id="Qwen/Qwen3-14B",
             gpu_type="NVIDIA L40S",
-            max_rounds=500,
-            vllm_args="--max-model-len 32768",
+            max_rounds=200,
+            target_agents=35,
+            vllm_args="--max-model-len 8192 --enable-auto-tool-choice --tool-call-parser hermes",
         ),
     ]
     for row in defaults:
@@ -59,7 +62,7 @@ async def test_get_routing_for_tier(db_session):
 
     assert row.model_id == "Qwen/Qwen3-14B"
     assert row.gpu_type == "NVIDIA L40S"
-    assert row.max_rounds == 200
+    assert row.max_rounds == 100
 
 
 @pytest.mark.asyncio
