@@ -20,12 +20,19 @@ RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests neo4
     pip install --no-cache-dir sentence-transformers igraph pandas scikit-learn
 
 # Restore vLLM's critical pins — MiroShark deps may upgrade numpy/starlette which breaks vLLM
-RUN grep -E "^(transformers|tokenizers|starlette|fastapi|uvicorn|numpy)==" /tmp/vllm-freeze.txt > /tmp/vllm-restore.txt && \
+# NOTE: transformers is intentionally excluded from restore — vLLM 0.8.5 ships 4.47.1
+# which predates Qwen3 support (added in 4.51.0). We upgrade it below.
+RUN grep -E "^(tokenizers|starlette|fastapi|uvicorn|numpy)==" /tmp/vllm-freeze.txt > /tmp/vllm-restore.txt && \
     pip install --no-cache-dir --force-reinstall -r /tmp/vllm-restore.txt
 
-# Verify all imports + numpy<2 (vLLM ABI requirement)
+# Upgrade transformers for Qwen3 support (model_type "qwen3" requires >=4.51.0)
+RUN pip install --no-cache-dir "transformers>=4.51.0,<4.55.0"
+
+# Verify all imports + numpy<2 (vLLM ABI requirement) + Qwen3 config loads
 RUN python3 -c "import vllm; print(f'vLLM {vllm.__version__}')" && \
     python3 -c "import numpy; print(f'numpy {numpy.__version__}')" && \
+    python3 -c "import transformers; print(f'transformers {transformers.__version__}')" && \
+    python3 -c "from transformers import AutoConfig; AutoConfig.from_pretrained('Qwen/Qwen3-14B', trust_remote_code=True); print('Qwen3-14B config OK')" && \
     python3 -c "import flask; print('Flask OK')" && \
     python3 -c "import neo4j; print('neo4j OK')" && \
     python3 -c "import openai; print('openai OK')"
