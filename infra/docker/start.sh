@@ -9,14 +9,19 @@ echo "[start.sh] Starting vLLM server..."
 DOWNLOAD_DIR="${HF_HOME:-/models/huggingface}"
 echo "[start.sh] DOWNLOAD_DIR=${DOWNLOAD_DIR}"
 
-# Clear stale model cache if config.json is missing model_type
-# (network volumes may have corrupt downloads from older transformers)
+# Validate model cache — clear if config.json is missing or lacks model_type
+# (network volumes may have corrupt/incomplete downloads from older transformers)
 MODEL_CACHE="${DOWNLOAD_DIR}/models--${MODEL_ID//\//--}"
 if [ -d "$MODEL_CACHE" ]; then
-    CONFIG=$(find "$MODEL_CACHE" -name "config.json" -path "*/snapshots/*" | head -1)
-    if [ -n "$CONFIG" ] && ! python3 -c "import json; c=json.load(open('$CONFIG')); assert 'model_type' in c" 2>/dev/null; then
-        echo "[start.sh] Stale model cache detected (missing model_type), clearing..."
+    CONFIG=$(find "$MODEL_CACHE" -name "config.json" -path "*/snapshots/*" 2>/dev/null | head -1)
+    if [ -z "$CONFIG" ]; then
+        echo "[start.sh] Incomplete model cache (no config.json), clearing..."
         rm -rf "$MODEL_CACHE"
+    elif ! python3 -c "import json; c=json.load(open('$CONFIG')); assert 'model_type' in c" 2>/dev/null; then
+        echo "[start.sh] Stale model cache (missing model_type), clearing..."
+        rm -rf "$MODEL_CACHE"
+    else
+        echo "[start.sh] Model cache OK: $CONFIG"
     fi
 fi
 
