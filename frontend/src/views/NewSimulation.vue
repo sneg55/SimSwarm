@@ -19,7 +19,7 @@
       </label>
       <div class="wizard-nav">
         <div />
-        <button @click="step = 2" :disabled="seedText.length < MIN_SEED_CHARS || seedText.length > MAX_SEED_CHARS" class="btn-next">
+        <button @click="goToStep(2)" :disabled="seedText.length < MIN_SEED_CHARS || seedText.length > MAX_SEED_CHARS" class="btn-next">
           Continue →
         </button>
       </div>
@@ -29,8 +29,8 @@
     <div v-if="step === 2" class="step-anim">
       <WizardGoal v-model:goal="goal" v-model:forecastDays="forecastDays" :seed-text="seedText" />
       <div class="wizard-nav">
-        <button @click="step = 1" class="btn-back">← Back</button>
-        <button @click="step = 3" :disabled="!goal.trim()" class="btn-next">
+        <button @click="goToStep(1)" class="btn-back">← Back</button>
+        <button @click="goToStep(3)" :disabled="!goal.trim()" class="btn-next">
           Continue →
         </button>
       </div>
@@ -40,7 +40,7 @@
     <div v-if="step === 3" class="step-anim">
       <WizardLaunch v-model:tier="selectedTier" :forecastDays="forecastDays" />
       <div class="wizard-nav">
-        <button @click="step = 2" class="btn-back">← Back</button>
+        <button @click="goToStep(2)" class="btn-back">← Back</button>
         <button @click="handleSubmit" :disabled="!canSubmit || loading" class="btn-launch">
           {{ loading ? 'Starting...' : 'Run Simulation' }} 🚀
         </button>
@@ -54,17 +54,21 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import WizardProgress from '../components/wizard/WizardProgress.vue'
 import WizardSeed from '../components/wizard/WizardSeed.vue'
 import WizardGoal from '../components/wizard/WizardGoal.vue'
 import WizardLaunch from '../components/wizard/WizardLaunch.vue'
 import { useCreditsStore } from '../stores/credits.js'
-import { createJob } from '../api/jobs.js'
+import { createJob, createDraft, updateDraft, launchDraft, getJob } from '../api/jobs.js'
 import { getBalance } from '../api/billing.js'
 
 const router = useRouter()
+const route = useRoute()
 const creditsStore = useCreditsStore()
+
+const draftId = ref(null)
+const draftLoading = ref(false)
 
 onMounted(async () => {
   try {
@@ -72,6 +76,35 @@ onMounted(async () => {
     creditsStore.setBalance(data.balance ?? data)
   } catch (err) {
     console.error('Failed to load balance:', err)
+  }
+
+  const resumeId = route.query.draft
+  if (!resumeId) return
+
+  draftLoading.value = true
+  try {
+    const job = await getJob(resumeId)
+    if (job.status !== 'DRAFT') return
+
+    draftId.value = job.id
+    seedText.value = job.seed_text || ''
+    goal.value = job.goal || ''
+    selectedTier.value = job.tier || null
+    enrichWeb.value = job.enrich_web ?? true
+    forecastDays.value = job.forecast_days ?? null
+
+    // Infer starting step
+    if (job.goal) {
+      step.value = 3
+    } else if (job.seed_text) {
+      step.value = 2
+    } else {
+      step.value = 1
+    }
+  } catch (err) {
+    console.error('Failed to load draft:', err)
+  } finally {
+    draftLoading.value = false
   }
 })
 
@@ -115,30 +148,65 @@ const canSubmit = computed(() =>
   creditsStore.canAfford(selectedTier.value)
 )
 
-function goToStep(n) {
+async function goToStep(n) {
   if (n < step.value) {
     step.value = n
-  } else if (n === 2 && seedText.value.trim()) {
-    step.value = 2
-  } else if (n === 3 && seedText.value.trim() && goal.value.trim()) {
-    step.value = 3
+    return
   }
+
+  // Auto-save on forward step transitions
+  error.value = ''
+  try {
+    if (step.value === 1 && n === 2) {
+      if (!draftId.value) {
+        const draft = await createDraft({
+          seed_text: seedText.value,
+          enrich_web: enrichWeb.value,
+        })
+        draftId.value = draft.id
+      } else {
+        await updateDraft(draftId.value, {
+          seed_text: seedText.value,
+          enrich_web: enrichWeb.value,
+        })
+      }
+    } else if (step.value === 2 && n === 3) {
+      if (draftId.value) {
+        await updateDraft(draftId.value, {
+          goal: goal.value,
+          forecast_days: forecastDays.value,
+        })
+      }
+    }
+  } catch (err) {
+    error.value = 'Failed to save draft. Please try again.'
+    return
+  }
+
+  step.value = n
 }
 
 async function handleSubmit() {
-  await nextTick() // ensure tier selection is processed
+  await nextTick()
   loading.value = true
   error.value = ''
   try {
-    const job = await createJob({
-      seed_text: seedText.value,
-      goal: goal.value,
-      tier: selectedTier.value,
-      enrich_web: enrichWeb.value,
-      forecast_days: forecastDays.value,
-    })
-    creditsStore.deduct(creditsStore.getTierCost(selectedTier.value))
-    router.push(`/sim/${job.id}`)
+    if (draftId.value) {
+      await updateDraft(draftId.value, { tier: selectedTier.value })
+      const job = await launchDraft(draftId.value)
+      creditsStore.deduct(creditsStore.getTierCost(selectedTier.value))
+      router.push(`/sim/${job.id}`)
+    } else {
+      const job = await createJob({
+        seed_text: seedText.value,
+        goal: goal.value,
+        tier: selectedTier.value,
+        enrich_web: enrichWeb.value,
+        forecast_days: forecastDays.value,
+      })
+      creditsStore.deduct(creditsStore.getTierCost(selectedTier.value))
+      router.push(`/sim/${job.id}`)
+    }
   } catch (err) {
     error.value = err.response?.data?.detail || 'Failed to start simulation.'
   } finally {
