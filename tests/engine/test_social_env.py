@@ -83,7 +83,7 @@ class TestFeedRanking:
         env = SocialEnvironment(SocialConfig())
         alice = _make_agent("a1", "Alice")
         agents = [_make_agent(f"v{i}") for i in range(5)]
-        post_a = env.execute_action(alice, Action(
+        env.execute_action(alice, Action(
             agent_id="a1", environment="social",
             action_type="create_post", args={"text": "Unpopular"},
         ))

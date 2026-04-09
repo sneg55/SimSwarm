@@ -17,7 +17,7 @@ for _p in (str(_DOCKER_DIR), str(_REPO_ROOT)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from simswarm.types import Entity
+from simswarm.types import Entity  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Optional MiroShark graph tooling
@@ -81,7 +81,7 @@ def build_entities_from_graph(storage, graph_id: str) -> list[Entity]:
         if not name:
             continue
         labels = node.get("labels", [])
-        etype = next((l for l in labels if l not in ("Entity", "Node")), "Entity")
+        etype = next((label for label in labels if label not in ("Entity", "Node")), "Entity")
         entities.append(Entity(
             id=node.get("uuid", name.lower().replace(" ", "_")),
             name=name,

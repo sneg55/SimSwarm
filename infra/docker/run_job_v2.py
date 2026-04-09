@@ -33,7 +33,7 @@ for _p in (str(_DOCKER_DIR), str(_REPO_ROOT)):
         sys.path.insert(0, _p)
 
 # Re-export the public functions tests depend on
-from run_job_v2_entities import _fallback_entities, get_entities  # noqa: E402
+from run_job_v2_entities import _fallback_entities, get_entities  # noqa: E402,F401
 from run_job_v2_runner import generate_report, run_simulation, write_results  # noqa: E402
 
 # Optional service_init for Neo4j/vLLM wait

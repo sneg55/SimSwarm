@@ -19,18 +19,18 @@ for _p in (str(_DOCKER_DIR), str(_REPO_ROOT)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from simswarm.adapter import adapt_chat_log, adapt_graph_data, adapt_structured
-from simswarm.engine import Engine
-from simswarm.extractor import (
+from simswarm.adapter import adapt_chat_log, adapt_graph_data, adapt_structured  # noqa: E402
+from simswarm.engine import Engine  # noqa: E402
+from simswarm.extractor import (  # noqa: E402
     extract_agent_trajectories,
     extract_engagement_summary,
     extract_market_data,
     extract_posts,
     extract_social_graph,
 )
-from simswarm.llm import LLMClient
-from simswarm.report import Report, ReportGenerator
-from simswarm.types import (
+from simswarm.llm import LLMClient  # noqa: E402
+from simswarm.report import Report, ReportGenerator  # noqa: E402
+from simswarm.types import (  # noqa: E402
     EngineConfig,
     Entity,
     EnvironmentConfig,

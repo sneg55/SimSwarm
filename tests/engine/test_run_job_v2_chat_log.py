@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 
 from tests.engine.run_job_v2_fixtures import (
     make_report,
@@ -17,14 +16,14 @@ from tests.engine.run_job_v2_fixtures import (
 
 
 class TestChatLogJson:
-    def test_parses_as_list(self, rjv2, tmp_path):
+    def test_parses_as_list(self, rjv2, tmp_path):  # noqa: F811
         result = make_simulation_result()
         rjv2.write_results(result, make_report(), str(tmp_path))
         data = json.loads((tmp_path / "chat_log.json").read_text(encoding="utf-8"))
         assert isinstance(data, list)
         assert len(data) == len(result.chat_log)
 
-    def test_agent_id_is_integer(self, rjv2, tmp_path):
+    def test_agent_id_is_integer(self, rjv2, tmp_path):  # noqa: F811
         """adapt_chat_log must convert string agent_id to int via hash."""
         rjv2.write_results(make_simulation_result(), make_report(), str(tmp_path))
         data = json.loads((tmp_path / "chat_log.json").read_text(encoding="utf-8"))
@@ -33,7 +32,7 @@ class TestChatLogJson:
                 f"agent_id must be int, got {type(entry['agent_id'])!r}"
             )
 
-    def test_entries_validate_against_contract_schema(self, rjv2, tmp_path):
+    def test_entries_validate_against_contract_schema(self, rjv2, tmp_path):  # noqa: F811
         from tests.contracts.schemas import ChatLogEntry
 
         rjv2.write_results(make_simulation_result(), make_report(), str(tmp_path))
@@ -44,13 +43,13 @@ class TestChatLogJson:
             assert isinstance(validated.round_num, int)
             assert validated.platform != ""
 
-    def test_action_types_preserved(self, rjv2, tmp_path):
+    def test_action_types_preserved(self, rjv2, tmp_path):  # noqa: F811
         rjv2.write_results(make_simulation_result(), make_report(), str(tmp_path))
         data = json.loads((tmp_path / "chat_log.json").read_text(encoding="utf-8"))
         action_types = {e["action_type"] for e in data}
         assert "CREATE_POST" in action_types
 
-    def test_required_fields_present_in_every_entry(self, rjv2, tmp_path):
+    def test_required_fields_present_in_every_entry(self, rjv2, tmp_path):  # noqa: F811
         rjv2.write_results(make_simulation_result(), make_report(), str(tmp_path))
         data = json.loads((tmp_path / "chat_log.json").read_text(encoding="utf-8"))
         required = {"round_num", "agent_id", "agent_name", "action_type", "platform", "action_args"}
