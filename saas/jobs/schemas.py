@@ -28,12 +28,28 @@ class JobCreate(BaseModel):
         return v
 
 
+class DraftCreate(BaseModel):
+    seed_text: str = ""
+    goal: str | None = None
+    tier: TierEnum | None = None
+    enrich_web: bool = True
+    forecast_days: int | None = None
+
+
+class DraftUpdate(BaseModel):
+    seed_text: str | None = None
+    goal: str | None = None
+    tier: TierEnum | None = None
+    enrich_web: bool | None = None
+    forecast_days: int | None = None
+
+
 class JobResponse(BaseModel):
     id: int
     user_id: str
     seed_text: str
-    goal: str
-    tier: str
+    goal: str | None = None
+    tier: str | None = None
     credits_charged: int
     status: str
     pipeline_stage: int | None
@@ -55,8 +71,8 @@ class JobResponse(BaseModel):
 
 class JobSummary(BaseModel):
     id: int
-    goal: str
-    tier: str
+    goal: str | None = None
+    tier: str | None = None
     credits_charged: int
     status: str
     pipeline_stage: int | None = None

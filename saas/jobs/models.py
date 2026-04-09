@@ -6,6 +6,7 @@ from saas.models.base import Base
 
 
 class JobStatus(str, enum.Enum):
+    DRAFT = "DRAFT"
     PENDING = "PENDING"
     PROVISIONING = "PROVISIONING"
     RUNNING = "RUNNING"
@@ -20,8 +21,8 @@ class SimulationJob(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[str] = mapped_column(String(255), index=True)
     seed_text: Mapped[str] = mapped_column(Text)
-    goal: Mapped[str] = mapped_column(Text)
-    tier: Mapped[str] = mapped_column(String(20))
+    goal: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tier: Mapped[str | None] = mapped_column(String(20), nullable=True)
     credits_charged: Mapped[int] = mapped_column(Integer)
     status: Mapped[JobStatus] = mapped_column(Enum(JobStatus), default=JobStatus.PENDING)
     pipeline_stage: Mapped[int | None] = mapped_column(Integer, nullable=True)
