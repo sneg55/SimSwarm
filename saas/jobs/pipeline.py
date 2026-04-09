@@ -238,12 +238,14 @@ async def poll_until_complete(
                 )
                 break
             elif job_status == "failed":
-                error_msg = status_data.get("error", "Unknown error")
+                raw_error = status_data.get("error", "Unknown error")
                 stdout = status_data.get("stdout", "")
-                logger.error(f"Pipeline failed: {error_msg}")
+                logger.error(f"Pipeline failed: {raw_error}")
                 if stdout:
                     logger.error(f"Pipeline stdout: {stdout[:2000]}")
-                raise RuntimeError(f"Worker pipeline failed: {error_msg}")
+                # Extract first meaningful line — full log stays in Celery logs
+                first_line = raw_error.split("\n")[0][:200]
+                raise RuntimeError(f"Worker pipeline failed: {first_line}")
         else:
             raise TimeoutError(
                 f"Pipeline did not complete within {max_polls * poll_interval}s")

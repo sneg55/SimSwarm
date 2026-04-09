@@ -175,8 +175,10 @@ class JobRunner:
             }
 
         if job_status == "failed":
-            error_msg = status_data.get("error", "Unknown error")
-            raise RuntimeError(f"Pod pipeline already failed: {error_msg}")
+            raw_error = status_data.get("error", "Unknown error")
+            # Extract first meaningful line — don't dump full log into error_message
+            first_line = raw_error.split("\n")[0][:200]
+            raise RuntimeError(f"Worker pipeline failed: {first_line}")
 
         if job_status == "idle":
             raise RuntimeError(
