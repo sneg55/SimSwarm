@@ -136,7 +136,7 @@ def recover_stale_jobs() -> dict:
                     # to avoid "pod is idle" errors during vLLM warmup
                     if pod_alive and pod_id:
                         pod_status = _check_pod_status(pod_id)
-                        if pod_status in ("running", "completed"):
+                        if pod_status in ("running", "completed", "idle"):
                             # Skip jobs that have already reached a terminal state in the DB
                             from saas.jobs.persistence import _get_job_status
                             job_status = _get_job_status(job_id)
@@ -159,7 +159,7 @@ def recover_stale_jobs() -> dict:
                             resumed.append({"job_id": job_id, "pod_id": pod_id})
                         else:
                             logger.info(
-                                "recover.skipping_idle job_id=%d pod_id=%s pod_status=%s",
+                                "recover.skipping_unknown job_id=%d pod_id=%s pod_status=%s",
                                 job_id, pod_id, pod_status,
                             )
                     continue

@@ -120,6 +120,55 @@ def _update_job_retry_sync(job_id: int, retry_count: int) -> None:
         engine.dispose()
 
 
+def _get_job_config_for_resume(job_id: int):
+    """Fetch minimal job config needed to resubmit /job to an idle worker pod.
+
+    Returns a namespace with seed_text, goal, max_rounds, forecast_days,
+    target_agents, and upload_urls — or None if not found.
+    """
+    from sqlalchemy import text
+    from types import SimpleNamespace
+
+    engine = _get_sync_engine()
+    if engine is None:
+        return None
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(
+                text(
+                    "SELECT j.seed_text, j.goal, j.tier, j.enriched_seed, j.forecast_days, "
+                    "       m.max_rounds, m.target_agents "
+                    "FROM simulation_jobs j "
+                    "LEFT JOIN model_routing m ON m.sim_tier = j.tier "
+                    "WHERE j.id = :job_id"
+                ),
+                {"job_id": job_id},
+            ).first()
+            if not row:
+                return None
+
+            seed_text, goal, tier, enriched_seed, forecast_days, max_rounds, target_agents = row
+            # Use enriched seed if available (enrichment already ran before provision)
+            effective_seed = enriched_seed or seed_text or ""
+
+            from saas.storage import storage
+            upload_urls = storage.generate_upload_urls(job_id=job_id)
+
+            return SimpleNamespace(
+                seed_text=effective_seed,
+                goal=goal or "",
+                max_rounds=max_rounds or 15,
+                forecast_days=forecast_days,
+                target_agents=target_agents or 5,
+                upload_urls=upload_urls,
+            )
+    except Exception as exc:
+        logger.warning("Could not load job config for resume job %d: %s", job_id, exc)
+        return None
+    finally:
+        engine.dispose()
+
+
 def _get_job_status(job_id: int) -> str | None:
     """Get current job status (sync, for Celery)."""
     from sqlalchemy import text

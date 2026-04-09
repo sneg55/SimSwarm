@@ -25,6 +25,7 @@ from saas.jobs.persistence_sync import (
     _save_job_results,
     _update_job_retry_sync,
     _get_job_status,
+    _get_job_config_for_resume,
 )
 from saas.jobs.persistence_sync_progress import (
     _update_pipeline_stage_sync,
@@ -134,6 +135,7 @@ __all__ = [
     "_update_sim_data_available",
     "_update_enrichment_sync",
     "_get_job_status",
+    "_get_job_config_for_resume",
     "_claim_resume",
     "_release_resume",
     "_mark_job_failed",

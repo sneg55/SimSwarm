@@ -181,8 +181,15 @@ class JobRunner:
             raise RuntimeError(f"Worker pipeline failed: {first_line}")
 
         if job_status == "idle":
-            raise RuntimeError(
-                f"Pod {pod_id} is idle -- pipeline was never started or already reset")
+            # Pod is ready but /run was never sent (e.g. deploy killed worker
+            # mid-provisioning). Fetch job config from DB and resubmit.
+            logger.info("job.resume_idle job_id=%d pod_id=%s — resubmitting /job", job_id, pod_id)
+            from saas.jobs.persistence import _get_job_config_for_resume
+            job_cfg = _get_job_config_for_resume(job_id)
+            if not job_cfg:
+                raise RuntimeError(f"Pod {pod_id} is idle and job {job_id} config not found in DB")
+            async with httpx.AsyncClient(timeout=30) as submit_client:
+                await submit_job(worker_url, job_cfg, submit_client)
 
         # Still running -- create a minimal config for the polling loop
         minimal_config = type("MinimalConfig", (), {

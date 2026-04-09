@@ -28,8 +28,8 @@ class TestResumeDedup:
         mock_self.request = MagicMock()
         mock_self.request.id = "task-dup"
 
-        with patch("saas.jobs.tasks._get_job_status", return_value="RUNNING"), \
-             patch("saas.jobs.tasks._claim_resume", return_value=False) as mock_claim:
+        with patch("saas.jobs.tasks_resume._get_job_status", return_value="RUNNING"), \
+             patch("saas.jobs.tasks_resume._claim_resume", return_value=False) as mock_claim:
             result = fn(
                 mock_self,
                 job_id=42,
@@ -56,12 +56,12 @@ class TestResumeDedup:
             "structured": "{}",
         }
 
-        with patch("saas.jobs.tasks._get_job_status", return_value="RUNNING"), \
-             patch("saas.jobs.tasks._claim_resume", return_value=True), \
-             patch("saas.jobs.tasks._release_resume") as mock_release, \
-             patch("saas.jobs.tasks._get_gpu_provider"), \
-             patch("saas.jobs.tasks._run_async", return_value=mock_result), \
-             patch("saas.jobs.tasks._save_job_results"):
+        with patch("saas.jobs.tasks_resume._get_job_status", return_value="RUNNING"), \
+             patch("saas.jobs.tasks_resume._claim_resume", return_value=True), \
+             patch("saas.jobs.tasks_resume._release_resume") as mock_release, \
+             patch("saas.jobs.tasks_resume._get_gpu_provider"), \
+             patch("saas.jobs.tasks_resume._run_async", return_value=mock_result), \
+             patch("saas.jobs.tasks_resume._save_job_results"):
             result = fn(
                 mock_self,
                 job_id=42,
@@ -81,13 +81,13 @@ class TestResumeDedup:
         mock_self.request = MagicMock()
         mock_self.request.id = "task-fail"
 
-        with patch("saas.jobs.tasks._get_job_status", return_value="RUNNING"), \
-             patch("saas.jobs.tasks._claim_resume", return_value=True), \
-             patch("saas.jobs.tasks._release_resume") as mock_release, \
-             patch("saas.jobs.tasks._get_gpu_provider"), \
-             patch("saas.jobs.tasks._run_async", side_effect=RuntimeError("pod gone")), \
-             patch("saas.jobs.tasks._mark_job_failed"), \
-             patch("saas.jobs.tasks._refund_credits"):
+        with patch("saas.jobs.tasks_resume._get_job_status", return_value="RUNNING"), \
+             patch("saas.jobs.tasks_resume._claim_resume", return_value=True), \
+             patch("saas.jobs.tasks_resume._release_resume") as mock_release, \
+             patch("saas.jobs.tasks_resume._get_gpu_provider"), \
+             patch("saas.jobs.tasks_resume._run_async", side_effect=RuntimeError("pod gone")), \
+             patch("saas.jobs.tasks_resume._mark_job_failed"), \
+             patch("saas.jobs.tasks_resume._refund_credits"):
             with pytest.raises(RuntimeError, match="pod gone"):
                 fn(
                     mock_self,
