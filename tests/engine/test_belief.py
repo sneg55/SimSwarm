@@ -1,0 +1,104 @@
+"""Test belief state updates with known inputs and expected outputs.
+
+These are pure math tests — no LLM, no environment, no async.
+"""
+from __future__ import annotations
+
+from simswarm.belief import update_beliefs
+from simswarm.types import BeliefState
+
+
+class TestPositionUpdate:
+    def test_novel_supportive_content_shifts_position_positive(self):
+        bs = BeliefState(
+            positions={"climate": 0.0},
+            confidence={"climate": 0.5},
+            trust={"author1": 0.8},
+        )
+        posts = [{"author": "author1", "content_hash": "h1", "stance": 0.6, "likes": 3}]
+        updated = update_beliefs(bs, posts, topic="climate")
+        assert updated.positions["climate"] > 0.0
+
+    def test_novel_opposing_content_shifts_position_negative(self):
+        bs = BeliefState(
+            positions={"climate": 0.0},
+            confidence={"climate": 0.5},
+            trust={"author1": 0.8},
+        )
+        posts = [{"author": "author1", "content_hash": "h2", "stance": -0.6, "likes": 3}]
+        updated = update_beliefs(bs, posts, topic="climate")
+        assert updated.positions["climate"] < 0.0
+
+    def test_repeated_content_has_no_effect(self):
+        bs = BeliefState(
+            positions={"climate": 0.3},
+            confidence={"climate": 0.5},
+            trust={"author1": 0.8},
+            exposure_history={"h1"},
+        )
+        posts = [{"author": "author1", "content_hash": "h1", "stance": -0.9, "likes": 10}]
+        updated = update_beliefs(bs, posts, topic="climate")
+        assert updated.positions["climate"] == 0.3  # unchanged
+
+
+class TestConfidenceResistance:
+    def test_high_confidence_resists_change(self):
+        low_conf = BeliefState(
+            positions={"topic": 0.0}, confidence={"topic": 0.2}, trust={"a": 0.8},
+        )
+        high_conf = BeliefState(
+            positions={"topic": 0.0}, confidence={"topic": 0.9}, trust={"a": 0.8},
+        )
+        posts = [{"author": "a", "content_hash": "h1", "stance": 0.8, "likes": 5}]
+        updated_low = update_beliefs(low_conf, posts, topic="topic")
+        updated_high = update_beliefs(high_conf, posts, topic="topic")
+        assert abs(updated_low.positions["topic"]) > abs(updated_high.positions["topic"])
+
+    def test_confidence_increases_with_engagement(self):
+        bs = BeliefState(
+            positions={"topic": 0.5}, confidence={"topic": 0.5}, trust={},
+        )
+        updated = update_beliefs(bs, [], topic="topic", own_likes=10, own_dislikes=0)
+        assert updated.confidence["topic"] > 0.5
+
+
+class TestTrustUpdate:
+    def test_trust_defaults_to_half(self):
+        bs = BeliefState()
+        posts = [{"author": "stranger", "content_hash": "h1", "stance": 0.5, "likes": 1}]
+        updated = update_beliefs(bs, posts, topic="topic")
+        assert updated.trust.get("stranger", 0.5) == 0.5
+
+
+class TestExposureHistory:
+    def test_new_content_added_to_history(self):
+        bs = BeliefState()
+        posts = [{"author": "a", "content_hash": "new_hash", "stance": 0.5, "likes": 1}]
+        updated = update_beliefs(bs, posts, topic="topic")
+        assert "new_hash" in updated.exposure_history
+
+    def test_history_capped_at_2000(self):
+        bs = BeliefState(
+            exposure_history={f"h{i}" for i in range(2000)},
+        )
+        posts = [{"author": "a", "content_hash": "overflow", "stance": 0.5, "likes": 1}]
+        updated = update_beliefs(bs, posts, topic="topic")
+        assert len(updated.exposure_history) <= 2000
+
+
+class TestPositionBounds:
+    def test_position_clamped_to_negative_one(self):
+        bs = BeliefState(
+            positions={"topic": -0.95}, confidence={"topic": 0.1}, trust={"a": 1.0},
+        )
+        posts = [{"author": "a", "content_hash": "h1", "stance": -1.0, "likes": 100}]
+        updated = update_beliefs(bs, posts, topic="topic")
+        assert updated.positions["topic"] >= -1.0
+
+    def test_position_clamped_to_positive_one(self):
+        bs = BeliefState(
+            positions={"topic": 0.95}, confidence={"topic": 0.1}, trust={"a": 1.0},
+        )
+        posts = [{"author": "a", "content_hash": "h1", "stance": 1.0, "likes": 100}]
+        updated = update_beliefs(bs, posts, topic="topic")
+        assert updated.positions["topic"] <= 1.0
