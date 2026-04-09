@@ -135,17 +135,32 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str, ta
             extract_all = _mod.extract_all
             from app.services.simulation_runner_state import RUN_STATE_DIR as _RSD
             sim_dir = os.path.join(_RSD, simulation_id)
-            if os.path.isdir(sim_dir):
-                print(f"[run_job] Extracting rich simulation data from {sim_dir}", flush=True)
-                all_data = extract_all(sim_dir, chat_log)
+            resolved = os.path.realpath(sim_dir)
+            print(f"[run_job] sim_data: RUN_STATE_DIR={_RSD}", flush=True)
+            print(f"[run_job] sim_data: sim_dir={sim_dir} resolved={resolved}", flush=True)
+            print(f"[run_job] sim_data: exists={os.path.exists(resolved)} isdir={os.path.isdir(resolved)}", flush=True)
+            parent = os.path.realpath(_RSD)
+            if os.path.isdir(parent):
+                print(f"[run_job] sim_data: parent contents={os.listdir(parent)}", flush=True)
+            else:
+                print(f"[run_job] sim_data: parent dir not found: {parent}", flush=True)
+            if os.path.isdir(resolved):
+                contents = os.listdir(resolved)
+                db_files = [f for f in contents if f.endswith('.db')]
+                print(f"[run_job] sim_data: dir contents={contents}", flush=True)
+                print(f"[run_job] sim_data: db_files={db_files}", flush=True)
+                print(f"[run_job] Extracting rich simulation data from {resolved}", flush=True)
+                all_data = extract_all(resolved, chat_log)
                 for filename, data in all_data.items():
                     fpath = out / filename
                     fpath.write_text(json.dumps(data, ensure_ascii=False, default=str), encoding="utf-8")
                     print(f"[run_job] Wrote {filename} ({fpath.stat().st_size} bytes)", flush=True)
             else:
-                print(f"[run_job] WARNING: sim_dir not found for extraction: {sim_dir}", flush=True)
+                print(f"[run_job] WARNING: sim_dir not found for extraction: {resolved}", flush=True)
         except Exception as exc:
+            import traceback
             print(f"[run_job] WARNING: rich data extraction failed: {exc}", flush=True)
+            traceback.print_exc()
 
     finally:
         # Always clean up Neo4j graph, even on failure
