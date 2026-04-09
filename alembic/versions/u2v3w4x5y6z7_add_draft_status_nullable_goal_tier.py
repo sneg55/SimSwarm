@@ -14,8 +14,11 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add DRAFT to the native PostgreSQL jobstatus enum
+    # ALTER TYPE ... ADD VALUE cannot run inside a transaction.
+    # Commit the current transaction first, then run outside it.
+    op.execute("COMMIT")
     op.execute("ALTER TYPE jobstatus ADD VALUE IF NOT EXISTS 'DRAFT' BEFORE 'PENDING'")
+    op.execute("BEGIN")
     op.alter_column("simulation_jobs", "goal", existing_type=sa.Text(), nullable=True)
     op.alter_column("simulation_jobs", "tier", existing_type=sa.String(20), nullable=True)
 
