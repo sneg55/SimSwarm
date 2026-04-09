@@ -1,0 +1,11 @@
+{% for obs in observations %}
+--- {{ obs.environment | upper }} ---
+{{ obs.content }}
+
+{% endfor %}
+{% if variables %}
+--- SCENARIO PARAMETERS ---
+{% for key, value in variables.items() %}
+{{ key }}: {{ value }}
+{% endfor %}
+{% endif %}
