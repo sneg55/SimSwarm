@@ -2,6 +2,10 @@
   <div class="max-w-[640px] mx-auto px-6 pt-24 pb-16">
     <WizardProgress :current="step" @go="goToStep" />
 
+    <div v-if="error" class="mt-4 p-3 bg-coral/10 border border-coral/20 text-coral rounded-xl text-sm">
+      {{ error }}
+    </div>
+
     <!-- Step 1 -->
     <div v-if="step === 1" class="step-anim">
       <WizardSeed v-model:seedText="seedText" />
@@ -44,9 +48,6 @@
         <button @click="handleSubmit" :disabled="!canSubmit || loading" class="btn-launch">
           {{ loading ? 'Starting...' : 'Run Simulation' }} 🚀
         </button>
-      </div>
-      <div v-if="error" class="mt-4 p-3 bg-coral/10 border border-coral/20 text-coral rounded-xl text-sm">
-        {{ error }}
       </div>
     </div>
   </div>
