@@ -1,0 +1,122 @@
+"""Test prediction market environment: AMM pricing, buy/sell, portfolio tracking."""
+from __future__ import annotations
+
+import pytest
+
+from simswarm.environments.market import MarketEnvironment, MarketConfig, Market
+from simswarm.types import Action, Agent, AgentActivityConfig, BeliefState
+
+
+def _make_agent(agent_id: str, name: str = "Trader") -> Agent:
+    return Agent(
+        id=agent_id, name=name, persona="Test trader",
+        environments=["market"], belief_state=BeliefState(),
+        config=AgentActivityConfig(),
+    )
+
+
+class TestAMMPricing:
+    def test_initial_price_at_fifty_percent(self):
+        market = Market(id="m1", question="Will X happen?", reserve_yes=100, reserve_no=100)
+        assert market.price_yes == pytest.approx(0.5)
+        assert market.price_no == pytest.approx(0.5)
+
+    def test_prices_sum_to_one(self):
+        market = Market(id="m1", question="?", reserve_yes=150, reserve_no=50)
+        assert market.price_yes + market.price_no == pytest.approx(1.0)
+
+    def test_buy_yes_increases_yes_price(self):
+        market = Market(id="m1", question="?", reserve_yes=100, reserve_no=100)
+        initial_price = market.price_yes
+        market.buy_yes(10.0)
+        assert market.price_yes > initial_price
+
+    def test_buy_no_increases_no_price(self):
+        market = Market(id="m1", question="?", reserve_yes=100, reserve_no=100)
+        initial_price = market.price_no
+        market.buy_no(10.0)
+        assert market.price_no > initial_price
+
+
+class TestBuySell:
+    def test_buy_returns_shares(self):
+        market = Market(id="m1", question="?", reserve_yes=100, reserve_no=100)
+        shares = market.buy_yes(10.0)
+        assert shares > 0
+
+    def test_sell_returns_usd(self):
+        market = Market(id="m1", question="?", reserve_yes=100, reserve_no=100)
+        shares = market.buy_yes(10.0)
+        usd = market.sell_yes(shares)
+        assert usd > 0
+        assert usd == pytest.approx(10.0, rel=0.01)
+
+    def test_constant_product_invariant_after_buy(self):
+        market = Market(id="m1", question="?", reserve_yes=100, reserve_no=100)
+        k_before = market.reserve_yes * market.reserve_no
+        market.buy_yes(10.0)
+        k_after = market.reserve_yes * market.reserve_no
+        assert k_after == pytest.approx(k_before, rel=0.001)
+
+
+class TestPortfolio:
+    def test_buy_updates_portfolio(self):
+        env = MarketEnvironment(MarketConfig(
+            markets=[{"question": "Test?", "initial_price_yes": 0.5}],
+            initial_balance=1000.0,
+        ))
+        trader = _make_agent("t1")
+        env.register_agent(trader)
+        market_id = list(env.markets.keys())[0]
+        result = env.execute_action(trader, Action(
+            agent_id="t1", environment="market",
+            action_type="buy_shares",
+            args={"market_id": market_id, "outcome": "yes", "amount": 50.0},
+        ))
+        assert result.success
+        portfolio = env.portfolios["t1"]
+        assert portfolio.balance < 1000.0
+        assert portfolio.shares.get(market_id, {}).get("yes", 0) > 0
+
+
+class TestMultipleMarkets:
+    def test_supports_multiple_markets(self):
+        env = MarketEnvironment(MarketConfig(
+            markets=[
+                {"question": "Will A happen?", "initial_price_yes": 0.6},
+                {"question": "Will B happen?", "initial_price_yes": 0.4},
+            ],
+            initial_balance=1000.0,
+        ))
+        assert len(env.markets) == 2
+
+
+class TestMarketEvents:
+    def test_large_price_move_publishes_event(self):
+        env = MarketEnvironment(MarketConfig(
+            markets=[{"question": "Test?", "initial_price_yes": 0.5}],
+            initial_balance=10000.0,
+            price_move_event_threshold=0.05,
+        ))
+        trader = _make_agent("t1")
+        env.register_agent(trader)
+        market_id = list(env.markets.keys())[0]
+        env.execute_action(trader, Action(
+            agent_id="t1", environment="market",
+            action_type="buy_shares",
+            args={"market_id": market_id, "outcome": "yes", "amount": 500.0},
+        ))
+        env.tick()
+        events = env.publish_events()
+        price_events = [e for e in events if e.type == "price_move"]
+        assert len(price_events) >= 1
+
+
+class TestMarketTools:
+    def test_get_tools_returns_expected_actions(self):
+        env = MarketEnvironment(MarketConfig(markets=[], initial_balance=100.0))
+        tools = env.get_tools()
+        tool_names = {t.name for t in tools}
+        assert "buy_shares" in tool_names
+        assert "sell_shares" in tool_names
+        assert "browse_markets" in tool_names
