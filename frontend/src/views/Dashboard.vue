@@ -41,6 +41,47 @@
 
       <!-- Simulation List -->
       <template v-else>
+        <!-- Drafts -->
+        <section v-if="draftJobs.length" class="mb-8">
+          <h2 class="text-lg font-semibold text-white/90 mb-3">Drafts</h2>
+          <div class="space-y-3">
+            <div
+              v-for="draft in draftJobs"
+              :key="draft.id"
+              class="group relative bg-white/5 border border-white/10 rounded-xl p-4 cursor-pointer hover:bg-white/10 transition-colors"
+              @click="$router.push(`/new?draft=${draft.id}`)"
+            >
+              <div class="flex items-center justify-between">
+                <div class="flex-1 min-w-0">
+                  <p class="text-white/80 truncate">
+                    {{ draft.goal || 'Untitled draft' }}
+                  </p>
+                  <div class="flex items-center gap-2 mt-1">
+                    <span class="text-xs px-2 py-0.5 rounded-full bg-white/10 text-white/50">
+                      Draft
+                    </span>
+                    <span v-if="draft.tier" class="text-xs text-white/40">
+                      {{ draft.tier }} tier
+                    </span>
+                    <span class="text-xs text-white/30">
+                      {{ new Date(draft.created_at).toLocaleDateString() }}
+                    </span>
+                  </div>
+                </div>
+                <button
+                  class="opacity-0 group-hover:opacity-100 text-white/30 hover:text-red-400 transition-all p-1"
+                  title="Delete draft"
+                  @click.stop="handleDelete(draft.id)"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <!-- Active -->
         <template v-if="activeJobs.length > 0">
           <div class="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-mist-slate mb-4">
@@ -93,12 +134,18 @@ const totalJobs = ref(0)
 
 const hasMore = computed(() => jobs.value.length < totalJobs.value)
 
+const draftJobs = computed(() =>
+  jobs.value.filter(j => j.status === 'DRAFT')
+)
+
 const activeJobs = computed(() =>
   jobs.value.filter(j => ['RUNNING', 'PROVISIONING', 'PENDING'].includes(j.status))
 )
 
 const recentJobs = computed(() =>
-  jobs.value.filter(j => !['RUNNING', 'PROVISIONING', 'PENDING'].includes(j.status))
+  jobs.value.filter(j =>
+    !['RUNNING', 'PROVISIONING', 'PENDING', 'DRAFT'].includes(j.status)
+  )
 )
 
 onMounted(async () => {
