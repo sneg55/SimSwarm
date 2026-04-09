@@ -151,8 +151,9 @@ def _get_job_config_for_resume(job_id: int):
             # Use enriched seed if available (enrichment already ran before provision)
             effective_seed = enriched_seed or seed_text or ""
 
-            from saas.storage import storage
-            upload_urls = storage.generate_upload_urls(job_id=job_id)
+            from saas.storage.minio_client import SimDataStorage
+            minio_storage = SimDataStorage()
+            upload_urls = minio_storage.generate_upload_urls(job_id=job_id)
 
             return SimpleNamespace(
                 seed_text=effective_seed,
