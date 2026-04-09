@@ -12,12 +12,14 @@ from saas.billing.ledger import CreditLedger, InsufficientCreditsError
 from saas.auth.dependencies import get_current_user
 from saas.storage.minio_client import SimDataStorage
 from saas.jobs.api_share import router as _share_router
+from saas.jobs.api_draft import router as _draft_router
 import os
 
 from saas.jobs.tasks import run_simulation_task
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 router.include_router(_share_router)
+router.include_router(_draft_router)
 
 
 def _get_sim_data_storage(request: Request) -> SimDataStorage:
