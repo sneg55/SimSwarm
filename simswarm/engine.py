@@ -8,6 +8,7 @@ from typing import Any, Callable, Awaitable
 from simswarm.bridge import Bridge
 from simswarm.environments.social import SocialConfig, SocialEnvironment
 from simswarm.environments.market import MarketConfig, MarketEnvironment
+from simswarm.environments.economic import EconomicConfig, EconomicEnvironment
 from simswarm.llm import LLMClient, build_context
 from simswarm.sweep import ScenarioSweep, generate_sweep_configs
 from simswarm.types import (
@@ -173,6 +174,8 @@ class Engine:
                 environments["social"] = SocialEnvironment(SocialConfig(**ec.params))
             elif ec.type == "market":
                 environments["market"] = MarketEnvironment(MarketConfig(**ec.params))
+            elif ec.type == "economic":
+                environments["economic"] = EconomicEnvironment(EconomicConfig(**ec.params))
         if not environments:
             environments["social"] = SocialEnvironment(SocialConfig())
         return environments
