@@ -444,3 +444,72 @@ class Report:
 | **Total** | **~7,500** |
 
 Down from MiroShark's ~37K LOC — 80% reduction.
+
+## Testing & Migration Safety
+
+The SaaS layer is cleanly decoupled from MiroShark at the HTTP boundary (worker API on the GPU pod). The tight coupling is only in `infra/docker/run_job.py`, which imports MiroShark service classes directly. This is the single seam where the engine swap happens.
+
+### Layer 1: Contract Tests (write before any rewrite)
+
+Define the exact contract between SaaS and engine as a test suite. These tests don't care which engine runs — they verify inputs and outputs.
+
+**HTTP contract** (worker API):
+- POST `/job` accepts `{seed_text, goal, max_rounds, forecast_days, target_agents, upload_urls}`
+- GET `/status` returns `{status, report, chat_log, graph_data, structured}`
+- Status values: `idle` → `running` → `completed` / `failed`
+
+**Result shape contract** (schema validation):
+- `report` is valid markdown string, non-empty
+- `chat_log` is JSON list where each item has `agent_id`, `agent_name`, `action_type`, `round_num`
+- `graph_data` is JSON with `nodes` (each has `id`, `label`, `type`), `edges` (each has `source`, `target`), `metadata`
+- `structured` has `executive_brief`, `findings`, `coalitions`, `confidence_grid`
+
+Run these against MiroShark output now, then against SimSwarm output later. Both must pass.
+
+### Layer 2: Golden File Tests (capture before rewrite)
+
+Run 3-5 representative simulations on MiroShark and save full outputs as golden files:
+- A small sim (5 agents, 15 rounds)
+- A medium sim with prediction market
+- A sim with web enrichment
+- A sim with high agent count
+
+Save: chat_log, graph_data, structured results, trajectory data. These become regression baselines. The new engine doesn't need identical output, but:
+- Same entity types should appear in the graph
+- Belief trajectories should show similar dynamics (convergence, polarization)
+- Market prices should respond to sentiment (not random walk)
+- Report should contain findings, coalitions, confidence grid
+
+These are behavioral smoke tests — reviewed by eye, not exact-match asserts.
+
+### Layer 3: Engine Test Suite (write alongside the new engine)
+
+The new SimSwarm engine gets its own test suite, structured by component:
+
+| Component | What to test | How |
+|-----------|-------------|-----|
+| Core loop | Round sequencing, termination, concurrency | Unit test with mock environment + mock LLM |
+| Agent runtime | Context assembly, memory eviction, tool parsing | Unit test with canned LLM responses |
+| Belief state | Position updates, trust decay, confidence resistance | Pure math — unit test with known inputs/expected outputs |
+| SocialEnvironment | Feed ranking, post creation, voting, threading | Unit test environment in isolation |
+| MarketEnvironment | AMM pricing, buy/sell, portfolio tracking | Unit test with known trades → expected prices |
+| Cross-env bridge | Event publishing, digest formatting | Integration test with two mock environments |
+| Scenario sweep | Config generation, variable substitution, result keying | Unit test combinatorics |
+| LLM client | Retry logic, tool call parsing, error handling | Unit test with httpx mock |
+| Checkpointing | Serialize → deserialize → resume produces same state | Round-trip test |
+
+**Key principle:** Belief math and AMM pricing are the only components that need exact numerical parity with MiroShark. Everything else is behavioral.
+
+### Swap Strategy
+
+Migration happens at one seam: `run_job.py`.
+
+| Phase | What | Risk |
+|-------|------|------|
+| 1 | Write contract + golden file tests against MiroShark | None — observation only |
+| 2 | Build SimSwarm engine with its own test suite | None — parallel development |
+| 3 | Write new `run_job.py` that imports SimSwarm, outputs to same file paths in same formats | None — not deployed yet |
+| 4 | Run both engines on same inputs, compare outputs (shadow mode) | None — comparison only |
+| 5 | Swap — new Docker image with SimSwarm, MiroShark removed | Low — contract tests gate deployment |
+
+The SaaS layer, frontend, Celery tasks, GPU provisioning — none of this changes. The worker API stays the same. Only the engine inside the pod swaps.
