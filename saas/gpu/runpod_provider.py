@@ -15,8 +15,8 @@ MAX_POLL_ATTEMPTS = 120  # 120 * 5s = 10 min max wait for image pull
 # Network volumes with pre-loaded model weights across datacenters.
 # The provider tries each volume until it finds one with GPU availability.
 NETWORK_VOLUMES = [
-    {"id": "19hqjpxbp2", "dc": "US-TX-3"},   # 50GB, 7B + 32B pre-loaded
-    {"id": "8aplig09qc", "dc": "EU-RO-1"},   # 50GB, auto-loads on first use
+    {"id": "19hqjpxbp2", "dc": "US-TX-3"},   # 50GB, Qwen3-14B cached on first use
+    {"id": "8aplig09qc", "dc": "EU-RO-1"},   # 50GB, Qwen3-14B cached on first use
 ]
 
 
@@ -69,6 +69,8 @@ class RunPodProvider(GPUProvider):
                     logger.info(f"RunPod: pod created on {gpu} in {dc_label}")
                     break
                 except Exception as e:
+                    dc = vol["dc"] if vol else "no-volume"
+                    logger.warning(f"RunPod: failed {gpu} in {dc}: {e}")
                     last_error = e
                     continue
             else:

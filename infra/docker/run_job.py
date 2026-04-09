@@ -133,8 +133,8 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str, ta
             _mod = importlib.util.module_from_spec(_spec)
             _spec.loader.exec_module(_mod)
             extract_all = _mod.extract_all
-            from app.services.simulation_runner import SimulationRunner as _SRE
-            sim_dir = os.path.join(_SRE.RUN_STATE_DIR, simulation_id)
+            from app.services.simulation_runner_state import RUN_STATE_DIR as _RSD
+            sim_dir = os.path.join(_RSD, simulation_id)
             if os.path.isdir(sim_dir):
                 print(f"[run_job] Extracting rich simulation data from {sim_dir}", flush=True)
                 all_data = extract_all(sim_dir, chat_log)
@@ -156,11 +156,11 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str, ta
         except Exception as exc:
             print(f"[run_job] WARNING: graph cleanup failed: {exc}", flush=True)
 
-    from app.services.simulation_runner import SimulationRunner as _SR
+    from app.services.simulation_runner_state import RUN_STATE_DIR
     summary = {
         "status": "completed",
         "simulation_id": simulation_id,
-        "sim_dir": os.path.join(_SR.RUN_STATE_DIR, simulation_id),
+        "sim_dir": os.path.join(RUN_STATE_DIR, simulation_id),
         "graph_id": graph_id,
         "report_length": len(report_md),
         "chat_log_entries": len(chat_log),

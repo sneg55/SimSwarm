@@ -19,29 +19,36 @@ from saas.jobs.persistence_engine import (
     _get_worker_session_factory,
 )
 
-# Sync helpers (psycopg2 / Celery-safe)
+# Sync helpers (psycopg2 / Celery-safe) — split across two files by concern
 from saas.jobs.persistence_sync import (
+    _mark_job_failed_sync,
     _save_job_results,
+    _update_job_retry_sync,
+    _get_job_status,
+)
+from saas.jobs.persistence_sync_progress import (
     _update_pipeline_stage_sync,
     _update_heartbeat_sync,
     _update_live_status_sync,
     _update_pod_id,
     _update_sim_data_available,
-    _get_job_status,
+    _update_enrichment_sync,
 )
 
 # Async helpers
 from saas.jobs.persistence_async import (
-    _mark_job_failed,
     _update_pipeline_stage,
     _async_update_pipeline_stage,
     _async_update_pod_id,
     _update_job_metadata,
     _update_heartbeat,
     _async_update_heartbeat,
-    _update_enrichment,
-    _update_job_retry,
 )
+
+# Aliases: tasks.py imports these names — route to the sync versions
+_update_enrichment = _update_enrichment_sync
+_mark_job_failed = _mark_job_failed_sync
+_update_job_retry = _update_job_retry_sync
 
 logger = logging.getLogger(__name__)
 
@@ -117,12 +124,15 @@ __all__ = [
     "_extract_key_insight",
     "_get_sync_engine",
     "_get_worker_session_factory",
+    "_mark_job_failed_sync",
     "_save_job_results",
+    "_update_job_retry_sync",
     "_update_pipeline_stage_sync",
     "_update_heartbeat_sync",
     "_update_live_status_sync",
     "_update_pod_id",
     "_update_sim_data_available",
+    "_update_enrichment_sync",
     "_get_job_status",
     "_claim_resume",
     "_release_resume",
