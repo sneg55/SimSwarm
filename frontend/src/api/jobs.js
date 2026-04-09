@@ -12,6 +12,28 @@ export async function createJob(payload) {
   return response.data
 }
 
+export async function createDraft(payload) {
+  const body = {
+    seed_text: payload.seed_text ?? '',
+    enrich_web: payload.enrich_web ?? true,
+    goal: payload.goal ?? null,
+    tier: payload.tier ?? null,
+    forecast_days: payload.forecast_days ?? null,
+  }
+  const response = await api.post('/jobs/draft', body)
+  return response.data
+}
+
+export async function updateDraft(draftId, payload) {
+  const response = await api.patch(`/jobs/draft/${draftId}`, payload)
+  return response.data
+}
+
+export async function launchDraft(draftId) {
+  const response = await api.post(`/jobs/draft/${draftId}/launch`)
+  return response.data
+}
+
 export async function retryEnrichment(jobId) {
   const response = await api.post(`/jobs/${jobId}/enrich-retry`)
   return response.data
