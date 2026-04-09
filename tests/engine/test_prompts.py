@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from simswarm.prompts.templates import render_agent_system, render_agent_observation
-from simswarm.types import Agent, AgentActivityConfig, BeliefState, Entity, Observation
+from simswarm.types import Entity, Observation
 
 
 class TestAgentSystemPrompt:

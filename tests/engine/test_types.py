@@ -1,22 +1,14 @@
 """Test that core engine types are well-formed and serializable."""
 from __future__ import annotations
 
-import json
 
 from simswarm.types import (
-    Action,
-    ActionResult,
     Agent,
     AgentActivityConfig,
     BeliefState,
     EngineConfig,
-    EnvironmentConfig,
-    Event,
-    Observation,
-    RoundSnapshot,
     ScheduledEvent,
     SimulationConfig,
-    SimulationResult,
     SimulationState,
 )
 

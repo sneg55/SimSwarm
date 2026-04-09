@@ -1,7 +1,6 @@
 """Integration test: run a full simulation with mocked LLM, verify output contracts."""
 from __future__ import annotations
 
-import json
 from unittest.mock import AsyncMock
 
 import pytest

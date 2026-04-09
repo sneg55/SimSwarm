@@ -1,7 +1,6 @@
 """Tests for extract_posts and _score_sentiment."""
 from __future__ import annotations
 
-import pytest
 
 from simswarm.extractor import _score_sentiment, extract_posts
 from tests.engine.extractor_fixtures import SAMPLE_LOG

@@ -7,7 +7,6 @@ from __future__ import annotations
 import math
 import uuid
 from dataclasses import dataclass, field
-from typing import Any
 
 from simswarm.types import Action, ActionResult, Agent, Event, Observation, Tool
 

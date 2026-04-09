@@ -2,11 +2,11 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
-from simswarm.llm import LLMClient, LLMResponse, build_context, parse_tool_calls
+from simswarm.llm import LLMClient, build_context, parse_tool_calls
 from simswarm.types import Agent, AgentActivityConfig, BeliefState, Observation
 
 

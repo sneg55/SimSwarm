@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
 
 from simswarm.report import ReportTools
 from tests.engine.report_fixtures import make_result

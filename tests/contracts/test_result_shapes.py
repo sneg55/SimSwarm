@@ -7,7 +7,6 @@ any engine (MiroShark or SimSwarm) must produce conforming output.
 from __future__ import annotations
 
 import importlib.util
-import json
 import sys
 from pathlib import Path
 
@@ -16,7 +15,6 @@ import pytest
 from tests.contracts.schemas import (
     ChatLogEntry,
     Coalition,
-    ConfidenceEntry,
     Finding,
     GraphData,
     SentimentEntry,

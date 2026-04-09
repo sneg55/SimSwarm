@@ -1,18 +1,13 @@
 """Test the core simulation loop: round orchestration, progress, termination."""
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
 from simswarm.engine import Engine
-from simswarm.environments.social import SocialConfig, SocialEnvironment
 from simswarm.llm import LLMClient, LLMResponse
 from simswarm.types import (
-    Agent,
-    AgentActivityConfig,
-    BeliefState,
     EngineConfig,
     Entity,
     EnvironmentConfig,
@@ -21,7 +16,6 @@ from simswarm.types import (
 
 
 def _mock_llm_response(action_name: str = "do_nothing", args: dict | None = None):
-    import json
     args = args or {}
     return LLMResponse(
         content="",

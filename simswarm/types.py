@@ -5,7 +5,7 @@ All types are plain dataclasses — no framework dependencies.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import Any
 
 
 @dataclass

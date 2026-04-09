@@ -4,7 +4,6 @@ This is the contract bridge — the SaaS layer consumes these exact shapes.
 """
 from __future__ import annotations
 
-import re
 from typing import Any
 
 from simswarm.types import ActionRecord, GraphSnapshot

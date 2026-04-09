@@ -6,7 +6,7 @@ each tick. Significant metric shifts publish events to the bridge.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from simswarm.types import Action, ActionResult, Agent, Event, Observation, Tool
