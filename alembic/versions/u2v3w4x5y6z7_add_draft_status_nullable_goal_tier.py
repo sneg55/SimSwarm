@@ -14,9 +14,8 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Add DRAFT to the JobStatus enum.  PostgreSQL requires ALTER TYPE for native enums,
-    # but JobStatus is stored as a VARCHAR (SQLAlchemy Enum with a string base), so no
-    # ALTER TYPE is needed — the new value is accepted automatically.
+    # Add DRAFT to the native PostgreSQL jobstatus enum
+    op.execute("ALTER TYPE jobstatus ADD VALUE IF NOT EXISTS 'DRAFT' BEFORE 'PENDING'")
     op.alter_column("simulation_jobs", "goal", existing_type=sa.Text(), nullable=True)
     op.alter_column("simulation_jobs", "tier", existing_type=sa.String(20), nullable=True)
 
