@@ -1,5 +1,4 @@
 """Tests for draft campaign endpoints."""
-import pytest
 from unittest.mock import patch
 
 
