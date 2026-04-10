@@ -26,7 +26,8 @@ RUN grep -E "^(tokenizers|starlette|fastapi|uvicorn|numpy)==" /tmp/vllm-freeze.t
     pip install --no-cache-dir --force-reinstall -r /tmp/vllm-restore.txt
 
 # Upgrade transformers for Qwen3 support (model_type "qwen3" requires >=4.51.0)
-RUN pip install --no-cache-dir "transformers>=4.51.0,<4.55.0"
+# Pinned to exact version — floating ranges break when HF updates model configs
+RUN pip install --no-cache-dir "transformers==4.51.3"
 
 # Verify all imports + numpy<2 (vLLM ABI requirement) + Qwen3 config loads
 RUN python3 -c "import vllm; print(f'vLLM {vllm.__version__}')" && \
