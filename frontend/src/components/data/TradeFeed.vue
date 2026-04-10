@@ -9,8 +9,8 @@
         </span>
         <span class="text-ocean-cyan truncate flex-1">{{ trade.agent_name }}</span>
         <span class="text-mist-drift">{{ trade.outcome }}</span>
-        <span class="text-mist-slate font-mono">@ {{ (trade.price * 100).toFixed(0) }}%</span>
-        <span class="text-mist-slate font-mono">${{ Math.round(trade.cost) }}</span>
+        <InfoTooltip copyKey="tradeFeed.price"><span class="text-mist-slate font-mono">@ {{ (trade.price * 100).toFixed(0) }}%</span></InfoTooltip>
+        <InfoTooltip copyKey="tradeFeed.cost"><span class="text-mist-slate font-mono">${{ Math.round(trade.cost) }}</span></InfoTooltip>
       </div>
       <div v-if="!trades.length" class="text-xs text-mist-slate text-center py-8">No trades available</div>
     </div>
@@ -18,5 +18,7 @@
 </template>
 
 <script setup>
+import InfoTooltip from '../InfoTooltip.vue'
+
 defineProps({ trades: { type: Array, default: () => [] } })
 </script>

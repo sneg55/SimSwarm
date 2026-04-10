@@ -16,13 +16,16 @@
         </g>
       </svg>
       <div v-if="hovered"
-        class="absolute pointer-events-none bg-ocean-abyss border border-mist-depth rounded-lg px-3 py-2 text-xs z-10"
-        :style="{ left: hovered.x + 'px', top: '8px' }">
+        class="absolute pointer-events-none rounded-lg px-3 py-2 text-xs z-10 border"
+        style="background: rgba(10,20,30,0.92); border-color: rgba(34,211,238,0.2); box-shadow: 0 10px 40px rgba(8,47,73,0.3);"
+        :style="{ left: hovered.x + 'px', top: '8px', maxWidth: '240px' }">
         <div class="text-mist-slate">Round {{ hovered.round }}</div>
         <div><span style="color:#22D3EE;">Posts: {{ hovered.posts }}</span></div>
         <div><span style="color:#6EE7B7;">Likes: {{ hovered.likes }}</span></div>
         <div><span style="color:#A78BFA;">Comments: {{ hovered.comments }}</span></div>
         <div class="text-mist-slate">{{ hovered.agents }} active agents</div>
+        <div class="border-t my-1.5" style="border-color: rgba(34,211,238,0.1);" />
+        <div class="text-gray-400 text-[10px] leading-relaxed">{{ getTooltip('engagementChart.hoverMeaning')?.meaning }}</div>
       </div>
     </div>
     <div class="flex gap-4 mt-2 text-[10px] text-mist-slate">
@@ -35,6 +38,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { getTooltip } from '../../data/tooltipCopy.js'
 
 const props = defineProps({ data: { type: Array, default: () => [] } })
 

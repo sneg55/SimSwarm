@@ -12,9 +12,9 @@
           </div>
           <p class="text-xs text-mist-drift leading-relaxed line-clamp-3">{{ post.content }}</p>
           <div class="flex gap-3 mt-1.5 text-[10px] text-mist-slate">
-            <span v-if="post.num_likes" class="text-green-400">♥ {{ post.num_likes }}</span>
-            <span v-if="post.num_shares">↻ {{ post.num_shares }}</span>
-            <span v-if="post.num_dislikes" class="text-red-400">↓ {{ post.num_dislikes }}</span>
+            <InfoTooltip v-if="post.num_likes" copyKey="topPostsFeed.likes"><span class="text-green-400">♥ {{ post.num_likes }}</span></InfoTooltip>
+            <InfoTooltip v-if="post.num_shares" copyKey="topPostsFeed.shares"><span>↻ {{ post.num_shares }}</span></InfoTooltip>
+            <InfoTooltip v-if="post.num_dislikes" copyKey="topPostsFeed.dislikes"><span class="text-red-400">↓ {{ post.num_dislikes }}</span></InfoTooltip>
           </div>
         </div>
       </div>
@@ -24,5 +24,7 @@
 </template>
 
 <script setup>
+import InfoTooltip from '../InfoTooltip.vue'
+
 defineProps({ posts: { type: Array, default: () => [] } })
 </script>

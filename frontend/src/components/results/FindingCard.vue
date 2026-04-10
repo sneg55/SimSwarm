@@ -4,15 +4,19 @@
     <div class="font-mono text-xs tracking-wide mb-1.5" :style="{ color: accentColor }">{{ label }}</div>
     <h4 class="text-base font-bold text-mist-foam mb-2">{{ title }}</h4>
     <p class="text-[15px] text-mist leading-relaxed">{{ description }}</p>
-    <div v-if="metric" class="inline-flex items-center gap-1.5 mt-3 font-mono text-sm px-2.5 py-1 rounded-md"
-      :style="{ color: accentColor, background: accentColor + '14' }">
-      <span class="w-1.5 h-1.5 rounded-full" :style="{ background: accentColor }" />
-      {{ metric }}
-    </div>
+    <InfoTooltip v-if="metric" copyKey="findingCard.metric">
+      <div class="inline-flex items-center gap-1.5 mt-3 font-mono text-sm px-2.5 py-1 rounded-md"
+        :style="{ color: accentColor, background: accentColor + '14' }">
+        <span class="w-1.5 h-1.5 rounded-full" :style="{ background: accentColor }" />
+        {{ metric }}
+      </div>
+    </InfoTooltip>
   </div>
 </template>
 
 <script setup>
+import InfoTooltip from '../InfoTooltip.vue'
+
 defineProps({
   label: { type: String, required: true },
   title: { type: String, required: true },

@@ -9,7 +9,7 @@
           {{ profile.persona || profile.bio }}
         </div>
         <div class="flex gap-2 mt-2 text-[10px] text-mist-slate">
-          <span v-if="profile.mbti" class="px-1.5 py-0.5 bg-ocean-deep rounded">{{ profile.mbti }}</span>
+          <InfoTooltip v-if="profile.mbti" copyKey="agentProfileCards.mbti"><span class="px-1.5 py-0.5 bg-ocean-deep rounded">{{ profile.mbti }}</span></InfoTooltip>
           <span v-if="profile.country" class="px-1.5 py-0.5 bg-ocean-deep rounded">{{ profile.country }}</span>
         </div>
       </div>
@@ -19,5 +19,7 @@
 </template>
 
 <script setup>
+import InfoTooltip from '../InfoTooltip.vue'
+
 defineProps({ profiles: { type: Array, default: () => [] } })
 </script>

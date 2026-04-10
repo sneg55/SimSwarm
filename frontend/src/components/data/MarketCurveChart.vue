@@ -3,7 +3,7 @@
     <div class="flex justify-between items-center mb-3">
       <div class="text-xs font-semibold uppercase tracking-wider text-mist-slate">Prediction Market</div>
       <div class="text-xs text-mist-slate">
-        {{ market.outcome_a }}: <span class="text-green-400 font-mono">{{ currentPrice(market) }}%</span>
+        {{ market.outcome_a }}: <InfoTooltip copyKey="marketCurveChart.currentPrice"><span class="text-green-400 font-mono">{{ currentPrice(market) }}%</span></InfoTooltip>
       </div>
     </div>
     <div class="text-sm text-mist-drift mb-4">{{ market.question }}</div>
@@ -34,11 +34,14 @@
         <circle v-if="hovered && hovered.marketId === market.market_id" :cx="hovered.cx" :cy="hovered.cy" r="4" fill="#4ADE80" stroke="#0B1426" stroke-width="2" />
       </svg>
       <div v-if="hovered && hovered.marketId === market.market_id"
-        class="absolute pointer-events-none bg-ocean-abyss border border-mist-depth rounded-lg px-3 py-2 text-xs"
-        :style="{ left: hovered.x + 'px', top: (hovered.y - 60) + 'px', transform: 'translateX(-50%)' }">
+        class="absolute pointer-events-none rounded-lg px-3 py-2 text-xs border"
+        style="background: rgba(10,20,30,0.92); border-color: rgba(34,211,238,0.2); box-shadow: 0 10px 40px rgba(8,47,73,0.3);"
+        :style="{ left: hovered.x + 'px', top: (hovered.y - 80) + 'px', transform: 'translateX(-50%)', maxWidth: '240px' }">
         <div class="text-mist-slate">Trade #{{ hovered.idx }}</div>
         <div><span class="text-green-400">YES: {{ hovered.yes }}%</span> · <span class="text-red-400">NO: {{ hovered.no }}%</span></div>
         <div class="text-mist-slate">Vol: ${{ hovered.vol }}</div>
+        <div class="border-t my-1.5" style="border-color: rgba(34,211,238,0.1);" />
+        <div class="text-gray-400 text-[10px] leading-relaxed">{{ getTooltip('marketCurveChart.hoverMeaning')?.meaning }}</div>
       </div>
     </div>
   </div>
@@ -46,6 +49,8 @@
 
 <script setup>
 import { ref } from 'vue'
+import InfoTooltip from '../InfoTooltip.vue'
+import { getTooltip } from '../../data/tooltipCopy.js'
 
 const props = defineProps({
   markets: { type: Array, default: () => [] },

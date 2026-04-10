@@ -19,7 +19,7 @@
       >
         <span class="w-2.5 h-2.5 rounded-full flex-shrink-0" :style="{ backgroundColor: et.color }" />
         <span class="text-mist flex-1 text-left">{{ et.name }}</span>
-        <span class="text-mist-slate font-mono text-[10px]">{{ et.count }}</span>
+        <InfoTooltip copyKey="graphLegend.entityCount"><span class="text-mist-slate font-mono text-[10px]">{{ et.count }}</span></InfoTooltip>
       </button>
     </div>
 
@@ -34,7 +34,7 @@
         >
           <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 border-2 border-[#6EE7B7] bg-transparent" style="box-shadow: 0 0 6px rgba(110,231,183,0.4);" />
           <span class="text-[#6EE7B7] flex-1 text-left">Positive</span>
-          <span class="text-mist-slate font-mono text-[10px]">{{ sentimentCounts.positive }}</span>
+          <InfoTooltip copyKey="graphLegend.sentimentPositive"><span class="text-mist-slate font-mono text-[10px]">{{ sentimentCounts.positive }}</span></InfoTooltip>
         </button>
         <button
           @click="$emit('toggle-sentiment', 'negative')"
@@ -43,7 +43,7 @@
         >
           <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 border-2 border-[#FF6B6B] bg-transparent" style="box-shadow: 0 0 6px rgba(255,107,107,0.4);" />
           <span class="text-[#FF6B6B] flex-1 text-left">Negative</span>
-          <span class="text-mist-slate font-mono text-[10px]">{{ sentimentCounts.negative }}</span>
+          <InfoTooltip copyKey="graphLegend.sentimentNegative"><span class="text-mist-slate font-mono text-[10px]">{{ sentimentCounts.negative }}</span></InfoTooltip>
         </button>
         <button
           @click="$emit('toggle-sentiment', 'neutral')"
@@ -52,7 +52,7 @@
         >
           <span class="w-2.5 h-2.5 rounded-full flex-shrink-0 border-2 border-[#94A3B8] bg-transparent" />
           <span class="text-[#94A3B8] flex-1 text-left">Neutral</span>
-          <span class="text-mist-slate font-mono text-[10px]">{{ sentimentCounts.neutral }}</span>
+          <InfoTooltip copyKey="graphLegend.sentimentNeutral"><span class="text-mist-slate font-mono text-[10px]">{{ sentimentCounts.neutral }}</span></InfoTooltip>
         </button>
       </div>
     </div>
@@ -69,6 +69,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import InfoTooltip from '../InfoTooltip.vue'
 
 const props = defineProps({
   entityTypes: { type: Array, default: () => [] },

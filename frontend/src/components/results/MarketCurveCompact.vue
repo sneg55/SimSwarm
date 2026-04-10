@@ -3,7 +3,7 @@
     <div class="flex justify-between items-center mb-2">
       <div class="text-xs font-semibold uppercase tracking-wider text-mist-slate">Prediction Market</div>
       <div class="text-xs font-mono">
-        <span class="text-green-400">{{ currentYes }}%</span> YES
+        <InfoTooltip copyKey="marketCurveCompact.currentYes"><span class="text-green-400">{{ currentYes }}%</span> YES</InfoTooltip>
       </div>
     </div>
     <div class="text-sm text-mist mb-3 line-clamp-2">{{ market.question }}</div>
@@ -22,6 +22,7 @@
 
 <script setup>
 import { computed } from 'vue'
+import InfoTooltip from '../InfoTooltip.vue'
 
 const props = defineProps({
   markets: { type: Array, default: () => [] },

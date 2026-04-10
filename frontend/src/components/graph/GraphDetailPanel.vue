@@ -59,22 +59,38 @@
         <div v-if="node.connectionCount || node.sentiment || node.stance" class="mt-6 pt-4 border-t border-mist-depth/50">
           <div class="grid grid-cols-2 gap-3">
             <div v-if="node.connectionCount" class="text-center">
-              <div class="font-mono text-lg font-bold" :style="{ color: nodeColor }">{{ node.connectionCount }}</div>
-              <div class="text-[10px] text-mist-slate uppercase">Connections</div>
+              <InfoTooltip copyKey="graphDetailPanel.connectionCount" position="left">
+                <div>
+                  <div class="font-mono text-lg font-bold" :style="{ color: nodeColor }">{{ node.connectionCount }}</div>
+                  <div class="text-[10px] text-mist-slate uppercase">Connections</div>
+                </div>
+              </InfoTooltip>
             </div>
             <div v-if="node.sentiment !== undefined && node.sentiment !== 0" class="text-center">
-              <div class="font-mono text-lg font-bold"
-                :style="{ color: node.sentiment > 0.2 ? '#6EE7B7' : node.sentiment < -0.2 ? '#FF6B6B' : '#94A3B8' }"
-              >{{ node.sentiment > 0 ? '+' : '' }}{{ node.sentiment.toFixed(1) }}</div>
-              <div class="text-[10px] text-mist-slate uppercase">Sentiment</div>
+              <InfoTooltip copyKey="graphDetailPanel.sentiment" position="left">
+                <div>
+                  <div class="font-mono text-lg font-bold"
+                    :style="{ color: node.sentiment > 0.2 ? '#6EE7B7' : node.sentiment < -0.2 ? '#FF6B6B' : '#94A3B8' }"
+                  >{{ node.sentiment > 0 ? '+' : '' }}{{ node.sentiment.toFixed(1) }}</div>
+                  <div class="text-[10px] text-mist-slate uppercase">Sentiment</div>
+                </div>
+              </InfoTooltip>
             </div>
             <div v-if="node.stance && node.stance !== 'neutral'" class="text-center">
-              <div class="font-mono text-lg font-bold" :style="{ color: stanceColor }">{{ node.stance }}</div>
-              <div class="text-[10px] text-mist-slate uppercase">Stance</div>
+              <InfoTooltip copyKey="graphDetailPanel.stance" position="left">
+                <div>
+                  <div class="font-mono text-lg font-bold" :style="{ color: stanceColor }">{{ node.stance }}</div>
+                  <div class="text-[10px] text-mist-slate uppercase">Stance</div>
+                </div>
+              </InfoTooltip>
             </div>
             <div v-if="node.influenceWeight != null && node.influenceWeight !== 1.0" class="text-center">
-              <div class="font-mono text-lg font-bold" :style="{ color: nodeColor }">{{ node.influenceWeight.toFixed(1) }}x</div>
-              <div class="text-[10px] text-mist-slate uppercase">Influence</div>
+              <InfoTooltip copyKey="graphDetailPanel.influenceWeight" position="left">
+                <div>
+                  <div class="font-mono text-lg font-bold" :style="{ color: nodeColor }">{{ node.influenceWeight.toFixed(1) }}x</div>
+                  <div class="text-[10px] text-mist-slate uppercase">Influence</div>
+                </div>
+              </InfoTooltip>
             </div>
           </div>
         </div>
@@ -150,6 +166,7 @@ import { computed } from 'vue'
 import { createAvatar } from '@dicebear/core'
 import { personas } from '@dicebear/collection'
 import { getEntityColor } from './graphColors.js'
+import InfoTooltip from '../InfoTooltip.vue'
 
 const props = defineProps({
   node: { type: Object, default: null },

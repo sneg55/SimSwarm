@@ -104,8 +104,15 @@
       <!-- Hover tooltip -->
       <div
         v-if="hoveredNode"
-        class="absolute pointer-events-none z-20 bg-ocean-deep/95 backdrop-blur text-mist-foam text-xs rounded-lg px-3 py-2 border border-ocean-teal/30 shadow-[0_8px_32px_rgba(0,0,0,0.5)]"
-        :style="{ left: hoveredNode.x + 12 + 'px', top: hoveredNode.y - 8 + 'px' }"
+        class="absolute pointer-events-none z-20 text-mist-foam text-xs rounded-lg px-3 py-2 border"
+        :style="{
+          left: hoveredNode.x + 12 + 'px',
+          top: hoveredNode.y - 8 + 'px',
+          background: 'rgba(10,20,30,0.92)',
+          borderColor: 'rgba(34,211,238,0.2)',
+          boxShadow: '0 10px 40px rgba(8,47,73,0.3)',
+          maxWidth: '240px',
+        }"
       >
         <div class="font-semibold">{{ hoveredNode.name }}</div>
         <div class="text-mist-slate mt-0.5">
@@ -125,22 +132,23 @@
         <div v-if="hoveredNode.stance && hoveredNode.stance !== 'neutral'" class="mt-0.5 text-[11px] text-mist-drift capitalize">
           {{ hoveredNode.stance }}
         </div>
+        <div class="border-t mt-1.5 pt-1.5" style="border-color: rgba(34,211,238,0.1);">
+          <div class="text-gray-400 text-[10px] leading-relaxed">{{ getTooltip('graphVisualization.hoverMeaning')?.meaning }}</div>
+        </div>
       </div>
     </template>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-import { getEntityColor, getPrimaryLabel } from './graphColors.js'
+import { getEntityColor } from './graphColors.js'
 import GraphCanvas from './GraphCanvas.vue'
 import GraphControls from './GraphControls.vue'
 import GraphSearchBar from './GraphSearchBar.vue'
 import GraphLegend from './GraphLegend.vue'
 import GraphDetailPanel from './GraphDetailPanel.vue'
-
-const NODE_LIMIT = 50
-const NODE_THRESHOLD = 100
+import { getTooltip } from '../../data/tooltipCopy.js'
+import { useGraphVisualization } from './useGraphVisualization.js'
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
@@ -153,188 +161,16 @@ const props = defineProps({
 
 const emit = defineEmits(['node-selected'])
 
-const canvasRef = ref(null)
-const wrapperRef = ref(null)
-
-const showEdgeLabels = ref(false)
-const layoutName = ref('cose-bilkent')
-const isFullscreen = ref(false)
-const groupBy = ref('type')
-const hiddenTypes = ref(new Set())
-const hiddenSentiments = ref(new Set())
-const selectedNode = ref(null)
-const hoveredNode = ref(null)
-const showAll = ref(false)
-
-let hoverTimer = null
-
-// All nodes regardless of filtering
-const allNodes = computed(() => props.nodes || [])
-
-// Smart filtering: if > NODE_THRESHOLD nodes, show top NODE_LIMIT by connection_count
-const visibleNodes = computed(() => {
-  const nodes = allNodes.value
-  if (showAll.value || nodes.length <= NODE_THRESHOLD) return nodes
-  return [...nodes]
-    .sort((a, b) => (b.connection_count || 0) - (a.connection_count || 0))
-    .slice(0, NODE_LIMIT)
-})
-
-const filterBanner = computed(() => {
-  if (showAll.value || allNodes.value.length <= NODE_THRESHOLD) return ''
-  return `Showing ${NODE_LIMIT} of ${allNodes.value.length} nodes.`
-})
-
-// Entity type summary from ALL nodes
-const entityTypeSummary = computed(() => {
-  const map = {}
-  for (const node of allNodes.value) {
-    const et = getPrimaryLabel(node.labels || ['Entity'])
-    if (!map[et]) map[et] = { name: et, count: 0, color: getEntityColor(et) }
-    map[et].count++
-  }
-  return Object.values(map).sort((a, b) => b.count - a.count)
-})
-
-const agentActions = computed(() => {
-  if (!selectedNode.value || !props.chatLog.length) return []
-  const name = selectedNode.value.name
-  return props.chatLog.filter(e => e.agent_name === name)
-})
-
-function onNodeClick(data) {
-  if (data) {
-    selectedNode.value = data
-    emit('node-selected', data.name)
-  } else {
-    selectedNode.value = null
-  }
-}
-
-function onNodeHover(data) {
-  clearTimeout(hoverTimer)
-  hoverTimer = setTimeout(() => {
-    hoveredNode.value = data
-  }, 200)
-}
-
-function onNodeUnhover() {
-  clearTimeout(hoverTimer)
-  hoveredNode.value = null
-}
-
-function onCanvasReady() {
-  // Canvas is ready
-}
-
-function onSearchSelect(uuid) {
-  if (canvasRef.value) {
-    canvasRef.value.focusNode(uuid)
-  }
-  // Find the node data and select it
-  const node = allNodes.value.find((n) => n.uuid === uuid)
-  if (node) {
-    const entityType = getPrimaryLabel(node.labels || ['Entity'])
-    selectedNode.value = {
-      id: node.uuid,
-      name: node.name || node.uuid,
-      entityType,
-      labels: (node.labels || []).join(', '),
-      sentiment: node.sentiment ?? 0,
-      stance: node.stance || null,
-      influenceWeight: node.influence_weight ?? null,
-      summary: node.summary || '',
-      connectionCount: node.connection_count || 0,
-      relationships: node.relationships || [],
-    }
-    emit('node-selected', node.name)
-  }
-}
-
-function onRefresh() {
-  if (canvasRef.value) canvasRef.value.runLayout()
-}
-
-function onZoomFit() {
-  if (canvasRef.value) canvasRef.value.fitToVisibleArea()
-}
-
-function toggleFullscreen() {
-  isFullscreen.value = !isFullscreen.value
-}
-
-function onEscKey(evt) {
-  if (evt.key === 'Escape' && isFullscreen.value) {
-    isFullscreen.value = false
-  }
-}
-
-function toggleType(name) {
-  const next = new Set(hiddenTypes.value)
-  if (next.has(name)) next.delete(name)
-  else next.add(name)
-  hiddenTypes.value = next
-}
-
-function toggleSentiment(bucket) {
-  const next = new Set(hiddenSentiments.value)
-  if (next.has(bucket)) next.delete(bucket)
-  else next.add(bucket)
-  hiddenSentiments.value = next
-}
-
-function showAllTypes() {
-  hiddenTypes.value = new Set()
-}
-
-function hideAllTypes() {
-  hiddenTypes.value = new Set(entityTypeSummary.value.map((et) => et.name))
-}
-
-function showAllNodes() {
-  showAll.value = true
-}
-
-function navigateToNode(nodeId) {
-  if (canvasRef.value) {
-    canvasRef.value.focusNode(nodeId)
-  }
-  const node = allNodes.value.find((n) => n.uuid === nodeId)
-  if (node) {
-    const entityType = getPrimaryLabel(node.labels || ['Entity'])
-    selectedNode.value = {
-      id: node.uuid,
-      name: node.name || node.uuid,
-      entityType,
-      labels: (node.labels || []).join(', '),
-      sentiment: node.sentiment ?? 0,
-      stance: node.stance || null,
-      influenceWeight: node.influence_weight ?? null,
-      summary: node.summary || '',
-      connectionCount: node.connection_count || 0,
-      relationships: node.relationships || [],
-    }
-  }
-}
-
-function onExport() {
-  if (!canvasRef.value) return
-  const dataUrl = canvasRef.value.exportImage()
-  if (!dataUrl) return
-  const a = document.createElement('a')
-  a.href = dataUrl
-  a.download = 'graph-export.png'
-  a.click()
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', onEscKey)
-})
-
-onBeforeUnmount(() => {
-  document.removeEventListener('keydown', onEscKey)
-  clearTimeout(hoverTimer)
-})
+const {
+  canvasRef, wrapperRef,
+  showEdgeLabels, layoutName, isFullscreen, groupBy,
+  hiddenTypes, hiddenSentiments, selectedNode, hoveredNode,
+  allNodes, visibleNodes, filterBanner, entityTypeSummary, agentActions,
+  onNodeClick, onNodeHover, onNodeUnhover, onCanvasReady,
+  onSearchSelect, onRefresh, onZoomFit, toggleFullscreen,
+  toggleType, toggleSentiment, showAllTypes, hideAllTypes, showAllNodes,
+  navigateToNode, onExport,
+} = useGraphVisualization(props, emit)
 
 defineExpose({ exportImage: onExport })
 </script>

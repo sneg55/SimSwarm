@@ -5,16 +5,22 @@
       :style="{ transitionDelay: visible ? `${i * 100}ms` : '0ms' }"
       :class="visible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-3'"
     >
-      <div class="font-mono text-3xl font-bold tracking-tight mb-1 transition-all duration-700" :style="{ color: item.color }">
-        {{ visible ? item.value : '0' }}
-      </div>
-      <div class="text-xs text-mist-slate uppercase tracking-wider">{{ item.label }}</div>
+      <InfoTooltip :copyKey="`confidenceGrid.${normalizeKey(item.label)}`" position="bottom">
+        <div>
+          <div class="font-mono text-3xl font-bold tracking-tight mb-1 transition-all duration-700" :style="{ color: item.color }">
+            {{ visible ? item.value : '0' }}
+          </div>
+          <div class="text-xs text-mist-slate uppercase tracking-wider">{{ item.label }}</div>
+        </div>
+      </InfoTooltip>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import InfoTooltip from '../InfoTooltip.vue'
+import { normalizeKey } from '../../data/tooltipCopy.js'
 
 defineProps({
   items: { type: Array, required: true },

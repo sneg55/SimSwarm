@@ -6,7 +6,11 @@
         <canvas ref="canvasRef" class="w-full h-full" style="display:block;" />
       </div>
       <div class="flex gap-4 mt-2 text-[10px] text-mist-slate">
-        <span>Nodes = agents · Edges = follows · <span class="text-ocean-cyan">Bright edges</span> = mutual follows</span>
+        <span>
+          <InfoTooltip copyKey="socialGraphView.nodeSize">Nodes = agents</InfoTooltip>
+          · Edges = follows ·
+          <InfoTooltip copyKey="socialGraphView.mutualEdge"><span class="text-ocean-cyan">Bright edges</span> = mutual follows</InfoTooltip>
+        </span>
       </div>
     </template>
     <div v-else class="flex items-center justify-center py-12 text-xs text-mist-slate">
@@ -18,6 +22,7 @@
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { getEntityColor } from '../graph/graphColors.js'
+import InfoTooltip from '../InfoTooltip.vue'
 
 const props = defineProps({
   graph: { type: Object, default: () => ({ edges: [], mutual_follows: [] }) },

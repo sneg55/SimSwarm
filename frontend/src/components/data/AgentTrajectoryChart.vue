@@ -19,13 +19,16 @@
         </template>
       </svg>
       <div v-if="hovered"
-        class="absolute pointer-events-none bg-ocean-abyss border border-mist-depth rounded-lg px-3 py-2 text-xs z-10"
-        :style="{ left: hovered.x + 'px', top: '8px' }">
+        class="absolute pointer-events-none rounded-lg px-3 py-2 text-xs z-10 border"
+        style="background: rgba(10,20,30,0.92); border-color: rgba(34,211,238,0.2); box-shadow: 0 10px 40px rgba(8,47,73,0.3);"
+        :style="{ left: hovered.x + 'px', top: '8px', maxWidth: '240px' }">
         <div class="text-mist-foam font-medium">{{ hovered.name }}</div>
         <div class="text-mist-slate">Round {{ hovered.round }} · {{ hovered.posts }} posts</div>
         <div :style="{ color: hovered.sentiment >= 0 ? '#4ADE80' : '#F87171' }">
           Sentiment: {{ hovered.sentiment > 0 ? '+' : '' }}{{ hovered.sentiment }}
         </div>
+        <div class="border-t my-1.5" style="border-color: rgba(34,211,238,0.1);" />
+        <div class="text-gray-400 text-[10px] leading-relaxed">{{ getTooltip('agentTrajectoryChart.hoverMeaning')?.meaning }}</div>
       </div>
     </div>
     <div v-if="hasData" class="flex flex-wrap gap-3 mt-3">
@@ -41,6 +44,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { getEntityColor } from '../graph/graphColors.js'
+import { getTooltip } from '../../data/tooltipCopy.js'
 
 const props = defineProps({
   agents: { type: Array, default: () => [] },

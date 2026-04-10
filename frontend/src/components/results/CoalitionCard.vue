@@ -5,11 +5,17 @@
       {{ name }}
     </div>
     <p class="text-sm text-mist-drift leading-snug">{{ description }}</p>
-    <div class="font-mono text-[11px] text-mist-slate mt-2">{{ agents }} agents &middot; Strength: {{ strength }}%</div>
+    <div class="font-mono text-[11px] text-mist-slate mt-2">
+      <InfoTooltip copyKey="coalitionCard.agents">{{ agents }} agents</InfoTooltip>
+      &middot;
+      <InfoTooltip copyKey="coalitionCard.strength">Strength: {{ strength }}%</InfoTooltip>
+    </div>
   </div>
 </template>
 
 <script setup>
+import InfoTooltip from '../InfoTooltip.vue'
+
 defineProps({
   name: { type: String, required: true },
   description: { type: String, required: true },

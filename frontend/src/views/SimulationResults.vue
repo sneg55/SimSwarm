@@ -29,9 +29,9 @@
           <div id="story-header" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
             <h1 class="text-2xl font-bold text-mist-foam mb-2">{{ job.goal }}</h1>
             <p class="text-sm text-mist-slate capitalize">
-              {{ job.tier }} tier
-              <span v-if="job.created_at"> &bull; Started {{ formatDate(job.created_at) }}</span>
-              <span v-if="job.completed_at"> &bull; Completed {{ formatDate(job.completed_at) }}</span>
+              <InfoTooltip copyKey="simulationResults.tier">{{ job.tier }} tier</InfoTooltip>
+              <span v-if="job.created_at"> &bull; <InfoTooltip copyKey="simulationResults.startedAt">Started {{ formatDate(job.created_at) }}</InfoTooltip></span>
+              <span v-if="job.completed_at"> &bull; <InfoTooltip copyKey="simulationResults.completedAt">Completed {{ formatDate(job.completed_at) }}</InfoTooltip></span>
             </p>
           </div>
 
@@ -158,6 +158,7 @@ import { getJob, getJobGraph, getSimData } from '../api/jobs.js'
 import DataDashboard from '../components/data/DataDashboard.vue'
 import MarketCurveCompact from '../components/results/MarketCurveCompact.vue'
 import EngagementCompact from '../components/results/EngagementCompact.vue'
+import InfoTooltip from '../components/InfoTooltip.vue'
 
 const route = useRoute()
 const jobId = route.params.id

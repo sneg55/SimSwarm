@@ -7,13 +7,17 @@
         <div class="h-full rounded-full transition-[width] duration-[1.5s] ease-smooth"
           :style="{ width: (visible ? bar.width : 0) + '%', background: bar.gradient }" />
       </div>
-      <span class="font-mono text-sm min-w-[48px] text-right" :style="{ color: bar.valueColor }">{{ bar.value }}</span>
+      <InfoTooltip :copyKey="`sentimentBars.${normalizeKey(bar.label)}`">
+        <span class="font-mono text-sm min-w-[48px] text-right" :style="{ color: bar.valueColor }">{{ bar.value }}</span>
+      </InfoTooltip>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
+import InfoTooltip from '../InfoTooltip.vue'
+import { normalizeKey } from '../../data/tooltipCopy.js'
 
 defineProps({
   bars: { type: Array, required: true },
