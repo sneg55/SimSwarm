@@ -3,7 +3,9 @@ Result collection, report generation, graph extraction, and structured output.
 """
 from __future__ import annotations
 
+import os
 import re
+import sqlite3
 import traceback
 
 from constants import POSITIVE_WORDS, NEGATIVE_WORDS, FINDING_COLORS
@@ -165,7 +167,7 @@ def score_entity_sentiment(graph_data: dict, chat_log: list[dict]) -> None:
             node["sentiment"] = round(max(-1.0, min(1.0, (p - n) / total)), 2)
 
 
-def build_structured_results(outline, section_contents, chat_log, graph_data):
+def build_structured_results(outline, section_contents, chat_log, graph_data, sim_dir=None):
     """Build structured results from pipeline outputs. No LLM calls needed."""
     brief = ""
     if outline and outline.get("summary"):
@@ -238,10 +240,24 @@ def build_structured_results(outline, section_contents, chat_log, graph_data):
 
     meta = graph_data.get("metadata", {})
     max_round = max((a.get("round_num", 0) for a in chat_log), default=0)
-    trade_count = sum(
-        1 for a in chat_log
-        if a.get("platform") == "polymarket" and a.get("action_type") in ("BUY", "SELL")
-    )
+
+    # Count trades from the polymarket SQLite DB (same source as market curves)
+    trade_count = 0
+    if sim_dir:
+        db_path = os.path.join(sim_dir, "polymarket_simulation.db")
+        if os.path.exists(db_path):
+            try:
+                conn = sqlite3.connect(db_path)
+                trade_count = conn.execute("SELECT COUNT(*) FROM trade").fetchone()[0]
+                conn.close()
+            except Exception:
+                pass
+    # Fallback to action log counting if SQLite unavailable
+    if trade_count == 0:
+        trade_count = sum(
+            1 for a in chat_log
+            if a.get("platform") == "polymarket" and a.get("action_type") in ("BUY", "SELL")
+        )
     confidence = [
         {"label": "Agents", "value": str(len(agent_names)), "color": "#22D3EE"},
         {"label": "Rounds", "value": str(max_round), "color": "#A78BFA"},

@@ -99,6 +99,10 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str, ta
         except Exception as exc:
             print(f"[run_job] WARNING: sentiment scoring failed: {exc}", flush=True)
 
+        # Resolve sim_dir for SQLite data access
+        from app.services.simulation_runner_state import RUN_STATE_DIR as _RSD
+        sim_dir = os.path.join(_RSD, simulation_id)
+
         # Build structured results
         structured = {}
         try:
@@ -113,7 +117,7 @@ def run_pipeline(seed_text: str, goal: str, max_rounds: int, output_dir: str, ta
                     outline = json.loads(outline_file.read_text(encoding="utf-8"))
                 for sf in sorted(rd.glob("section_*.md")):
                     section_contents[sf.name] = sf.read_text(encoding="utf-8")
-            structured = build_structured_results(outline, section_contents, chat_log, graph_data)
+            structured = build_structured_results(outline, section_contents, chat_log, graph_data, sim_dir=sim_dir)
             print(f"[run_job] Structured results: {len(structured.get('findings', []))} findings", flush=True)
         except Exception as exc:
             print(f"[run_job] WARNING: structured results failed: {exc}", flush=True)
