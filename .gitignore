@@ -11,6 +11,10 @@ dist/
 build/
 .pytest_cache/
 .ruff_cache/
+.coverage
+htmlcov/
+coverage/
+frontend/coverage/
 uploads/
 node_modules/
 frontend/dist/
