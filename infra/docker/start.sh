@@ -14,7 +14,12 @@ echo "[start.sh] DOWNLOAD_DIR=${DOWNLOAD_DIR}"
 # CDN. This keeps pod startup ~5 min even with no volume cache.
 MODEL_CACHE="${DOWNLOAD_DIR}/models--${MODEL_ID//\//--}"
 MINIO_PULL_OK=0
-if [ -d "$MODEL_CACHE/snapshots" ] && [ -n "$(find "$MODEL_CACHE/snapshots" -name 'config.json' 2>/dev/null | head -1)" ]; then
+# Check for at least one safetensors shard — not just config.json. The
+# Dockerfile's AutoConfig.from_pretrained verification step pre-seeds
+# config.json via a dangling symlink into an absent blobs/, which made an
+# earlier version of this check think the cache was complete and skip the
+# MinIO pull. Weights are the actual signal of a usable cache.
+if [ -d "$MODEL_CACHE/snapshots" ] && [ -n "$(find "$MODEL_CACHE/snapshots" -name 'model-*.safetensors' 2>/dev/null | head -1)" ]; then
     echo "[start.sh] Model cache present at $MODEL_CACHE"
     MINIO_PULL_OK=1
 elif [ -z "${MINIO_ENDPOINT}" ] || [ -z "${MINIO_ACCESS_KEY}" ] || [ -z "${MINIO_SECRET_KEY}" ]; then
@@ -22,6 +27,13 @@ elif [ -z "${MINIO_ENDPOINT}" ] || [ -z "${MINIO_ACCESS_KEY}" ] || [ -z "${MINIO
 else
     echo "[start.sh] Pulling ${MODEL_ID} from MinIO to ${DOWNLOAD_DIR}..."
     mkdir -p "$DOWNLOAD_DIR"
+    # Wipe any partial cache left by the Dockerfile's AutoConfig verification
+    # (a dangling config.json symlink into a nonexistent blobs/ dir). s5cmd
+    # won't overwrite a symlink cleanly; better to start from an empty tree.
+    if [ -d "$MODEL_CACHE" ]; then
+        echo "[start.sh] Clearing stale pre-seed at $MODEL_CACHE"
+        find "$MODEL_CACHE" -mindepth 1 -delete 2>/dev/null || true
+    fi
     MINIO_SCHEME="http"
     [ "${MINIO_SECURE}" = "true" ] && MINIO_SCHEME="https"
     START=$(date +%s)
