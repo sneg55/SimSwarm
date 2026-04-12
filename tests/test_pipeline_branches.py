@@ -106,6 +106,30 @@ async def test_submit_job_rejected_json_body():
         await pipeline.submit_job("http://w", Cfg(), client)
 
 
+async def test_submit_job_tolerates_already_running():
+    """If the worker returns 409 'A job is already running', that means the
+    recover task has already claimed the pod — the main task should not fail,
+    it should fall through so poll_until_complete watches the same job."""
+    class Cfg:
+        seed_text = "s"
+        goal = "g"
+        max_rounds = 10
+        forecast_days = None
+        target_agents = 5
+        upload_urls = None
+
+    resp = MagicMock()
+    resp.status_code = 409
+    resp.json.return_value = {"error": "A job is already running"}
+    resp.text = "A job is already running"
+
+    client = AsyncMock()
+    client.post.return_value = resp
+
+    # Should NOT raise — main task hands off to polling.
+    await pipeline.submit_job("http://w", Cfg(), client)
+
+
 async def test_submit_job_rejected_text_body():
     class Cfg:
         seed_text = "s"

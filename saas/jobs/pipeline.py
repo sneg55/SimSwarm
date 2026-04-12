@@ -86,7 +86,10 @@ async def wait_for_worker_health(
 
 
 async def submit_job(worker_url: str, config, client: httpx.AsyncClient) -> None:
-    """POST /job to the worker. Raises RuntimeError on rejection."""
+    """POST /job to the worker. Raises RuntimeError on rejection — except when
+    the worker says a job is already running, which means the recover task
+    claimed the pod during our wait_for_worker_health. In that case the work
+    is already happening on the same pod; we just hand off to poll_until_complete."""
     logger.info(f"Submitting job to {worker_url}/job (max_rounds={config.max_rounds})")
     resp = await client.post(f"{worker_url}/job", json={
         "seed_text": config.seed_text,
@@ -102,6 +105,12 @@ async def submit_job(worker_url: str, config, client: httpx.AsyncClient) -> None
             error_msg = error_body.get("error", resp.text[:2000])
         except Exception:
             error_msg = resp.text[:2000]
+        if "already running" in error_msg.lower():
+            logger.info(
+                "Worker reports a job is already running on this pod "
+                "(recover task got there first) — falling through to /status poll"
+            )
+            return
         raise RuntimeError(f"Worker rejected job: {error_msg}")
     logger.info("Job accepted by worker, polling /status...")
 

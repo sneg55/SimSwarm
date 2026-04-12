@@ -146,6 +146,20 @@ def recover_stale_jobs() -> dict:
                                     job_id, job_status,
                                 )
                                 continue
+                            # Don't race the main task: while the job is still
+                            # PROVISIONING and no heartbeat has been written,
+                            # the main task is running wait_for_worker_health
+                            # and will submit /job itself once vLLM is ready.
+                            # Resuming here would POST /job twice — the second
+                            # one gets 409 "A job is already running" and the
+                            # main task fails its own sim.
+                            if job_status == "PROVISIONING" and last_heartbeat is None:
+                                logger.info(
+                                    "recover.skipping_provisioning job_id=%d pod_id=%s "
+                                    "(main task still in wait_for_worker_health)",
+                                    job_id, pod_id,
+                                )
+                                continue
                             logger.info(
                                 "recover.resuming job_id=%d pod_id=%s pod_status=%s",
                                 job_id, pod_id, pod_status,
