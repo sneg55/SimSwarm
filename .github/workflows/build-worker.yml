@@ -17,18 +17,22 @@ jobs:
       packages: write
     steps:
       - name: Free disk space
-        # The worker image bakes Qwen3-14B (~29.5GB) into the image, pushing
-        # the build tree past ubuntu-latest's default ~25GB of free disk.
-        # Remove pre-installed toolchains we don't use to reclaim ~30GB.
-        run: |
-          sudo rm -rf /usr/local/lib/android || true
-          sudo rm -rf /usr/share/dotnet || true
-          sudo rm -rf /usr/share/swift || true
-          sudo rm -rf /opt/ghc || true
-          sudo rm -rf /usr/local/share/boost || true
-          sudo rm -rf "$AGENT_TOOLSDIRECTORY" || true
-          sudo docker system prune -af --volumes || true
-          df -h /
+        # The worker image bakes Qwen3-14B (~29.5GB) into the image, so the
+        # build tree needs ~50GB of free disk. jlumbroso/free-disk-space
+        # reclaims ~45GB by removing Android SDK, .NET, Haskell, Docker
+        # leftovers, large packages, and swap — far more than a manual rm.
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      - name: Disk usage after cleanup
+        run: df -h /
 
       - name: Checkout
         uses: actions/checkout@v4
