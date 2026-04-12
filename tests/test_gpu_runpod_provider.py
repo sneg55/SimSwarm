@@ -126,6 +126,42 @@ async def test_provision_times_out_when_never_ready():
             await provider.provision(_config())
 
 
+async def test_provision_terminates_pod_when_readiness_times_out():
+    """A pod that never becomes ready must be terminated before TimeoutError,
+    otherwise it leaks GPU billing until orphan cleanup catches it."""
+    with patch("saas.gpu.runpod_provider.runpod") as rp, \
+         patch("saas.gpu.runpod_provider.MAX_POLL_ATTEMPTS", 2), \
+         patch("saas.gpu.runpod_provider.asyncio.sleep", new=AsyncMock(return_value=None)):
+        rp.create_pod.return_value = {"id": "pod-leak"}
+        rp.get_pod.return_value = {
+            "desiredStatus": "PROVISIONING",
+            "runtime": None,
+            "machine": {"gpuDisplayName": "L40S"},
+        }
+        provider = RunPodProvider("k")
+        with pytest.raises(TimeoutError, match="did not become ready"):
+            await provider.provision(_config())
+        rp.terminate_pod.assert_called_once_with("pod-leak")
+
+
+async def test_provision_timeout_still_raises_when_cleanup_fails():
+    """If the cleanup terminate() itself fails, the readiness TimeoutError must
+    still propagate — we never want to mask the root cause."""
+    with patch("saas.gpu.runpod_provider.runpod") as rp, \
+         patch("saas.gpu.runpod_provider.MAX_POLL_ATTEMPTS", 2), \
+         patch("saas.gpu.runpod_provider.asyncio.sleep", new=AsyncMock(return_value=None)):
+        rp.create_pod.return_value = {"id": "pod-leak2"}
+        rp.get_pod.return_value = {
+            "desiredStatus": "PROVISIONING",
+            "runtime": None,
+            "machine": {"gpuDisplayName": "L40S"},
+        }
+        rp.terminate_pod.side_effect = RuntimeError("pod not found to terminate")
+        provider = RunPodProvider("k")
+        with pytest.raises(TimeoutError, match="did not become ready"):
+            await provider.provision(_config())
+
+
 async def test_provision_handles_poll_errors_gracefully():
     """If get_status raises during polling, loop continues until timeout."""
     with patch("saas.gpu.runpod_provider.runpod") as rp, \

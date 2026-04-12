@@ -106,6 +106,13 @@ class RunPodProvider(GPUProvider):
             await asyncio.sleep(5)
 
         elapsed = int(time.monotonic() - start)
+        # Pod exists on RunPod but never became ready — terminate it so we
+        # don't leak GPU billing until orphan cleanup catches it.
+        try:
+            runpod.terminate_pod(pod_id)
+            logger.info(f"RunPod: terminated unready pod {pod_id} after {elapsed}s")
+        except Exception as term_exc:
+            logger.warning(f"RunPod: failed to terminate unready pod {pod_id}: {term_exc}")
         raise TimeoutError(f"RunPod pod {pod_id} did not become ready after {elapsed}s ({MAX_POLL_ATTEMPTS} attempts)")
 
     async def get_status(self, instance_id: str) -> GPUInstance:

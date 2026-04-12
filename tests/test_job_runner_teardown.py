@@ -84,6 +84,24 @@ async def test_terminate_called_on_pipeline_error(mock_gpu_provider):
     mock_gpu_provider.terminate.assert_awaited_once_with("pod-abc123")
 
 
+async def test_pipeline_error_preserved_when_terminate_fails(mock_gpu_provider):
+    """If gpu_provider.terminate() raises during teardown, the original
+    pipeline error must propagate — not the terminate error.
+
+    Regression: an unguarded `await self.gpu_provider.terminate(pod_id)` in
+    finally lets Python overwrite the active exception. Users then see e.g.
+    'pod not found to terminate' instead of the real failure (OOM, crash).
+    """
+    mock_gpu_provider.terminate.side_effect = RuntimeError("pod not found to terminate")
+    runner = JobRunner(gpu_provider=mock_gpu_provider)
+    runner._execute_pipeline = AsyncMock(side_effect=RuntimeError("vLLM OOM"))
+
+    with pytest.raises(RuntimeError, match="vLLM OOM"):
+        await runner.run(_make_config())
+
+    mock_gpu_provider.terminate.assert_awaited_once_with("pod-abc123")
+
+
 async def test_terminate_called_on_asyncio_cancellation(mock_gpu_provider):
     """GPU must be terminated even when the task is cancelled externally."""
     cancel_event = asyncio.Event()

@@ -111,7 +111,17 @@ class JobRunner:
                 logger.warning("Could not retrieve worker status before termination")
             raise
         finally:
-            await self.gpu_provider.terminate(pod_id)
+            # Guard terminate() so a teardown failure (e.g. "pod not found to
+            # terminate" when the pod is already gone) doesn't overwrite the
+            # original pipeline exception — users need the real error, not the
+            # cleanup error.
+            try:
+                await self.gpu_provider.terminate(pod_id)
+            except Exception as term_exc:
+                logger.warning(
+                    "job.terminate_failed job_id=%d pod_id=%s error=%s",
+                    config.job_id, pod_id, term_exc,
+                )
 
     async def _execute_pipeline(self, instance_id: str, config: JobConfig) -> dict:
         """Execute the MiroShark pipeline via the worker pod's HTTP API.
