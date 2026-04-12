@@ -45,7 +45,7 @@ class JobConfig:
         return TIER_TIMEOUTS[self.tier]
 
     def to_worker_env(self) -> dict[str, str]:
-        return {
+        env = {
             "LLM_API_KEY": self.llm_api_key,
             "LLM_BASE_URL": "http://localhost:8000/v1",
             "LLM_MODEL_NAME": self.model_id,
@@ -60,3 +60,13 @@ class JobConfig:
             "MODEL_ID": self.model_id,
             "VLLM_ARGS": self.vllm_args or "--max-model-len 16384 --enable-auto-tool-choice --tool-call-parser hermes",
         }
+        # MinIO credentials so the worker's start.sh can pull model weights
+        # from our cache instead of HuggingFace (see infra/docker/start.sh).
+        # Only forward keys that are actually set in the host environment so
+        # tests and local dev don't bleed secrets.
+        for key in ("MINIO_ENDPOINT", "MINIO_ACCESS_KEY", "MINIO_SECRET_KEY",
+                    "MINIO_SECURE", "MINIO_BUCKET"):
+            val = os.getenv(key)
+            if val:
+                env[key] = val
+        return env

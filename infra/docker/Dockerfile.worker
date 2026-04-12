@@ -29,31 +29,15 @@ RUN grep -E "^(tokenizers|starlette|fastapi|uvicorn|numpy)==" /tmp/vllm-freeze.t
 # Pinned to exact version — floating ranges break when HF updates model configs
 RUN pip install --no-cache-dir "transformers==4.51.3"
 
-# Pre-bake Qwen3-14B weights (~29.5GB) into the image so we aren't gated by
-# RunPod network-volume DC availability — volume-capable DCs rarely stock
-# L40S/L40/A40 and pods were repeatedly timing out re-downloading from HF.
-# With the model in the image, any DC with GPU stock works, and RunPod
-# caches image layers per worker node so the pull happens once per node.
-#
-# The download is split across 8 RUN commands — one per safetensors shard —
-# so Docker's per-layer commit peak disk usage is ~8GB instead of ~60GB.
-# Essential for ubuntu-latest-class build runners (~75GB total disk).
+# Install s5cmd — parallel S3-compatible client used at container start to
+# pull Qwen3-14B weights from our MinIO cache. MinIO is on the same
+# Hetzner network as most of our pods, so transfer is ~500MB/s and hits
+# RunPod's ingress, not HuggingFace's throttled CDN.
+RUN curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+    | tar -xz -C /usr/local/bin s5cmd && chmod +x /usr/local/bin/s5cmd
+
 ENV HF_HOME=/models/huggingface
 ENV TRANSFORMERS_CACHE=/models/huggingface
-RUN mkdir -p /models/huggingface
-# Small metadata files + shard 1
-RUN python3 -c "from huggingface_hub import hf_hub_download; \
-    [hf_hub_download('Qwen/Qwen3-14B', f, cache_dir='/models/huggingface') \
-     for f in ['config.json','generation_config.json','tokenizer.json', \
-               'tokenizer_config.json','vocab.json','merges.txt', \
-               'model.safetensors.index.json','model-00001-of-00008.safetensors']]"
-RUN python3 -c "from huggingface_hub import hf_hub_download; hf_hub_download('Qwen/Qwen3-14B', 'model-00002-of-00008.safetensors', cache_dir='/models/huggingface')"
-RUN python3 -c "from huggingface_hub import hf_hub_download; hf_hub_download('Qwen/Qwen3-14B', 'model-00003-of-00008.safetensors', cache_dir='/models/huggingface')"
-RUN python3 -c "from huggingface_hub import hf_hub_download; hf_hub_download('Qwen/Qwen3-14B', 'model-00004-of-00008.safetensors', cache_dir='/models/huggingface')"
-RUN python3 -c "from huggingface_hub import hf_hub_download; hf_hub_download('Qwen/Qwen3-14B', 'model-00005-of-00008.safetensors', cache_dir='/models/huggingface')"
-RUN python3 -c "from huggingface_hub import hf_hub_download; hf_hub_download('Qwen/Qwen3-14B', 'model-00006-of-00008.safetensors', cache_dir='/models/huggingface')"
-RUN python3 -c "from huggingface_hub import hf_hub_download; hf_hub_download('Qwen/Qwen3-14B', 'model-00007-of-00008.safetensors', cache_dir='/models/huggingface')"
-RUN python3 -c "from huggingface_hub import hf_hub_download; hf_hub_download('Qwen/Qwen3-14B', 'model-00008-of-00008.safetensors', cache_dir='/models/huggingface')"
 
 # Verify all imports + numpy<2 (vLLM ABI requirement) + Qwen3 config loads from cache
 RUN python3 -c "import vllm; print(f'vLLM {vllm.__version__}')" && \
