@@ -13,34 +13,46 @@ echo "[start.sh] DOWNLOAD_DIR=${DOWNLOAD_DIR}"
 # any pod in any DC can fetch it at ~500MB/s without hitting the HuggingFace
 # CDN. This keeps pod startup ~5 min even with no volume cache.
 MODEL_CACHE="${DOWNLOAD_DIR}/models--${MODEL_ID//\//--}"
-if [ ! -d "$MODEL_CACHE/snapshots" ] || [ -z "$(find "$MODEL_CACHE/snapshots" -name 'config.json' 2>/dev/null | head -1)" ]; then
-    if [ -z "${MINIO_ENDPOINT}" ] || [ -z "${MINIO_ACCESS_KEY}" ] || [ -z "${MINIO_SECRET_KEY}" ]; then
-        echo "[start.sh] MinIO env vars missing, falling back to HuggingFace download"
-    else
-        echo "[start.sh] Pulling ${MODEL_ID} from MinIO to ${DOWNLOAD_DIR}..."
-        mkdir -p "$DOWNLOAD_DIR"
-        MINIO_SCHEME="http"
-        [ "${MINIO_SECURE}" = "true" ] && MINIO_SCHEME="https"
-        START=$(date +%s)
-        # MinIO has the HF cache tree rooted under models/hf-cache/ —
-        # s5cmd's recursive cp preserves the models--Qwen--Qwen3-14B/snapshots/{hash}/
-        # layout that vLLM/huggingface_hub expect. The trailing /* pulls everything
-        # under hf-cache/ directly into DOWNLOAD_DIR (i.e. HF_HOME).
-        AWS_ACCESS_KEY_ID="${MINIO_ACCESS_KEY}" \
-        AWS_SECRET_ACCESS_KEY="${MINIO_SECRET_KEY}" \
-        s5cmd --endpoint-url "${MINIO_SCHEME}://${MINIO_ENDPOINT}" \
-              cp -c 16 "s3://${MINIO_BUCKET:-simswarm}/models/hf-cache/*" \
-              "${DOWNLOAD_DIR}/"
-        RC=$?
-        ELAPSED=$(($(date +%s) - START))
-        if [ $RC -eq 0 ]; then
-            echo "[start.sh] MinIO pull complete in ${ELAPSED}s"
-        else
-            echo "[start.sh] MinIO pull failed (rc=$RC) after ${ELAPSED}s, falling back to HuggingFace"
-        fi
-    fi
-else
+MINIO_PULL_OK=0
+if [ -d "$MODEL_CACHE/snapshots" ] && [ -n "$(find "$MODEL_CACHE/snapshots" -name 'config.json' 2>/dev/null | head -1)" ]; then
     echo "[start.sh] Model cache present at $MODEL_CACHE"
+    MINIO_PULL_OK=1
+elif [ -z "${MINIO_ENDPOINT}" ] || [ -z "${MINIO_ACCESS_KEY}" ] || [ -z "${MINIO_SECRET_KEY}" ]; then
+    echo "[start.sh] MinIO env vars missing, falling back to HuggingFace download"
+else
+    echo "[start.sh] Pulling ${MODEL_ID} from MinIO to ${DOWNLOAD_DIR}..."
+    mkdir -p "$DOWNLOAD_DIR"
+    MINIO_SCHEME="http"
+    [ "${MINIO_SECURE}" = "true" ] && MINIO_SCHEME="https"
+    START=$(date +%s)
+    # MinIO has the HF cache tree rooted under models/hf-cache/ —
+    # s5cmd's recursive cp preserves the models--Qwen--Qwen3-14B/snapshots/{hash}/
+    # layout that vLLM/huggingface_hub expect. The trailing /* pulls everything
+    # under hf-cache/ directly into DOWNLOAD_DIR (i.e. HF_HOME).
+    AWS_ACCESS_KEY_ID="${MINIO_ACCESS_KEY}" \
+    AWS_SECRET_ACCESS_KEY="${MINIO_SECRET_KEY}" \
+    s5cmd --endpoint-url "${MINIO_SCHEME}://${MINIO_ENDPOINT}" \
+          cp -c 16 "s3://${MINIO_BUCKET:-simswarm}/models/hf-cache/*" \
+          "${DOWNLOAD_DIR}/"
+    RC=$?
+    ELAPSED=$(($(date +%s) - START))
+    if [ $RC -eq 0 ]; then
+        echo "[start.sh] MinIO pull complete in ${ELAPSED}s"
+        MINIO_PULL_OK=1
+    else
+        echo "[start.sh] MinIO pull failed (rc=$RC) after ${ELAPSED}s, falling back to HuggingFace"
+    fi
+fi
+
+# When our MinIO cache is populated, tell huggingface_hub to trust it and skip
+# the network-based ETag validation that would otherwise re-download ~29GB from
+# HF (adding ~4 min to every pod start — see vLLM weight_utils.py:281 log line
+# "Time spent downloading weights for ..."). If MinIO was unavailable, leave
+# OFFLINE unset so vLLM can fall through to a real HF download.
+if [ "$MINIO_PULL_OK" = "1" ]; then
+    export HF_HUB_OFFLINE=1
+    export TRANSFORMERS_OFFLINE=1
+    echo "[start.sh] HF_HUB_OFFLINE=1 (trusting MinIO cache, skipping HF validation)"
 fi
 
 # Start vLLM in background, log to file
