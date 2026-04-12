@@ -5,25 +5,11 @@ echo "[start.sh] MODEL_ID=${MODEL_ID:-not set}"
 echo "[start.sh] VLLM_ARGS=${VLLM_ARGS:-not set}"
 echo "[start.sh] Starting vLLM server..."
 
-# Use network volume for model downloads (avoid filling container disk)
+# Model weights are baked into the image at /models/huggingface (see
+# infra/docker/Dockerfile.worker). HF_HOME points there so vLLM loads from
+# the local image cache without hitting HuggingFace.
 DOWNLOAD_DIR="${HF_HOME:-/models/huggingface}"
 echo "[start.sh] DOWNLOAD_DIR=${DOWNLOAD_DIR}"
-
-# Validate model cache — clear if config.json is missing or lacks model_type
-# (network volumes may have corrupt/incomplete downloads from older transformers)
-MODEL_CACHE="${DOWNLOAD_DIR}/models--${MODEL_ID//\//--}"
-if [ -d "$MODEL_CACHE" ]; then
-    CONFIG=$(find "$MODEL_CACHE" -name "config.json" -path "*/snapshots/*" 2>/dev/null | head -1)
-    if [ -z "$CONFIG" ]; then
-        echo "[start.sh] Incomplete model cache (no config.json), clearing..."
-        rm -rf "$MODEL_CACHE"
-    elif ! python3 -c "import json; c=json.load(open('$CONFIG')); assert 'model_type' in c" 2>/dev/null; then
-        echo "[start.sh] Stale model cache (missing model_type), clearing..."
-        rm -rf "$MODEL_CACHE"
-    else
-        echo "[start.sh] Model cache OK: $CONFIG"
-    fi
-fi
 
 # Start vLLM in background, log to file
 python3 -m vllm.entrypoints.openai.api_server \

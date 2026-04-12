@@ -45,15 +45,15 @@ async def test_provision_success_on_first_attempt():
         assert called_env["FOO"] == "bar"
 
 
-async def test_provision_falls_back_across_gpus_and_volumes():
-    # First create_pod raises for each volume+gpu combo, success on no-volume L40S
+async def test_provision_falls_back_across_gpu_types():
+    """When the primary GPU type is out of stock, provision should try the
+    next GPU in the fallback list."""
     with patch("saas.gpu.runpod_provider.runpod") as rp:
-        call_count = {"n": 0}
+        tried = []
 
         def side(*a, **kw):
-            call_count["n"] += 1
-            # Succeed on final "no-volume" attempt (network_volume_id absent)
-            if "network_volume_id" not in kw:
+            tried.append(kw["gpu_type_id"])
+            if len(tried) >= 3:  # succeed on 3rd attempt
                 return {"id": "pod-final"}
             raise RuntimeError("no capacity")
         rp.create_pod.side_effect = side
@@ -67,7 +67,30 @@ async def test_provision_falls_back_across_gpus_and_volumes():
         provider = RunPodProvider("key")
         inst = await provider.provision(_config())
         assert inst.instance_id == "pod-final"
-        assert call_count["n"] > 1
+        assert len(tried) == 3
+
+
+async def test_provision_never_attaches_network_volume():
+    """With the model baked into the worker image, create_pod must NEVER be
+    called with network_volume_id — volume mounts would hide the baked weights
+    at /models/huggingface."""
+    with patch("saas.gpu.runpod_provider.runpod") as rp:
+        rp.create_pod.return_value = {"id": "pod-baked"}
+        rp.get_pod.return_value = {
+            "desiredStatus": "RUNNING",
+            "runtime": {"ports": []},
+            "machine": {"gpuDisplayName": "L40S"},
+        }
+
+        provider = RunPodProvider("key")
+        await provider.provision(_config())
+
+        # Inspect every call to create_pod
+        for call in rp.create_pod.call_args_list:
+            assert "network_volume_id" not in call.kwargs, (
+                f"create_pod was called with volume kwargs: {call.kwargs}"
+            )
+            assert "volume_mount_path" not in call.kwargs
 
 
 async def test_provision_raises_runtime_error_when_all_fail():

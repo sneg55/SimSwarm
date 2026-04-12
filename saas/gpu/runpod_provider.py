@@ -10,16 +10,10 @@ from saas.gpu.provider import GPUProvider, GPUProviderConfig, GPUInstance
 
 logger = logging.getLogger(__name__)
 
-MAX_POLL_ATTEMPTS = 200  # 200 * 5s = ~17 min max wait — covers no-volume cold starts
-                         # (pod must download Qwen3-14B ~28GB from HF when network
-                         # volume DCs are out of GPU capacity).
-
-# Network volumes with pre-loaded model weights across datacenters.
-# The provider tries each volume until it finds one with GPU availability.
-NETWORK_VOLUMES = [
-    {"id": "19hqjpxbp2", "dc": "US-TX-3"},   # 50GB, Qwen3-14B cached on first use
-    {"id": "8aplig09qc", "dc": "EU-RO-1"},   # 50GB, Qwen3-14B cached on first use
-]
+MAX_POLL_ATTEMPTS = 120  # 120 * 5s = 10 min — the worker image now bakes in
+                         # Qwen3-14B weights (see infra/docker/Dockerfile.worker),
+                         # so pod readiness is gated only by RunPod's image pull
+                         # + vLLM startup, not by a ~28GB HF download.
 
 
 class RunPodProvider(GPUProvider):
@@ -30,60 +24,49 @@ class RunPodProvider(GPUProvider):
         runpod.api_key = api_key
 
     async def provision(self, config: GPUProviderConfig, on_created=None) -> GPUInstance:
-        """Create a RunPod pod, trying multiple datacenter volumes for availability."""
+        """Create a RunPod pod, trying each supported GPU type until one has stock."""
         logger.info(f"RunPod: provisioning {config.gpu_type} with image {config.docker_image}")
 
         env = dict(config.env_vars or {})
+        # The baked worker image ships Qwen3-14B at /models/huggingface. vLLM
+        # reads HF_HOME so it loads from the image cache without re-downloading.
         env["HF_HOME"] = "/models/huggingface"
         env["TRANSFORMERS_CACHE"] = "/models/huggingface"
 
-        # GPU types to try in order of preference
-        # Qwen3-14B needs ~28GB VRAM (weights + KV cache), fits on 40GB+ GPUs
-        # L40S (48GB) is the sweet spot for price/performance
-        # RunPod GPU display names — verified against runpod.get_gpus().
-        # "NVIDIA A100 40GB" was here but is NOT a valid RunPod ID (logs showed
-        # "No GPU found with the specified ID"). The real 40GB A100 is
-        # "NVIDIA A100-SXM4-40GB"; L40 (non-S) is also a valid fallback.
+        # GPU types to try in order of preference. RunPod display names —
+        # verified against runpod.get_gpus(). Qwen3-14B fits on 40GB+ GPUs.
+        # L40S (48GB) is the price/performance sweet spot; the rest are fallbacks.
         gpu_types = [config.gpu_type, "NVIDIA L40S", "NVIDIA L40", "NVIDIA A40",
                      "NVIDIA RTX A6000", "NVIDIA A100-SXM4-40GB"]
-        # Deduplicate while preserving order
         seen = set()
         gpu_types = [g for g in gpu_types if not (g in seen or seen.add(g))]
 
-        # Try each volume+GPU combo, then try without volume as last resort
+        # Create without a network volume — the baked image carries the model,
+        # so we can schedule on any DC (including the many non-storage ones
+        # that carry most of RunPod's L40/A40/A6000 stock).
         last_error = None
-        volume_configs = [*[{"id": v["id"], "dc": v["dc"]} for v in NETWORK_VOLUMES], None]
+        pod = None
+        for gpu in gpu_types:
+            try:
+                pod = runpod.create_pod(
+                    name="fishcloud-sim",
+                    image_name=config.docker_image,
+                    gpu_type_id=gpu,
+                    cloud_type="ALL",
+                    gpu_count=1,
+                    volume_in_gb=0,
+                    # Baked image is ~42GB; allow headroom for logs/results
+                    container_disk_in_gb=60,
+                    ports="5000/http,8000/http",
+                    env=env,
+                )
+                logger.info(f"RunPod: pod created on {gpu}")
+                break
+            except Exception as e:
+                logger.warning(f"RunPod: failed {gpu}: {e}")
+                last_error = e
 
-        for vol in volume_configs:
-            for gpu in gpu_types:
-                try:
-                    kwargs = dict(
-                        name="fishcloud-sim",
-                        image_name=config.docker_image,
-                        gpu_type_id=gpu,
-                        cloud_type="ALL",
-                        gpu_count=1,
-                        volume_in_gb=0,
-                        container_disk_in_gb=30 if vol is None else 15,
-                        ports="5000/http,8000/http",
-                        env=env,
-                    )
-                    if vol:
-                        kwargs["network_volume_id"] = vol["id"]
-                        kwargs["volume_mount_path"] = "/models"
-                    pod = runpod.create_pod(**kwargs)
-                    dc_label = vol["dc"] if vol else "any (no volume)"
-                    logger.info(f"RunPod: pod created on {gpu} in {dc_label}")
-                    break
-                except Exception as e:
-                    dc = vol["dc"] if vol else "no-volume"
-                    logger.warning(f"RunPod: failed {gpu} in {dc}: {e}")
-                    last_error = e
-                    continue
-            else:
-                continue
-            break
-        else:
+        if pod is None:
             raise RuntimeError(f"No RunPod GPUs available. Last: {last_error}")
 
         pod_id = pod["id"]

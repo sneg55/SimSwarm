@@ -29,7 +29,20 @@ RUN grep -E "^(tokenizers|starlette|fastapi|uvicorn|numpy)==" /tmp/vllm-freeze.t
 # Pinned to exact version — floating ranges break when HF updates model configs
 RUN pip install --no-cache-dir "transformers==4.51.3"
 
-# Verify all imports + numpy<2 (vLLM ABI requirement) + Qwen3 config loads
+# Pre-bake Qwen3-14B weights (~29.5GB) into the image so we aren't gated by
+# RunPod network-volume DC availability — volume-capable DCs rarely stock
+# L40S/L40/A40 and pods were repeatedly timing out re-downloading from HF.
+# With the model in the image, any DC with GPU stock works, and RunPod
+# caches image layers per worker node so the pull happens once per node.
+ENV HF_HOME=/models/huggingface
+ENV TRANSFORMERS_CACHE=/models/huggingface
+RUN mkdir -p /models/huggingface && \
+    python3 -c "from huggingface_hub import snapshot_download; \
+                snapshot_download(repo_id='Qwen/Qwen3-14B', \
+                                  cache_dir='/models/huggingface', \
+                                  allow_patterns=['*.safetensors', '*.json', '*.txt'])"
+
+# Verify all imports + numpy<2 (vLLM ABI requirement) + Qwen3 config loads from cache
 RUN python3 -c "import vllm; print(f'vLLM {vllm.__version__}')" && \
     python3 -c "import numpy; print(f'numpy {numpy.__version__}')" && \
     python3 -c "import transformers; print(f'transformers {transformers.__version__}')" && \
