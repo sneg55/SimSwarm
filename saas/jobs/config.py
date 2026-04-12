@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from saas.constants.tiers import TIER_TIMEOUTS
 
 WORKER_IMAGE_REPO = "ghcr.io/sneg55/simswarm-worker"
-WORKER_IMAGE_DEFAULT_TAG = "v20260402201814"
+WORKER_IMAGE_DEFAULT_TAG = "407d345"  # MinIO-pivot build, see build-worker run 24312974316
 
 
 def get_worker_image() -> str:
