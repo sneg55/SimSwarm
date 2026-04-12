@@ -44,21 +44,31 @@ else
     fi
 fi
 
-# When our MinIO cache is populated, tell huggingface_hub to trust it and skip
-# the network-based ETag validation that would otherwise re-download ~29GB from
-# HF (adding ~4 min to every pod start — see vLLM weight_utils.py:281 log line
-# "Time spent downloading weights for ..."). If MinIO was unavailable, leave
-# OFFLINE unset so vLLM can fall through to a real HF download.
+# When our MinIO cache is populated, point vLLM at the snapshot directory
+# directly. This bypasses huggingface_hub's ETag validation (which would
+# re-download the 29GB from HF on every start — see vLLM weight_utils.py:281
+# "Time spent downloading weights...") AND avoids transformers' strict
+# offline-mode lookup that requires a full symlink-to-blobs layout we don't
+# replicate from MinIO. Serving name stays "Qwen/Qwen3-14B" so clients and
+# tokenizer config are unchanged.
+MODEL_ARG="${MODEL_ID:-Qwen/Qwen3-14B}"
+SERVED_NAME_ARG=""
 if [ "$MINIO_PULL_OK" = "1" ]; then
-    export HF_HUB_OFFLINE=1
-    export TRANSFORMERS_OFFLINE=1
-    echo "[start.sh] HF_HUB_OFFLINE=1 (trusting MinIO cache, skipping HF validation)"
+    SNAPSHOT_DIR=$(find "$MODEL_CACHE/snapshots" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | head -1)
+    if [ -n "$SNAPSHOT_DIR" ] && [ -f "$SNAPSHOT_DIR/config.json" ]; then
+        MODEL_ARG="$SNAPSHOT_DIR"
+        SERVED_NAME_ARG="--served-model-name ${MODEL_ID:-Qwen/Qwen3-14B}"
+        echo "[start.sh] Loading from local snapshot: $SNAPSHOT_DIR"
+    else
+        echo "[start.sh] WARN: cache present but no snapshot/config.json found, falling back to HF repo id"
+    fi
 fi
 
 # Start vLLM in background, log to file
 python3 -m vllm.entrypoints.openai.api_server \
     --host 0.0.0.0 --port 8000 \
-    --model ${MODEL_ID:-Qwen/Qwen3-14B} \
+    --model "$MODEL_ARG" \
+    $SERVED_NAME_ARG \
     --download-dir ${DOWNLOAD_DIR} \
     ${VLLM_ARGS:---max-model-len 16384 --enable-auto-tool-choice --tool-call-parser hermes} \
     > /tmp/vllm.log 2>&1 &
