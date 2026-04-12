@@ -10,7 +10,9 @@ from saas.gpu.provider import GPUProvider, GPUProviderConfig, GPUInstance
 
 logger = logging.getLogger(__name__)
 
-MAX_POLL_ATTEMPTS = 120  # 120 * 5s = 10 min max wait for image pull
+MAX_POLL_ATTEMPTS = 200  # 200 * 5s = ~17 min max wait — covers no-volume cold starts
+                         # (pod must download Qwen3-14B ~28GB from HF when network
+                         # volume DCs are out of GPU capacity).
 
 # Network volumes with pre-loaded model weights across datacenters.
 # The provider tries each volume until it finds one with GPU availability.
@@ -38,7 +40,12 @@ class RunPodProvider(GPUProvider):
         # GPU types to try in order of preference
         # Qwen3-14B needs ~28GB VRAM (weights + KV cache), fits on 40GB+ GPUs
         # L40S (48GB) is the sweet spot for price/performance
-        gpu_types = [config.gpu_type, "NVIDIA L40S", "NVIDIA A40", "NVIDIA RTX A6000", "NVIDIA A100 40GB"]
+        # RunPod GPU display names — verified against runpod.get_gpus().
+        # "NVIDIA A100 40GB" was here but is NOT a valid RunPod ID (logs showed
+        # "No GPU found with the specified ID"). The real 40GB A100 is
+        # "NVIDIA A100-SXM4-40GB"; L40 (non-S) is also a valid fallback.
+        gpu_types = [config.gpu_type, "NVIDIA L40S", "NVIDIA L40", "NVIDIA A40",
+                     "NVIDIA RTX A6000", "NVIDIA A100-SXM4-40GB"]
         # Deduplicate while preserving order
         seen = set()
         gpu_types = [g for g in gpu_types if not (g in seen or seen.add(g))]
