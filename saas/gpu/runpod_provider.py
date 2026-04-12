@@ -35,8 +35,11 @@ class RunPodProvider(GPUProvider):
 
         # GPU types to try in order of preference. RunPod display names —
         # verified against runpod.get_gpus(). Qwen3-14B fits on 40GB+ GPUs.
-        # L40S (48GB) is the price/performance sweet spot; the rest are fallbacks.
-        gpu_types = [config.gpu_type, "NVIDIA L40S", "NVIDIA L40", "NVIDIA A40",
+        # Ordering: the tier's configured primary first, then same-class
+        # alternates (H100 variants), then progressively cheaper fallbacks.
+        gpu_types = [config.gpu_type,
+                     "NVIDIA H100 80GB HBM3", "NVIDIA H100 PCIe", "NVIDIA H100 NVL",
+                     "NVIDIA L40S", "NVIDIA L40", "NVIDIA A40",
                      "NVIDIA RTX A6000", "NVIDIA A100-SXM4-40GB"]
         seen = set()
         gpu_types = [g for g in gpu_types if not (g in seen or seen.add(g))]
