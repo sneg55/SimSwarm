@@ -64,14 +64,28 @@ if [ "$MINIO_PULL_OK" = "1" ]; then
     fi
 fi
 
-# Start vLLM in background, log to file
+# Seed vllm.log with snapshot-dir listing so we can verify what s5cmd actually
+# wrote — celery's /logs endpoint only exposes vllm.log, not our stdout, and
+# when vLLM fails with "Can't load tokenizer" we need to know whether the
+# small tokenizer files made it to disk.
+{
+    echo "[start.sh] MODEL_ARG=$MODEL_ARG"
+    echo "[start.sh] Contents of $DOWNLOAD_DIR:"
+    ls -la "$DOWNLOAD_DIR" 2>&1 | head -30
+    if [ -n "$SNAPSHOT_DIR" ] && [ -d "$SNAPSHOT_DIR" ]; then
+        echo "[start.sh] Contents of $SNAPSHOT_DIR:"
+        ls -la "$SNAPSHOT_DIR" 2>&1
+    fi
+} > /tmp/vllm.log 2>&1
+
+# Start vLLM in background, append to the log we just seeded
 python3 -m vllm.entrypoints.openai.api_server \
     --host 0.0.0.0 --port 8000 \
     --model "$MODEL_ARG" \
     $SERVED_NAME_ARG \
     --download-dir ${DOWNLOAD_DIR} \
     ${VLLM_ARGS:---max-model-len 16384 --enable-auto-tool-choice --tool-call-parser hermes} \
-    > /tmp/vllm.log 2>&1 &
+    >> /tmp/vllm.log 2>&1 &
 
 VLLM_PID=$!
 echo "[start.sh] vLLM started with PID $VLLM_PID"
