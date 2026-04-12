@@ -22,11 +22,15 @@ if [ ! -d "$MODEL_CACHE/snapshots" ] || [ -z "$(find "$MODEL_CACHE/snapshots" -n
         MINIO_SCHEME="http"
         [ "${MINIO_SECURE}" = "true" ] && MINIO_SCHEME="https"
         START=$(date +%s)
+        # MinIO has the HF cache tree rooted under models/hf-cache/ —
+        # s5cmd's recursive cp preserves the models--Qwen--Qwen3-14B/snapshots/{hash}/
+        # layout that vLLM/huggingface_hub expect. The trailing /* pulls everything
+        # under hf-cache/ directly into DOWNLOAD_DIR (i.e. HF_HOME).
         AWS_ACCESS_KEY_ID="${MINIO_ACCESS_KEY}" \
         AWS_SECRET_ACCESS_KEY="${MINIO_SECRET_KEY}" \
         s5cmd --endpoint-url "${MINIO_SCHEME}://${MINIO_ENDPOINT}" \
-              cp -c 16 "s3://${MINIO_BUCKET:-simswarm}/models/${MODEL_ID}/*" \
-              "${MODEL_CACHE}/"
+              cp -c 16 "s3://${MINIO_BUCKET:-simswarm}/models/hf-cache/*" \
+              "${DOWNLOAD_DIR}/"
         RC=$?
         ELAPSED=$(($(date +%s) - START))
         if [ $RC -eq 0 ]; then
