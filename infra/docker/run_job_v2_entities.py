@@ -1,12 +1,12 @@
-"""Entity extraction helpers for run_job_v2.
+"""Entity extraction for run_job_v2.
 
-Provides:
-  - _fallback_entities()   — capitalized-word extraction when Neo4j unavailable
-  - build_entities_from_graph()  — convert Neo4j nodes → Entity list
-  - get_entities()         — top-level: try graph_ops, fall back to text extraction
+Uses the simswarm-native LLM-backed extractor. Falls back to a filtered
+capitalized-word heuristic only when the LLM call fails.
 """
 from __future__ import annotations
 
+import asyncio
+import os
 import sys
 from pathlib import Path
 
@@ -17,78 +17,16 @@ for _p in (str(_DOCKER_DIR), str(_REPO_ROOT)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
+from simswarm.entities import (  # noqa: E402
+    EntityExtractionError,
+    extract_entities,
+    fallback_entities,
+)
+from simswarm.llm import LLMClient  # noqa: E402
 from simswarm.types import Entity  # noqa: E402
 
-# ---------------------------------------------------------------------------
-# Optional MiroShark graph tooling
-# ---------------------------------------------------------------------------
-
-try:
-    from graph_ops import build_graph as _build_graph  # type: ignore[import]
-    _GRAPH_OPS_AVAILABLE = True
-except ImportError:
-    _GRAPH_OPS_AVAILABLE = False
-    _build_graph = None
-
-try:
-    from app.storage.neo4j_storage import Neo4jStorage  # type: ignore[import]
-    _NEO4J_STORAGE_AVAILABLE = True
-except ImportError:
-    _NEO4J_STORAGE_AVAILABLE = False
-    Neo4jStorage = None
-
-
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
-def _fallback_entities(seed_text: str, count: int) -> list[Entity]:
-    """Extract entities from seed text when Neo4j is unavailable.
-
-    Picks title-case words, deduplicates, returns at most *count* Entity objects.
-    Returns at least 1 entity even when fewer capitalized words exist than *count*.
-    """
-    words = seed_text.split()
-    seen: list[str] = []
-    seen_lower: set[str] = set()
-    for w in words:
-        cleaned = w.strip(".,!?;:\"'()-[]")
-        if not cleaned:
-            continue
-        if cleaned[0].isupper() and cleaned.lower() not in seen_lower:
-            seen_lower.add(cleaned.lower())
-            seen.append(cleaned)
-
-    selected = seen[:count] if seen else ["Entity"]
-    entities = []
-    for name in selected:
-        eid = name.lower().replace(" ", "_")
-        entities.append(Entity(
-            id=eid,
-            name=name,
-            type="person",
-            summary=f"{name} is a key entity identified in the seed document.",
-        ))
-    return entities
-
-
-def build_entities_from_graph(storage, graph_id: str) -> list[Entity]:
-    """Convert Neo4j nodes (via storage) into Entity objects."""
-    nodes = storage.get_all_nodes(graph_id) if hasattr(storage, "get_all_nodes") else []
-    entities: list[Entity] = []
-    for node in nodes:
-        name = node.get("name", "")
-        if not name:
-            continue
-        labels = node.get("labels", [])
-        etype = next((label for label in labels if label not in ("Entity", "Node")), "Entity")
-        entities.append(Entity(
-            id=node.get("uuid", name.lower().replace(" ", "_")),
-            name=name,
-            type=etype,
-            summary=node.get("summary", f"{name} — extracted from knowledge graph."),
-        ))
-    return entities
+# Public helper exported for tests that historically imported it from here.
+_fallback_entities = fallback_entities
 
 
 def get_entities(
@@ -96,26 +34,46 @@ def get_entities(
     goal: str,
     target_agents: int,
 ) -> list[Entity]:
-    """Return entities for the simulation.
+    """Return entities for the simulation via simswarm-native extraction."""
+    count = max(target_agents, 5)
 
-    Tries graph_ops first; falls back to capitalized-word extraction.
-    """
-    entities: list[Entity] = []
+    vllm_url = os.environ.get("VLLM_URL", "http://localhost:8000/v1")
+    # Use the smart model when available — it's better at structured extraction
+    # than the fast model. Both default to the same local vLLM weights today.
+    model = os.environ.get("SMART_MODEL", os.environ.get("FAST_MODEL",
+             os.environ.get("MODEL_ID", "Qwen/Qwen3-14B")))
+    api_key = os.environ.get("LLM_API_KEY", "none")
 
-    if _GRAPH_OPS_AVAILABLE and _NEO4J_STORAGE_AVAILABLE:
+    async def _run() -> list[Entity]:
+        llm = LLMClient(base_url=vllm_url, model=model, api_key=api_key)
         try:
-            storage = Neo4jStorage()
-            _project_id, graph_id = _build_graph(seed_text, goal, storage)
-            print(f"[run_job_v2] Graph built: graph_id={graph_id}", flush=True)
-            entities = build_entities_from_graph(storage, graph_id)
-        except Exception as exc:
-            print(
-                f"[run_job_v2] WARNING: graph_ops failed ({exc}), using fallback",
-                flush=True,
-            )
+            return await extract_entities(seed_text, goal, count, llm)
+        finally:
+            await llm.close()
 
-    if not entities:
-        entities = _fallback_entities(seed_text, count=max(target_agents, 10))
-        print(f"[run_job_v2] Fallback entities: {[e.name for e in entities]}", flush=True)
+    try:
+        entities = asyncio.run(_run())
+        print(
+            f"[run_job_v2] Extracted {len(entities)} entities: "
+            f"{[e.name for e in entities]}",
+            flush=True,
+        )
+        return entities
+    except EntityExtractionError as exc:
+        print(
+            f"[run_job_v2] WARNING: LLM entity extraction failed ({exc}), using fallback",
+            flush=True,
+        )
+    except Exception as exc:  # noqa: BLE001 — defensive; fall back on any runtime error
+        print(
+            f"[run_job_v2] WARNING: entity extraction raised {type(exc).__name__}: {exc}, "
+            f"using fallback",
+            flush=True,
+        )
 
+    entities = fallback_entities(seed_text, count=count)
+    print(
+        f"[run_job_v2] Fallback entities: {[e.name for e in entities]}",
+        flush=True,
+    )
     return entities
