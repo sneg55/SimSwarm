@@ -11,13 +11,13 @@ from saas.jobs.persistence import (
     _update_pipeline_stage_sync,
     _update_heartbeat_sync,
     _update_pod_id,
-    _extract_key_insight,
     _mark_job_failed,
     _save_job_results,
     _update_enrichment,
     _update_job_metadata,
     _update_job_retry,
     _update_sim_data_available,
+    _transition_to_reporting,
 )
 from saas.jobs.refund import _refund_credits
 from saas.jobs.cleanup import cleanup_orphaned_pods as _cleanup_orphaned_pods_impl
@@ -137,29 +137,47 @@ def run_simulation_task(
                 pipeline_seconds=pipeline_seconds,
             )
 
-        # Persist results to the SimulationJob table
-        report = result.get("report", "")
+        # Persist non-report results to the SimulationJob table.
+        # Report is now produced off-pod; pod returns "" here.
+        report = result.get("report", "")  # pod no longer writes this; kept blank
         chat_log = result.get("chat_log", "")
         graph_data = result.get("graph_data", "{}")
         structured = result.get("structured", "{}")
 
-        # Extract key insight (first substantive sentence from report, max 200 chars)
-        key_insight = _extract_key_insight(report)
-
         _save_job_results(
             job_id=job_id, report=report, chat_log=chat_log,
-            graph_data=graph_data, key_insight=key_insight, structured=structured,
+            graph_data=graph_data, key_insight=None, structured=structured,
         )
 
-        # Mark rich simulation data availability
         sim_data_uploaded = result.get("sim_data_uploaded", False)
-        if sim_data_uploaded:
-            _update_sim_data_available(job_id, True)
+
+        if not sim_data_uploaded:
+            # Upload failure is fatal under the external-report flow — no
+            # inline report fallback exists. Fail and refund 100%.
+            _mark_job_failed(
+                job_id=job_id,
+                error_message="sim_data_upload_failed: artifacts missing from MinIO",
+            )
+            if credits_charged > 0:
+                _refund_credits(job_id=job_id, user_id=user_id, credits=credits_charged)
+            logger.warning(
+                "job.upload_failed_no_report job_id=%d refunded=%d",
+                job_id, credits_charged,
+            )
+            return result
+
+        # Sim artifacts uploaded — transition to REPORTING and enqueue the
+        # external-LLM report task.
+        _update_sim_data_available(job_id, True)
+        _transition_to_reporting(job_id)
+
+        import saas.jobs.tasks_report as _tasks_report
+        _tasks_report.generate_report_task.apply_async((job_id, user_id))
 
         logger.info(
-            "job.completed job_id=%d pod_id=%s provision_s=%s pipeline_s=%s",
+            "job.sim_complete_report_enqueued job_id=%d pod_id=%s provision_s=%s pipeline_s=%s",
             job_id, pod_id, provision_seconds, pipeline_seconds,
-            extra={"event": "job_completed", "job_id": job_id,
+            extra={"event": "job_sim_complete", "job_id": job_id,
                    "pod_id": pod_id, "duration_s": pipeline_seconds},
         )
         return result
