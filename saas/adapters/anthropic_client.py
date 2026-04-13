@@ -93,6 +93,13 @@ class AnthropicClient:
     Interface mirrors simswarm.llm.LLMClient:
       - chat(messages, tools=None, temperature=0.7) -> LLMResponse
       - close()
+
+    Behavior notes:
+      - System prompt and tool schemas are always marked cache_control=ephemeral.
+        On turn 2+ of a multi-turn loop these cache hits cost 10% of the normal
+        input rate.
+      - The adapter translates message shapes, but does NOT add retry logic —
+        that is the Celery task's responsibility.
     """
 
     def __init__(self, api_key: str, model: str = "claude-opus-4-6",
@@ -100,7 +107,13 @@ class AnthropicClient:
         self.api_key = api_key
         self.model = model
         self.max_tokens = max_tokens
-        self._client = None  # lazy construction
+        self._client = None
+
+    async def _get_client(self):
+        if self._client is None:
+            from anthropic import AsyncAnthropic
+            self._client = AsyncAnthropic(api_key=self.api_key)
+        return self._client
 
     async def chat(
         self,
@@ -108,9 +121,71 @@ class AnthropicClient:
         tools: list[dict] | None = None,
         temperature: float = 0.7,
     ) -> LLMResponse:
-        raise NotImplementedError  # implemented in Task 3
+        from anthropic import APIConnectionError, APIStatusError, APITimeoutError, RateLimitError
+
+        system_prompt, anth_messages = _translate_messages(messages)
+        anth_tools = _translate_tools(tools or [])
+
+        system_blocks: list[dict[str, Any]] | None = None
+        if system_prompt:
+            system_blocks = [{
+                "type": "text",
+                "text": system_prompt,
+                "cache_control": {"type": "ephemeral"},
+            }]
+
+        cached_tools: list[dict[str, Any]] = []
+        for i, tool in enumerate(anth_tools):
+            if i == len(anth_tools) - 1:
+                cached_tools.append({**tool, "cache_control": {"type": "ephemeral"}})
+            else:
+                cached_tools.append(tool)
+
+        client = await self._get_client()
+        kwargs: dict[str, Any] = {
+            "model": self.model,
+            "max_tokens": self.max_tokens,
+            "temperature": temperature,
+            "messages": anth_messages,
+        }
+        if system_blocks is not None:
+            kwargs["system"] = system_blocks
+        if cached_tools:
+            kwargs["tools"] = cached_tools
+
+        try:
+            resp = await client.messages.create(**kwargs)
+        except (RateLimitError, APIConnectionError, APITimeoutError) as exc:
+            raise AnthropicTransientError(str(exc)) from exc
+        except APIStatusError as exc:
+            if 500 <= getattr(exc, "status_code", 0) < 600:
+                raise AnthropicTransientError(str(exc)) from exc
+            raise AnthropicPermanentError(str(exc)) from exc
+
+        return _parse_response(resp)
 
     async def close(self) -> None:
         if self._client is not None:
             await self._client.close()
             self._client = None
+
+
+def _parse_response(resp: Any) -> LLMResponse:
+    """Extract text content and tool calls from an Anthropic Message object."""
+    text_parts: list[str] = []
+    tool_calls: list[dict[str, Any]] = []
+    for block in resp.content:
+        btype = getattr(block, "type", "")
+        if btype == "text":
+            text_parts.append(getattr(block, "text", "") or "")
+        elif btype == "tool_use":
+            tool_calls.append({
+                "id": getattr(block, "id", ""),
+                "name": getattr(block, "name", ""),
+                "args": getattr(block, "input", {}) or {},
+            })
+    return LLMResponse(
+        content="\n".join(text_parts),
+        tool_calls=tool_calls,
+        raw={"stop_reason": getattr(resp, "stop_reason", "")},
+    )

@@ -86,3 +86,84 @@ def test_translate_tools_strips_openai_wrapper():
             "input_schema": {"type": "object", "properties": {}, "required": []},
         }
     ]
+
+
+from unittest.mock import AsyncMock, MagicMock
+
+
+class _StubContentBlock:
+    def __init__(self, type, **kwargs):
+        self.type = type
+        for k, v in kwargs.items():
+            setattr(self, k, v)
+
+
+@pytest.mark.asyncio
+async def test_chat_returns_text_and_empty_tool_calls_on_simple_reply(monkeypatch):
+    client = AnthropicClient(api_key="k", model="claude-opus-4-6")
+
+    fake_response = MagicMock()
+    fake_response.content = [_StubContentBlock("text", text="Here is the report.")]
+    fake_response.stop_reason = "end_turn"
+
+    messages_create = AsyncMock(return_value=fake_response)
+    fake_sdk = MagicMock()
+    fake_sdk.messages.create = messages_create
+
+    async def _fake_get_client(self):
+        return fake_sdk
+    monkeypatch.setattr(AnthropicClient, "_get_client", _fake_get_client)
+
+    response = await client.chat(
+        messages=[
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "go"},
+        ],
+        tools=[{
+            "type": "function",
+            "function": {"name": "t", "description": "", "parameters": {}},
+        }],
+    )
+
+    assert response.content == "Here is the report."
+    assert response.tool_calls == []
+
+    call_kwargs = messages_create.call_args.kwargs
+    system = call_kwargs["system"]
+    assert isinstance(system, list)
+    assert system[0].get("cache_control") == {"type": "ephemeral"}
+    tools = call_kwargs["tools"]
+    assert tools[-1].get("cache_control") == {"type": "ephemeral"}
+
+
+@pytest.mark.asyncio
+async def test_chat_parses_tool_use_blocks_into_tool_calls(monkeypatch):
+    client = AnthropicClient(api_key="k", model="claude-opus-4-6")
+
+    fake_response = MagicMock()
+    fake_response.content = [
+        _StubContentBlock("text", text="I will use a tool."),
+        _StubContentBlock(
+            "tool_use", id="toolu_01", name="get_top_posts", input={"limit": 3}
+        ),
+    ]
+    fake_response.stop_reason = "tool_use"
+
+    fake_sdk = MagicMock()
+    fake_sdk.messages.create = AsyncMock(return_value=fake_response)
+
+    async def _fake_get_client(self):
+        return fake_sdk
+    monkeypatch.setattr(AnthropicClient, "_get_client", _fake_get_client)
+
+    response = await client.chat(
+        messages=[{"role": "user", "content": "go"}],
+        tools=[],
+    )
+    assert response.content == "I will use a tool."
+    assert len(response.tool_calls) == 1
+    assert response.tool_calls[0] == {
+        "id": "toolu_01",
+        "name": "get_top_posts",
+        "args": {"limit": 3},
+    }
