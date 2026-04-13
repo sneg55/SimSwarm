@@ -23,6 +23,7 @@ RUN pip install --no-cache-dir .
 
 # Copy backend code
 COPY saas/ ./saas/
+COPY simswarm/ ./simswarm/
 COPY alembic/ ./alembic/
 COPY alembic.ini ./
 COPY infra/ ./infra/
