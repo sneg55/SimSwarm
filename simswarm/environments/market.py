@@ -83,7 +83,7 @@ class Portfolio:
 
 @dataclass
 class MarketConfig:
-    markets: list[dict[str, Any]]
+    markets: list[dict[str, Any]] = field(default_factory=list)
     initial_balance: float = 1000.0
     initial_liquidity: float = 100.0
     price_move_event_threshold: float = 0.1
