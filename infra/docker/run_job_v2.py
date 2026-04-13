@@ -2,7 +2,7 @@
 """
 SimSwarm pipeline entry point (v2) — runs on GPU worker pods.
 
-Replaces the MiroShark-backed run_job.py with the pure-Python SimSwarm engine.
+Pure-Python SimSwarm engine. No MiroShark dependencies.
 
 Usage:
     python3 run_job_v2.py \\

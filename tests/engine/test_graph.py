@@ -1,8 +1,6 @@
 """Tests for simswarm.graph.build_graph — GraphSnapshot construction."""
 from __future__ import annotations
 
-import pytest
-
 from simswarm.graph import build_graph
 from simswarm.types import ActionRecord, Entity
 

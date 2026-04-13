@@ -1,8 +1,6 @@
 """Engine-level tests proving belief_state actually mutates across rounds."""
 from __future__ import annotations
 
-import pytest
-
 from simswarm.engine import _apply_belief_updates
 from simswarm.stance import score_stance
 from simswarm.types import (

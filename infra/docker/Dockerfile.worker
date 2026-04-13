@@ -1,4 +1,4 @@
-# GPU Worker Image for FishCloud (MiroShark engine)
+# GPU Worker Image for SimSwarm (v2 engine)
 # Based on vLLM's official image (has CUDA + vLLM + correct transformers pre-installed)
 FROM vllm/vllm-openai:v0.8.5.post1 AS base
 
@@ -6,22 +6,22 @@ USER root
 
 WORKDIR /app
 
-# Save vLLM's pinned dependency versions
+# Save vLLM's pinned dependency versions so the worker-deps install below
+# can't upgrade numpy/starlette out from under vLLM.
 RUN pip freeze > /tmp/vllm-freeze.txt
 
-# Install MiroShark dependencies (may conflict — we'll restore vLLM pins after)
-COPY vendor/miroshark/backend/requirements.txt /app/miroshark-requirements.txt
-RUN pip install --no-cache-dir --ignore-installed -r /app/miroshark-requirements.txt
+# Worker-specific deps: Flask (worker_api), neo4j (optional connectivity check),
+# openai/aiohttp (simswarm.llm), jinja2 (simswarm.prompts), pandas/scikit-learn
+# (sim_data_extractor).
+# Don't use --ignore-installed for ML libs — reuse vLLM's torch/numpy (saves 2GB disk).
+RUN pip install --no-cache-dir --ignore-installed \
+        flask flask-cors requests neo4j openai aiohttp jinja2 && \
+    pip install --no-cache-dir pandas scikit-learn
 
-# Install worker-specific deps
-# Wonderwall deps: sentence-transformers, igraph, pandas, scikit-learn
-# Don't use --ignore-installed for ML libs — reuse vLLM's torch/numpy (saves 2GB disk)
-RUN pip install --no-cache-dir --ignore-installed flask flask-cors requests neo4j openai && \
-    pip install --no-cache-dir sentence-transformers igraph pandas scikit-learn
-
-# Restore vLLM's critical pins — MiroShark deps may upgrade numpy/starlette which breaks vLLM
-# NOTE: transformers is intentionally excluded from restore — vLLM 0.8.5 ships 4.47.1
-# which predates Qwen3 support (added in 4.51.0). We upgrade it below.
+# Restore vLLM's critical pins — some worker deps may upgrade numpy/starlette
+# which breaks vLLM. transformers is intentionally excluded from restore —
+# vLLM 0.8.5 ships 4.47.1 which predates Qwen3 support (added in 4.51.0).
+# We upgrade it below.
 RUN grep -E "^(tokenizers|starlette|fastapi|uvicorn|numpy)==" /tmp/vllm-freeze.txt > /tmp/vllm-restore.txt && \
     pip install --no-cache-dir --force-reinstall -r /tmp/vllm-restore.txt
 
@@ -48,16 +48,9 @@ RUN python3 -c "import vllm; print(f'vLLM {vllm.__version__}')" && \
     python3 -c "import neo4j; print('neo4j OK')" && \
     python3 -c "import openai; print('openai OK')"
 
-# Copy MiroShark engine
-COPY vendor/miroshark/backend/ /app/miroshark/backend/
-
 # Copy our job runner modules and worker API
 COPY infra/docker/constants.py /app/constants.py
 COPY infra/docker/service_init.py /app/service_init.py
-COPY infra/docker/graph_ops.py /app/graph_ops.py
-COPY infra/docker/simulation.py /app/simulation.py
-COPY infra/docker/results.py /app/results.py
-COPY infra/docker/run_job.py /app/run_job.py
 COPY infra/docker/run_job_v2.py /app/run_job_v2.py
 COPY infra/docker/run_job_v2_runner.py /app/run_job_v2_runner.py
 COPY infra/docker/run_job_v2_entities.py /app/run_job_v2_entities.py
@@ -66,11 +59,11 @@ COPY infra/docker/sim_data_extractor.py /app/sim_data_extractor.py
 COPY infra/docker/start.sh /app/start.sh
 
 # SimSwarm engine (imported by run_job_v2_runner). Copied verbatim — the
-# prompts/report.j2 template is loaded at runtime via filesystem path, so
-# this must stay a source tree, not a pip-installed package.
+# prompts/*.j2 templates are loaded at runtime via filesystem path, so this
+# must stay a source tree, not a pip-installed package.
 COPY simswarm/ /app/simswarm/
 
-RUN chmod +x /app/run_job.py /app/run_job_v2.py /app/start.sh
+RUN chmod +x /app/run_job_v2.py /app/start.sh
 
 RUN mkdir -p /tmp/results /tmp/seed
 

@@ -3,7 +3,6 @@ Module-level constants for the GPU worker job runner.
 """
 
 VLLM_URL = "http://localhost:8000/v1"
-MIROSHARK_BACKEND = "/app/miroshark/backend"
 
 # ---------------------------------------------------------------------------
 # Sentiment word sets

@@ -24,3 +24,4 @@ docs/benchmarks/results.json
 .superpowers/
 celerybeat-schedule*
 docker-compose.override.yml
+vendor/mirofish/

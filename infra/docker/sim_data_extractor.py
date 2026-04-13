@@ -1,4 +1,4 @@
-"""Extract rich simulation data from MiroShark SQLite databases.
+"""Extract rich simulation data from platform SQLite databases.
 
 All functions open DBs read-only and return JSON-serializable dicts/lists.
 Used by worker_api.py after simulation completes, before pod termination.

@@ -84,7 +84,7 @@ def _upload_sim_data(results_dir, upload_urls):
 
 
 def _run_pipeline(seed_text, goal, max_rounds, forecast_days=None, upload_urls=None, target_agents=5):
-    """Run MiroFish pipeline in background, stream output to log file."""
+    """Run SimSwarm pipeline in background, stream output to log file."""
     try:
         seed_file = Path("/tmp/seed.txt")
         seed_file.write_text(seed_text)
