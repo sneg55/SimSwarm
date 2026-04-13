@@ -26,6 +26,7 @@ from saas.jobs.recovery import recover_stale_jobs as _recover_stale_jobs_impl
 # Import resume + maintenance tasks so Celery autodiscovers them via this module
 from saas.jobs.tasks_resume import resume_simulation_task  # noqa: F401 — re-export
 from saas.jobs.tasks_maintenance import prune_error_events  # noqa: F401 — re-export
+from saas.jobs.tasks_report import generate_report_task  # noqa: F401 — re-export
 
 logger = logging.getLogger(__name__)
 
