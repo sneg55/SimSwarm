@@ -1,18 +1,22 @@
 """Tests for the Anthropic Messages API adapter."""
 from __future__ import annotations
 
+from unittest.mock import AsyncMock, MagicMock
+
+import httpx
 import pytest
 
-from saas.adapters.anthropic_client import AnthropicClient
+from saas.adapters.anthropic_client import (
+    AnthropicClient,
+    _translate_messages,
+    _translate_tools,
+)
 
 
 def test_client_constructs_with_required_fields():
     c = AnthropicClient(api_key="test-key", model="claude-opus-4-6")
     assert c.model == "claude-opus-4-6"
     assert c.api_key == "test-key"
-
-
-from saas.adapters.anthropic_client import _translate_messages, _translate_tools
 
 
 def test_translate_extracts_system_prompt():
@@ -86,9 +90,6 @@ def test_translate_tools_strips_openai_wrapper():
             "input_schema": {"type": "object", "properties": {}, "required": []},
         }
     ]
-
-
-from unittest.mock import AsyncMock, MagicMock
 
 
 class _StubContentBlock:
@@ -167,9 +168,6 @@ async def test_chat_parses_tool_use_blocks_into_tool_calls(monkeypatch):
         "name": "get_top_posts",
         "args": {"limit": 3},
     }
-
-
-import httpx
 
 
 def _make_httpx_response(status_code: int) -> httpx.Response:
