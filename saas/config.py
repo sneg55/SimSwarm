@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     # xAI enrichment
     XAI_API_KEY: str = ""
 
+    # External LLM for report generation
+    ANTHROPIC_API_KEY: str = ""
+    SMART_PROVIDER: str = "anthropic"
+    SMART_MODEL: str = "claude-opus-4-6"
+
     # Logging
     LOG_FORMAT: str = "json"  # "json" or "text"
 
