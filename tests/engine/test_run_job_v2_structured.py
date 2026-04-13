@@ -1,11 +1,9 @@
 """Tests for run_job_v2: structured_results.json and _fallback_entities.
 
-Covers:
-  - structured_results.json validates against StructuredResults contract schema
-  - brief comes from the Report object
-  - findings count and accentColor validity
-  - confidence labels
-  - _fallback_entities() entity extraction
+structured_results.json is no longer written by the pod — it is produced by
+the external-LLM Celery task (saas/jobs/tasks_report.py).  The tests here
+verify that the pod does NOT produce it, and that _fallback_entities() still
+works correctly for entity bootstrapping.
 """
 from __future__ import annotations
 
@@ -13,55 +11,24 @@ import json
 
 
 from tests.engine.run_job_v2_fixtures import (
-    make_report,
     make_simulation_result,
     rjv2,  # noqa: F401
 )
 
 
-class TestStructuredResultsJson:
-    def test_parses_as_dict(self, rjv2, tmp_path):  # noqa: F811
-        rjv2.write_results(make_simulation_result(), make_report(), str(tmp_path))
-        data = json.loads((tmp_path / "structured_results.json").read_text(encoding="utf-8"))
-        assert isinstance(data, dict)
+class TestStructuredResultsNotWrittenByPod:
+    def test_structured_results_absent(self, rjv2, tmp_path):  # noqa: F811
+        """structured_results.json must NOT be written by the pod."""
+        rjv2.write_results(make_simulation_result(), str(tmp_path))
+        assert not (tmp_path / "structured_results.json").exists(), (
+            "structured_results.json should be produced by Celery worker, not the pod"
+        )
 
-    def test_validates_against_contract_schema(self, rjv2, tmp_path):  # noqa: F811
-        from tests.contracts.schemas import StructuredResults
-
-        rjv2.write_results(make_simulation_result(), make_report(), str(tmp_path))
-        data = json.loads((tmp_path / "structured_results.json").read_text(encoding="utf-8"))
-        validated = StructuredResults.model_validate(data)
-        assert isinstance(validated.brief, str)
-        assert isinstance(validated.findings, list)
-
-    def test_brief_matches_report(self, rjv2, tmp_path):  # noqa: F811
-        report = make_report()
-        rjv2.write_results(make_simulation_result(), report, str(tmp_path))
-        data = json.loads((tmp_path / "structured_results.json").read_text(encoding="utf-8"))
-        assert data["brief"] == report.executive_brief
-
-    def test_findings_count_matches_report(self, rjv2, tmp_path):  # noqa: F811
-        report = make_report()
-        rjv2.write_results(make_simulation_result(), report, str(tmp_path))
-        data = json.loads((tmp_path / "structured_results.json").read_text(encoding="utf-8"))
-        assert len(data["findings"]) == len(report.findings)
-
-    def test_findings_have_valid_accent_color(self, rjv2, tmp_path):  # noqa: F811
-        from tests.contracts.schemas import Finding
-
-        rjv2.write_results(make_simulation_result(), make_report(), str(tmp_path))
-        data = json.loads((tmp_path / "structured_results.json").read_text(encoding="utf-8"))
-        for finding in data["findings"]:
-            f = Finding.model_validate(finding)
-            assert f.accentColor.startswith("#")
-
-    def test_confidence_has_required_labels(self, rjv2, tmp_path):  # noqa: F811
-        rjv2.write_results(make_simulation_result(), make_report(), str(tmp_path))
-        data = json.loads((tmp_path / "structured_results.json").read_text(encoding="utf-8"))
-        labels = {c["label"] for c in data["confidence"]}
-        assert "Agents" in labels
-        assert "Rounds" in labels
-        assert "Graph Entities" in labels
+    def test_summary_has_report_pending(self, rjv2, tmp_path):  # noqa: F811
+        """summary.json should flag report_pending=True so Celery knows to proceed."""
+        rjv2.write_results(make_simulation_result(), str(tmp_path))
+        data = json.loads((tmp_path / "summary.json").read_text(encoding="utf-8"))
+        assert data.get("report_pending") is True
 
 
 class TestFallbackEntities:

@@ -3,7 +3,6 @@
 Provides:
   - _load_run_job_v2()   — imports run_job_v2 with stub deps
   - make_simulation_result()
-  - make_report()
 """
 from __future__ import annotations
 
@@ -111,17 +110,3 @@ def make_simulation_result():
     return SimulationResult(chat_log=chat_log, graph_data=graph, trajectories={})
 
 
-def make_report():
-    from simswarm.report import Report
-
-    return Report(
-        executive_brief="The simulation shows clear polarization.",
-        findings=[
-            {"title": "Coalition Formation", "content": "Alice and Bob diverge."},
-            {"title": "Market Signals", "content": "Bearish sentiment in round 2."},
-        ],
-        raw_markdown=(
-            "## Executive Summary\n\nThe simulation shows clear polarization.\n\n"
-            "## Key Findings\n\n### Coalition Formation\nAlice and Bob diverge.\n"
-        ),
-    )

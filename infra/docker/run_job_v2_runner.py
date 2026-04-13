@@ -1,9 +1,9 @@
-"""Simulation execution and report generation for run_job_v2.
+"""Simulation execution and file I/O for run_job_v2.
 
 Provides:
   - run_simulation()   — async: builds Engine, runs SimulationConfig
-  - generate_report()  — async: runs ReportGenerator over a SimulationResult
-  - write_results()    — sync: writes all output files to disk
+  - generate_report()  — deprecated shim; raises NotImplementedError
+  - write_results()    — sync: writes sim output files to disk (no report)
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ for _p in (str(_DOCKER_DIR), str(_REPO_ROOT)):
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
-from simswarm.adapter import adapt_chat_log, adapt_graph_data, adapt_structured  # noqa: E402
+from simswarm.adapter import adapt_chat_log, adapt_graph_data  # noqa: E402
 from simswarm.engine import Engine  # noqa: E402
 from simswarm.extractor import (  # noqa: E402
     extract_agent_trajectories,
@@ -29,7 +29,6 @@ from simswarm.extractor import (  # noqa: E402
     extract_social_graph,
 )
 from simswarm.llm import LLMClient  # noqa: E402
-from simswarm.report import Report, ReportGenerator  # noqa: E402
 from simswarm.types import (  # noqa: E402
     EngineConfig,
     Entity,
@@ -88,28 +87,28 @@ async def run_simulation(
 
 
 # ---------------------------------------------------------------------------
-# generate_report
+# generate_report (deprecated shim)
 # ---------------------------------------------------------------------------
 
-async def generate_report(result: SimulationResult, goal: str) -> Report:
-    """Run ReportGenerator over a SimulationResult, return a Report."""
-    smart_llm = LLMClient(base_url=_VLLM_URL, model=_SMART_MODEL, api_key=_LLM_API_KEY)
-    try:
-        return await ReportGenerator(smart_llm).generate(result, goal)
-    finally:
-        await smart_llm.close()
+async def generate_report(*_args, **_kwargs):
+    raise NotImplementedError(
+        "Report generation moved to saas/jobs/tasks_report.py; "
+        "the pod should no longer invoke this path."
+    )
 
 
 # ---------------------------------------------------------------------------
 # write_results
 # ---------------------------------------------------------------------------
 
-def write_results(result: SimulationResult, report: Report, output_dir: str) -> None:
-    """Write all pipeline output files to *output_dir*.
+def write_results(result: SimulationResult, output_dir: str) -> None:
+    """Write all sim-side output files to *output_dir*.
 
-    Files: report.md, chat_log.json, graph_data.json, structured_results.json,
-           posts.json, engagement_summary.json, agent_trajectories.json,
-           social_graph.json, trades.json, summary.json
+    Files: chat_log.json, graph_data.json, posts.json, engagement_summary.json,
+           agent_trajectories.json, social_graph.json, trades.json, summary.json.
+
+    Notably NOT written: report.md, structured_results.json — both are produced
+    by the external-LLM report task in the Celery worker.
     """
     out = Path(output_dir)
     out.mkdir(parents=True, exist_ok=True)
@@ -119,20 +118,11 @@ def write_results(result: SimulationResult, report: Report, output_dir: str) -> 
             json.dumps(data, ensure_ascii=False, default=str), encoding="utf-8"
         )
 
-    (out / "report.md").write_text(report.raw_markdown, encoding="utf-8")
-
     adapted_chat = adapt_chat_log(result.chat_log)
     _w("chat_log.json", adapted_chat)
 
     adapted_graph = adapt_graph_data(result.graph_data)
     _w("graph_data.json", adapted_graph)
-
-    _w("structured_results.json", adapt_structured(
-        brief=report.executive_brief,
-        findings=report.findings,
-        chat_log=adapted_chat,
-        graph_data=adapted_graph,
-    ))
 
     _w("posts.json", extract_posts(result.chat_log))
     _w("engagement_summary.json", extract_engagement_summary(result.chat_log))
@@ -143,7 +133,7 @@ def write_results(result: SimulationResult, report: Report, output_dir: str) -> 
     meta = adapted_graph.get("metadata", {})
     summary = {
         "status": "completed",
-        "report_length": len(report.raw_markdown),
+        "report_pending": True,
         "chat_log_entries": len(result.chat_log),
         "graph_nodes": meta.get("total_nodes", 0),
         "graph_edges": meta.get("total_edges", 0),

@@ -14,8 +14,7 @@ Usage:
 Pipeline:
     1. Build entity graph via graph_ops.build_graph (or fallback)
     2. Run simulation via SimSwarm Engine
-    3. Generate report via ReportGenerator
-    4. Write all output files
+    3. Write sim output files (report generation moved to Celery worker)
 """
 from __future__ import annotations
 
@@ -34,7 +33,7 @@ for _p in (str(_DOCKER_DIR), str(_REPO_ROOT)):
 
 # Re-export the public functions tests depend on
 from run_job_v2_entities import _fallback_entities, get_entities  # noqa: E402,F401
-from run_job_v2_runner import generate_report, run_simulation, write_results  # noqa: E402
+from run_job_v2_runner import run_simulation, write_results  # noqa: E402
 
 # Optional service_init for Neo4j/vLLM wait
 try:
@@ -56,7 +55,12 @@ def run_pipeline(
     output_dir: str,
     target_agents: int = 5,
 ) -> dict:
-    """Full pipeline: entities → simulation → report → write results."""
+    """Sim-only pipeline: entities → simulation → write non-report artifacts.
+
+    Report generation has moved to the SaaS-side Celery task
+    (saas/jobs/tasks_report.py); the pod no longer writes report.md or
+    structured_results.json.
+    """
     entities = get_entities(seed_text, goal, target_agents)
 
     result = asyncio.run(
@@ -64,10 +68,7 @@ def run_pipeline(
     )
     print(f"[run_job_v2] Simulation complete: {len(result.chat_log)} actions", flush=True)
 
-    report = asyncio.run(generate_report(result, goal))
-    print(f"[run_job_v2] Report generated: {len(report.raw_markdown)} chars", flush=True)
-
-    write_results(result, report, output_dir)
+    write_results(result, output_dir)
 
     out = Path(output_dir)
     return json.loads((out / "summary.json").read_text(encoding="utf-8"))

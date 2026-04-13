@@ -82,12 +82,14 @@ class TestWorkerApi:
         assert resp.get_json()["status"] == "accepted"
 
     def test_status_returns_completed_with_results(self, client):
-        """GET /status returns report + chat_log when job is completed."""
+        """GET /status returns chat_log when job is completed.
+
+        report is no longer produced by the pod (moved to Celery worker).
+        """
         flask_client, mod = client
         with mod._lock:
             mod._job["status"] = "completed"
             mod._job["result"] = {
-                "report": "# Report\nDone.",
                 "chat_log": '[{"action":"post"}]',
                 "graph_data": "{}",
             }
@@ -95,7 +97,7 @@ class TestWorkerApi:
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["status"] == "completed"
-        assert data["report"] == "# Report\nDone."
+        assert "report" not in data
         assert data["chat_log"] == '[{"action":"post"}]'
 
     def test_status_returns_failed_with_error(self, client):

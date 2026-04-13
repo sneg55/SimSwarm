@@ -127,10 +127,10 @@ class TestStatusContract:
         assert data["status"] == "idle"
 
     def test_completed_status_has_all_result_fields(self, worker_client):
+        """report is no longer returned by the pod; chat_log/graph_data/structured are."""
         flask_client, mod = worker_client
         mod._job["status"] = "completed"
         mod._job["result"] = {
-            "report": "# Test Report\n\nFindings here.",
             "chat_log": json.dumps([{"agent_name": "A", "action_type": "CREATE_POST",
                                      "round_num": 1, "platform": "twitter",
                                      "agent_id": 1, "action_args": {}}]),
@@ -147,7 +147,7 @@ class TestStatusContract:
         resp = flask_client.get("/status")
         data = resp.get_json()
         assert data["status"] == "completed"
-        assert "report" in data
+        assert "report" not in data  # report moved to Celery worker
         assert "chat_log" in data
         assert "graph_data" in data
         assert "structured" in data
@@ -156,14 +156,13 @@ class TestStatusContract:
         flask_client, mod = worker_client
         mod._job["status"] = "completed"
         mod._job["result"] = {
-            "report": "# Report",
             "chat_log": "[]",
             "graph_data": "{}",
             "structured": "{}",
         }
         resp = flask_client.get("/status")
         data = resp.get_json()
-        assert isinstance(data["report"], str)
+        assert "report" not in data  # report moved to Celery worker
         assert isinstance(data["chat_log"], str)
         assert isinstance(data["graph_data"], str)
         assert isinstance(data["structured"], str)
