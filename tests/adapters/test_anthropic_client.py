@@ -167,3 +167,91 @@ async def test_chat_parses_tool_use_blocks_into_tool_calls(monkeypatch):
         "name": "get_top_posts",
         "args": {"limit": 3},
     }
+
+
+import httpx
+
+
+def _make_httpx_response(status_code: int) -> httpx.Response:
+    """Build a minimal httpx.Response with a request set (required by anthropic SDK 0.94.0)."""
+    req = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+    return httpx.Response(status_code=status_code, request=req)
+
+
+@pytest.mark.asyncio
+async def test_chat_wraps_rate_limit_as_transient(monkeypatch):
+    from anthropic import RateLimitError
+
+    client = AnthropicClient(api_key="k", model="claude-opus-4-6")
+
+    async def _raise(*_a, **_kw):
+        raise RateLimitError(
+            message="rate limited",
+            response=_make_httpx_response(429),
+            body=None,
+        )
+
+    fake_sdk = MagicMock()
+    fake_sdk.messages.create = _raise
+
+    async def _fake_get_client(self):
+        return fake_sdk
+    monkeypatch.setattr(AnthropicClient, "_get_client", _fake_get_client)
+
+    from saas.adapters.anthropic_client import AnthropicTransientError
+    with pytest.raises(AnthropicTransientError):
+        await client.chat(messages=[{"role": "user", "content": "go"}])
+
+
+@pytest.mark.asyncio
+async def test_chat_wraps_5xx_as_transient(monkeypatch):
+    from anthropic import APIStatusError
+
+    client = AnthropicClient(api_key="k", model="claude-opus-4-6")
+
+    async def _raise(*_a, **_kw):
+        err = APIStatusError(
+            message="server error",
+            response=_make_httpx_response(503),
+            body=None,
+        )
+        err.status_code = 503
+        raise err
+
+    fake_sdk = MagicMock()
+    fake_sdk.messages.create = _raise
+
+    async def _fake_get_client(self):
+        return fake_sdk
+    monkeypatch.setattr(AnthropicClient, "_get_client", _fake_get_client)
+
+    from saas.adapters.anthropic_client import AnthropicTransientError
+    with pytest.raises(AnthropicTransientError):
+        await client.chat(messages=[{"role": "user", "content": "go"}])
+
+
+@pytest.mark.asyncio
+async def test_chat_wraps_400_as_permanent(monkeypatch):
+    from anthropic import APIStatusError
+
+    client = AnthropicClient(api_key="k", model="claude-opus-4-6")
+
+    async def _raise(*_a, **_kw):
+        err = APIStatusError(
+            message="bad request",
+            response=_make_httpx_response(400),
+            body=None,
+        )
+        err.status_code = 400
+        raise err
+
+    fake_sdk = MagicMock()
+    fake_sdk.messages.create = _raise
+
+    async def _fake_get_client(self):
+        return fake_sdk
+    monkeypatch.setattr(AnthropicClient, "_get_client", _fake_get_client)
+
+    from saas.adapters.anthropic_client import AnthropicPermanentError
+    with pytest.raises(AnthropicPermanentError):
+        await client.chat(messages=[{"role": "user", "content": "go"}])
