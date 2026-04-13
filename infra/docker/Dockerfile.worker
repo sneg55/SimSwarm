@@ -58,10 +58,19 @@ COPY infra/docker/graph_ops.py /app/graph_ops.py
 COPY infra/docker/simulation.py /app/simulation.py
 COPY infra/docker/results.py /app/results.py
 COPY infra/docker/run_job.py /app/run_job.py
+COPY infra/docker/run_job_v2.py /app/run_job_v2.py
+COPY infra/docker/run_job_v2_runner.py /app/run_job_v2_runner.py
+COPY infra/docker/run_job_v2_entities.py /app/run_job_v2_entities.py
 COPY infra/docker/worker_api.py /app/worker_api.py
 COPY infra/docker/sim_data_extractor.py /app/sim_data_extractor.py
 COPY infra/docker/start.sh /app/start.sh
-RUN chmod +x /app/run_job.py /app/start.sh
+
+# SimSwarm engine (imported by run_job_v2_runner). Copied verbatim — the
+# prompts/report.j2 template is loaded at runtime via filesystem path, so
+# this must stay a source tree, not a pip-installed package.
+COPY simswarm/ /app/simswarm/
+
+RUN chmod +x /app/run_job.py /app/run_job_v2.py /app/start.sh
 
 RUN mkdir -p /tmp/results /tmp/seed
 
