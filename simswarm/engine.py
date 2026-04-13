@@ -5,11 +5,14 @@ import asyncio
 import logging
 from typing import Any, Callable, Awaitable
 
+from simswarm.belief import update_beliefs
 from simswarm.bridge import Bridge
 from simswarm.environments.social import SocialConfig, SocialEnvironment
 from simswarm.environments.market import MarketConfig, MarketEnvironment
 from simswarm.environments.economic import EconomicConfig, EconomicEnvironment
+from simswarm.graph import build_graph
 from simswarm.llm import LLMClient, build_context
+from simswarm.stance import score_stance
 from simswarm.sweep import ScenarioSweep, generate_sweep_configs
 from simswarm.types import (
     Action,
@@ -20,7 +23,6 @@ from simswarm.types import (
     EngineConfig,
     Entity,
     EnvironmentConfig,
-    GraphSnapshot,
     Observation,
     RoundSnapshot,
     SimulationConfig,
@@ -55,6 +57,9 @@ class Engine:
         chat_log: list[ActionRecord] = []
         snapshots: list[RoundSnapshot] = []
         semaphore = asyncio.Semaphore(config.concurrency)
+        # Belief updates are driven by the sim's goal as a single topic. Names
+        # for multi-topic support would be added here in a follow-up.
+        belief_topic = (config.goal or "topic").strip()[:200] or "topic"
 
         for round_num in range(1, config.rounds + 1):
             bridge.inject_scheduled(config.scheduled_events, round_num)
@@ -119,8 +124,15 @@ class Engine:
 
             tasks = [step_agent(agent) for agent in agents.values()]
             results = await asyncio.gather(*tasks)
+            round_records: list[ActionRecord] = []
             for records in results:
                 chat_log.extend(records)
+                round_records.extend(records)
+
+            # Belief dynamics: each agent sees the posts authored by others this
+            # round, weighted by stance. The old v1 (MiroShark) path ran this;
+            # under v2 it had been stubbed out, leading to flat 0.0 sentiment.
+            _apply_belief_updates(agents, round_records, belief_topic)
 
             for env in environments.values():
                 env.tick()
@@ -143,7 +155,7 @@ class Engine:
 
         return SimulationResult(
             chat_log=chat_log,
-            graph_data=GraphSnapshot(nodes=[], edges=[], metadata={}),
+            graph_data=build_graph(list(config.entities), chat_log),
             trajectories={},
             market_data=None,
             raw_state=SimulationState(
@@ -203,3 +215,65 @@ class Engine:
                 if action_name in tool_names:
                     return env_name
         return agent.environments[0] if agent.environments else "unknown"
+
+
+# ---------------------------------------------------------------------------
+# Belief dynamics integration
+# ---------------------------------------------------------------------------
+
+
+def _apply_belief_updates(
+    agents: dict[str, Agent],
+    round_records: list[ActionRecord],
+    topic: str,
+) -> None:
+    """Update each agent's belief state from the other agents' posts this round.
+
+    Mutates Agent.belief_state in place. Own posts are skipped (agents don't
+    influence themselves). Stance is scored from post text via
+    simswarm.stance.score_stance.
+    """
+    # Build the exposure payload shape that belief.update_beliefs expects.
+    # Only POST-like actions count as "exposures" — browse/follow/etc don't
+    # carry a stance.
+    post_actions = [
+        r for r in round_records
+        if r.success
+        and r.action_type.lower() in ("create_post", "post", "comment", "reply")
+    ]
+
+    posts_by_author: dict[str, list[dict[str, Any]]] = {}
+    for action in post_actions:
+        text = (action.action_args or {}).get("text") or \
+            (action.action_args or {}).get("content") or ""
+        if not text:
+            continue
+        stance = score_stance(text)
+        # content_hash need only be unique per post within the run so
+        # exposure_history can dedupe repeated exposures.
+        content_hash = f"r{action.round_num}:{action.agent_id}:{hash(text) & 0xffffffff:08x}"
+        posts_by_author.setdefault(action.agent_id, []).append({
+            "author": action.agent_name,
+            "content_hash": content_hash,
+            "stance": stance,
+            "likes": 0,  # engagement counts aren't tracked yet; follow-up
+        })
+
+    if not posts_by_author:
+        return
+
+    for agent_id, agent in agents.items():
+        exposures = [
+            post for author, posts in posts_by_author.items()
+            if author != agent_id
+            for post in posts
+        ]
+        if not exposures:
+            continue
+        agent.belief_state = update_beliefs(
+            state=agent.belief_state,
+            posts=exposures,
+            topic=topic,
+            own_likes=0,
+            own_dislikes=0,
+        )

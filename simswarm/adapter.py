@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from simswarm.stance import NEGATIVE_WORDS, POSITIVE_WORDS  # noqa: F401 — public re-export
 from simswarm.types import ActionRecord, GraphSnapshot
 
 # ---------------------------------------------------------------------------
@@ -13,28 +14,6 @@ from simswarm.types import ActionRecord, GraphSnapshot
 # ---------------------------------------------------------------------------
 
 FINDING_COLORS = ["#22D3EE", "#A78BFA", "#F97316", "#6EE7B7", "#FF6B6B", "#FBBF24"]
-
-POSITIVE_WORDS = {
-    "support", "approve", "praise", "welcome", "benefit", "success", "agree",
-    "positive", "progress", "growth", "improve", "achieve", "gain", "boost",
-    "encourage", "optimistic", "favorable", "advance", "strengthen", "celebrate",
-    "endorse", "commend", "constructive", "prosper", "thrive", "cooperate",
-    "alliance", "partnership", "diplomatic", "peaceful", "stable", "recovery",
-    "innovation", "opportunity", "confident", "resolve", "protect", "invest",
-    "expand", "lead", "unite", "embrace", "recommend", "affirm", "uphold",
-    "champion", "reform", "empower", "sustain", "reliable",
-}
-
-NEGATIVE_WORDS = {
-    "oppose", "condemn", "reject", "threaten", "crisis", "fail", "warn",
-    "attack", "ban", "sanction", "conflict", "damage", "destroy", "collapse",
-    "risk", "danger", "decline", "loss", "struggle", "tension", "hostile",
-    "aggressive", "escalate", "violate", "disrupt", "undermine", "restrict",
-    "protest", "controversy", "criticism", "backlash", "concern", "fear",
-    "instability", "vulnerable", "deficit", "recession", "inflation", "corrupt",
-    "exploit", "abuse", "negligence", "incompetent", "reckless", "toxic",
-    "polarize", "divide", "obstruct", "retaliate", "assassinate",
-}
 
 _COALITION_COLORS = ["#22D3EE", "#A78BFA", "#F97316", "#6EE7B7", "#FF6B6B"]
 
