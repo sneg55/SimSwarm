@@ -196,3 +196,67 @@ def _get_job_status(job_id: int) -> str | None:
             return row[0] if row else None
     finally:
         engine.dispose()
+
+
+def _transition_to_reporting(job_id: int) -> None:
+    """Move a job from RUNNING → REPORTING.
+
+    Guarded so it's a no-op if the job is already terminal — protects against
+    a race where recover_stale_jobs already marked the job failed.
+    """
+    from sqlalchemy import text
+
+    engine = _get_sync_engine()
+    if engine is None:
+        return
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "UPDATE simulation_jobs "
+                    "SET status = 'REPORTING' "
+                    "WHERE id = :job_id AND status IN ('RUNNING', 'PROVISIONING')"
+                ),
+                {"job_id": job_id},
+            )
+            conn.commit()
+    finally:
+        engine.dispose()
+
+
+def _save_report_result(
+    job_id: int,
+    report_markdown: str,
+    structured: str,
+    key_insight: str | None,
+) -> None:
+    """Persist final report fields and mark COMPLETED."""
+    from sqlalchemy import text
+    from datetime import datetime, timezone
+
+    engine = _get_sync_engine()
+    if engine is None:
+        return
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text(
+                    "UPDATE simulation_jobs "
+                    "SET result_report = :report, "
+                    "    result_structured = :structured, "
+                    "    key_insight = :key_insight, "
+                    "    status = 'COMPLETED', "
+                    "    completed_at = :completed_at "
+                    "WHERE id = :job_id AND status = 'REPORTING'"
+                ),
+                {
+                    "report": report_markdown,
+                    "structured": structured,
+                    "key_insight": key_insight,
+                    "completed_at": datetime.now(timezone.utc),
+                    "job_id": job_id,
+                },
+            )
+            conn.commit()
+    finally:
+        engine.dispose()

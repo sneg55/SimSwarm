@@ -26,6 +26,8 @@ from saas.jobs.persistence_sync import (
     _update_job_retry_sync,
     _get_job_status,
     _get_job_config_for_resume,
+    _transition_to_reporting,
+    _save_report_result,
 )
 from saas.jobs.persistence_sync_progress import (
     _update_pipeline_stage_sync,
@@ -136,6 +138,8 @@ __all__ = [
     "_update_enrichment_sync",
     "_get_job_status",
     "_get_job_config_for_resume",
+    "_transition_to_reporting",
+    "_save_report_result",
     "_claim_resume",
     "_release_resume",
     "_mark_job_failed",
