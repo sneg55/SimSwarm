@@ -42,6 +42,8 @@ def test_resume_success_saves_results():
          patch("saas.jobs.tasks_resume.JobRunner.resume", new_callable=AsyncMock, return_value=result_data), \
          patch("saas.jobs.tasks_resume._save_job_results") as save, \
          patch("saas.jobs.tasks_resume._update_sim_data_available") as usda, \
+         patch("saas.jobs.tasks_resume._transition_to_reporting") as trans, \
+         patch("saas.jobs.tasks_report.generate_report_task.apply_async") as enqueue, \
          patch("saas.jobs.tasks_resume._release_resume") as rel:
         out = resume_simulation_task(
             job_id=1, user_id="u", pod_id="p", credits_charged=0,
@@ -50,6 +52,8 @@ def test_resume_success_saves_results():
     assert out["status"] == "completed"
     save.assert_called_once()
     usda.assert_called_once()
+    trans.assert_called_once_with(1)
+    enqueue.assert_called_once_with((1, "u"))
     rel.assert_called_once()
 
 

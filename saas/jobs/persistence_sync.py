@@ -63,17 +63,19 @@ def _save_job_results(
         return
     try:
         with engine.connect() as conn:
+            # NB: status/completed_at are NOT set here — under the external-report
+            # flow, transitions are owned by _transition_to_reporting + _save_report_result
+            # (or _mark_job_failed on the failure path). This helper only writes
+            # the non-status result fields captured from the pod.
             conn.execute(
                 text(
                     "UPDATE simulation_jobs "
-                    "SET status = 'COMPLETED', "
-                    "    result_report = :report, "
+                    "SET result_report = :report, "
                     "    result_chat_log = :chat_log, "
                     "    result_graph = :graph_data, "
                     "    key_insight = :key_insight, "
-                    "    result_structured = :structured, "
-                    "    completed_at = :completed_at "
-                    "WHERE id = :job_id AND status != 'COMPLETED'"
+                    "    result_structured = :structured "
+                    "WHERE id = :job_id AND status NOT IN ('COMPLETED', 'FAILED', 'REFUNDED')"
                 ),
                 {
                     "report": report,
@@ -81,7 +83,6 @@ def _save_job_results(
                     "graph_data": graph_data,
                     "key_insight": key_insight,
                     "structured": structured,
-                    "completed_at": datetime.now(timezone.utc),
                     "job_id": job_id,
                 },
             )

@@ -9,11 +9,11 @@ from saas.workers.utils import _run_async, _get_gpu_provider
 from saas.jobs.persistence import (
     _update_pipeline_stage_sync,
     _update_heartbeat_sync,
-    _extract_key_insight,
     _get_job_status,
     _mark_job_failed,
     _save_job_results,
     _update_sim_data_available,
+    _transition_to_reporting,
     _claim_resume,
     _release_resume,
 )
@@ -68,26 +68,42 @@ def resume_simulation_task(
     try:
         result = _run_async(runner.resume(pod_id=pod_id, job_id=job_id))
 
+        # Pod no longer returns an inline report; report task fills it later.
         report = result.get("report", "")
         chat_log = result.get("chat_log", "")
         graph_data = result.get("graph_data", "{}")
         structured = result.get("structured", "{}")
 
-        key_insight = _extract_key_insight(report)
-
         _save_job_results(
             job_id=job_id, report=report, chat_log=chat_log,
-            graph_data=graph_data, key_insight=key_insight, structured=structured,
+            graph_data=graph_data, key_insight=None, structured=structured,
         )
 
-        # Mark rich simulation data availability
         sim_data_uploaded = result.get("sim_data_uploaded", False)
-        if sim_data_uploaded:
-            _update_sim_data_available(job_id, True)
+
+        if not sim_data_uploaded:
+            # Upload failure is fatal under the external-report flow.
+            _mark_job_failed(
+                job_id=job_id,
+                error_message="sim_data_upload_failed: artifacts missing from MinIO",
+            )
+            if credits_charged > 0:
+                _refund_credits(job_id=job_id, user_id=user_id, credits=credits_charged)
+            logger.warning(
+                "job.resume_upload_failed_no_report job_id=%d refunded=%d",
+                job_id, credits_charged,
+            )
+            return result
+
+        _update_sim_data_available(job_id, True)
+        _transition_to_reporting(job_id)
+
+        import saas.jobs.tasks_report as _tasks_report
+        _tasks_report.generate_report_task.apply_async((job_id, user_id))
 
         logger.info(
-            "job.resumed_completed job_id=%d pod_id=%s report_chars=%d sim_data=%s",
-            job_id, pod_id, len(report), sim_data_uploaded,
+            "job.resumed_sim_complete_report_enqueued job_id=%d pod_id=%s",
+            job_id, pod_id,
         )
         return result
 

@@ -15,6 +15,7 @@ SIM_DATA_FILES = [
     "trades.json",
     "social_graph.json",
     "profiles.json",
+    "chat_log.json",  # required by the external-LLM report task (saas/jobs/report.py)
 ]
 
 UPLOAD_EXPIRY = timedelta(hours=2)
