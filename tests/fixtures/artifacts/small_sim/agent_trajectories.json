@@ -1,0 +1,4 @@
+[
+  {"agent_id": "a1", "name": "Alice", "rounds": [{"round_num": 1, "action": "create_post"}]},
+  {"agent_id": "a2", "name": "Bob", "rounds": [{"round_num": 1, "action": "follow"}]}
+]
