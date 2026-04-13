@@ -21,7 +21,7 @@ from simswarm.llm import LLMResponse
 
 logger = logging.getLogger(__name__)
 
-_MAX_ROUNDS = 5
+_MAX_ROUNDS = 10
 
 _TEMPLATE_DIR = Path(__file__).resolve().parent.parent.parent / "simswarm" / "prompts"
 _jinja_env = Environment(
@@ -86,10 +86,25 @@ class ReportRunner:
         markdown = ""
 
         for turn in range(_MAX_ROUNDS):
+            # On the final turn, strip tools and force the model to write the
+            # report from whatever data it has already gathered. Opus otherwise
+            # tends to keep exploring indefinitely when the sim data is sparse.
+            is_final_turn = turn == _MAX_ROUNDS - 1
+            if is_final_turn:
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "You've gathered enough data. Write the full final "
+                        "report now in the exact Markdown structure specified, "
+                        "with no further tool calls."
+                    ),
+                })
+
             response = await self._client.chat(
-                messages, tools=ReportTools.tool_schemas()
+                messages,
+                tools=None if is_final_turn else ReportTools.tool_schemas(),
             )
-            if response.tool_calls:
+            if response.tool_calls and not is_final_turn:
                 messages.append({
                     "role": "assistant",
                     "content": response.content or "",
