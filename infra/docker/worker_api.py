@@ -29,29 +29,58 @@ _lock = threading.Lock()
 def _upload_sim_data(results_dir, upload_urls):
     """Upload pre-extracted sim data JSON files to MinIO via presigned URLs.
 
-    The JSON files are written by run_job.py (via sim_data_extractor.extract_all).
-    This function just reads them from the results directory and uploads.
+    Retries each file up to 3 times with 2s backoff before giving up.
+    Returns True only if ALL files that existed uploaded successfully — under the
+    external-report flow, a single failed upload blocks report generation.
     """
     import requests as req
+    import time
 
-    uploaded = 0
+    attempts_per_file = 3
+    backoff_s = 2
+
+    successes = 0
     for filename, url in upload_urls.items():
         filepath = results_dir / filename
         if not filepath.exists():
+            print(f"[worker] Skipping {filename} (not produced by pipeline)", flush=True)
             continue
         body = filepath.read_bytes()
-        try:
-            resp = req.put(url, data=body, headers={"Content-Type": "application/json"}, timeout=60)
-            if resp.status_code in (200, 204):
-                uploaded += 1
-                print(f"[worker] Uploaded {filename} ({len(body)} bytes)", flush=True)
-            else:
-                print(f"[worker] Upload failed for {filename}: HTTP {resp.status_code}", flush=True)
-        except Exception as exc:
-            print(f"[worker] Upload failed for {filename}: {exc}", flush=True)
+        uploaded = False
+        for attempt in range(1, attempts_per_file + 1):
+            try:
+                resp = req.put(
+                    url, data=body,
+                    headers={"Content-Type": "application/json"},
+                    timeout=60,
+                )
+                if resp.status_code in (200, 204):
+                    uploaded = True
+                    print(f"[worker] Uploaded {filename} ({len(body)} bytes, attempt {attempt})", flush=True)
+                    break
+                print(
+                    f"[worker] Upload {filename} attempt {attempt}: HTTP {resp.status_code}",
+                    flush=True,
+                )
+            except Exception as exc:
+                print(
+                    f"[worker] Upload {filename} attempt {attempt}: {exc}",
+                    flush=True,
+                )
+            if attempt < attempts_per_file:
+                time.sleep(backoff_s)
+        if uploaded:
+            successes += 1
+        else:
+            print(f"[worker] Upload FAILED for {filename} after {attempts_per_file} attempts", flush=True)
 
-    print(f"[worker] Uploaded {uploaded}/{len(upload_urls)} sim data files", flush=True)
-    return uploaded > 0
+    produced = sum(1 for fn in upload_urls if (results_dir / fn).exists())
+    print(
+        f"[worker] Uploaded {successes}/{produced} sim data files "
+        f"(requested {len(upload_urls)})",
+        flush=True,
+    )
+    return successes == produced and produced > 0
 
 
 def _run_pipeline(seed_text, goal, max_rounds, forecast_days=None, upload_urls=None, target_agents=5):
