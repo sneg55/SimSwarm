@@ -19,7 +19,12 @@ class ConnCtx:
 def mock_engine_with_rows(stale_rows, update_rowcount=1, single_connect=False):
     """Return (mock_engine, mock_conn).
 
-    Conn.execute(SELECT) returns stale_rows; UPDATE/INSERT return rowcount.
+    Conn.execute(SELECT) returns stale_rows for the main stale-job query;
+    the REPORTING query always returns no rows; UPDATE/INSERT return rowcount.
+
+    single_connect is kept for backward compat but ignored — the engine now
+    always supports multiple connect() calls so the _recover_reporting_jobs
+    path (which opens its own connection in the short-circuit branch) works.
     """
     mock_conn = MagicMock()
 
@@ -27,13 +32,17 @@ def mock_engine_with_rows(stale_rows, update_rowcount=1, single_connect=False):
         sql = str(stmt)
         if "SELECT id, user_id, tier" in sql:
             return iter(stale_rows)
+        if "status = 'REPORTING'" in sql:
+            return iter([])  # no orphaned REPORTING jobs in tests
         return MagicMock(rowcount=update_rowcount)
 
     mock_conn.execute.side_effect = execute_side
 
     mock_engine = MagicMock()
-    if single_connect:
-        mock_engine.connect.side_effect = [ConnCtx(mock_conn)]
-    else:
-        mock_engine.connect.side_effect = [ConnCtx(mock_conn), ConnCtx(mock_conn)]
+    # Always provide enough connections; recovery may open 1 or 2 depending on path.
+    mock_engine.connect.side_effect = [
+        ConnCtx(mock_conn),
+        ConnCtx(mock_conn),
+        ConnCtx(mock_conn),
+    ]
     return mock_engine, mock_conn

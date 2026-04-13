@@ -6,61 +6,10 @@ import os
 from datetime import datetime, timezone
 
 from saas.jobs.alerts import send_orphan_alert
+from saas.jobs.recovery_reporting import _recover_reporting_jobs
+from saas.jobs.recovery_utils import _check_pod_status, _is_stale
 
 logger = logging.getLogger(__name__)
-
-HEARTBEAT_STALE_POD_DEAD_S = 300    # 5 minutes
-
-
-def _check_pod_status(pod_id: str) -> str:
-    """Check what the worker pod is doing via its /status endpoint.
-
-    Returns: 'idle', 'running', 'completed', 'failed', or 'unreachable'.
-    """
-    import httpx
-
-    url = f"https://{pod_id}-5000.proxy.runpod.net/status"
-    try:
-        resp = httpx.get(url, timeout=10)
-        if resp.status_code == 200:
-            return resp.json().get("status", "unknown")
-        return "unreachable"
-    except Exception:
-        return "unreachable"
-HEARTBEAT_STALE_NO_PROGRESS_S = 900  # 15 minutes
-
-
-def _is_stale(
-    last_heartbeat: datetime | None,
-    created_at: datetime,
-    pod_alive: bool,
-    tier_timeout: int,
-) -> bool:
-    """Determine if a job should be considered stale."""
-    now = datetime.now(timezone.utc)
-
-    if last_heartbeat is not None:
-        if last_heartbeat.tzinfo is None:
-            last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
-        hb_age = (now - last_heartbeat).total_seconds()
-
-        if hb_age > HEARTBEAT_STALE_POD_DEAD_S and not pod_alive:
-            return True
-        if hb_age > HEARTBEAT_STALE_NO_PROGRESS_S:
-            return True
-        return False
-
-    # No heartbeat — legacy fallback based on created_at
-    if created_at.tzinfo is None:
-        created_at = created_at.replace(tzinfo=timezone.utc)
-    age = (now - created_at).total_seconds()
-    timeout_with_buffer = tier_timeout + 600
-
-    if not pod_alive and age > HEARTBEAT_STALE_POD_DEAD_S:
-        return True
-    if age > timeout_with_buffer:
-        return True
-    return False
 
 
 def recover_stale_jobs() -> dict:
@@ -70,6 +19,8 @@ def recover_stale_jobs() -> dict:
       - status is PENDING, PROVISIONING, or RUNNING
       - created_at is older than its tier timeout + 10 minutes buffer
       - OR its pod_id no longer exists in RunPod
+
+    Also re-enqueues any REPORTING jobs orphaned by a worker restart.
 
     Runs on worker startup and every 10 minutes via beat schedule.
     """
@@ -97,7 +48,7 @@ def recover_stale_jobs() -> dict:
         engine = create_engine(sync_url)
         with engine.connect() as conn:
             # Find all non-terminal jobs
-            result = conn.execute(
+            rows = conn.execute(
                 text(
                     "SELECT id, user_id, tier, credits_charged, pod_id, "
                     "created_at, last_heartbeat "
@@ -106,11 +57,16 @@ def recover_stale_jobs() -> dict:
                     "ORDER BY created_at ASC"
                 )
             )
-            stale_jobs = list(result)
+            stale_jobs = list(rows)
 
         if not stale_jobs:
             engine.dispose()
-            return {"stale_jobs": 0, "recovered": 0}
+            # Still check for orphaned REPORTING jobs even when no RUNNING ones exist
+            with engine.connect() as conn:
+                reporting_requeued = _recover_reporting_jobs(conn, datetime.now(timezone.utc))
+                conn.commit()
+            engine.dispose()
+            return {"stale_jobs": 0, "recovered": 0, "reporting_requeued": len(reporting_requeued)}
 
         # Tier timeout + 10 min buffer
         from saas.constants.tiers import TIER_TIMEOUTS
@@ -210,7 +166,10 @@ def recover_stale_jobs() -> dict:
                         runpod.terminate_pod(pod_id)
                         logger.info("recover.terminated_pod job_id=%d pod_id=%s", job_id, pod_id)
                     except Exception as term_exc:
-                        logger.warning("recover.terminate_failed job_id=%d pod_id=%s error=%s", job_id, pod_id, term_exc)
+                        logger.warning(
+                            "recover.terminate_failed job_id=%d pod_id=%s error=%s",
+                            job_id, pod_id, term_exc,
+                        )
 
                 logger.warning(
                     "recover.failed_job job_id=%d user_id=%s reason=%s age=%ds credits=%d",
@@ -230,10 +189,9 @@ def recover_stale_jobs() -> dict:
             # Refund credits for recovered jobs
             for item in recovered:
                 jid = item["job_id"]
-                # Find the job's user and credits from our stale_jobs list
                 for row in stale_jobs:
                     if row[0] == jid and row[3] > 0:
-                        result = conn.execute(
+                        refund_result = conn.execute(
                             text(
                                 "INSERT INTO credit_entries "
                                 "(user_id, amount, description, job_id, created_at) "
@@ -251,11 +209,22 @@ def recover_stale_jobs() -> dict:
                                 "created_at": now,
                             },
                         )
-                        if result.rowcount:
-                            logger.info("recover.refunded job_id=%d credits=%d user=%s", jid, row[3], row[1])
+                        if refund_result.rowcount:
+                            logger.info(
+                                "recover.refunded job_id=%d credits=%d user=%s",
+                                jid, row[3], row[1],
+                            )
                         else:
                             logger.info("recover.refund_skipped job_id=%d (already exists)", jid)
                         break
+
+            # Extended coverage: REPORTING-state jobs orphaned by worker restart
+            reporting_requeued = _recover_reporting_jobs(conn, now)
+            if reporting_requeued:
+                logger.warning(
+                    "recover.reporting_summary requeued=%d",
+                    len(reporting_requeued),
+                )
 
             conn.commit()
 
@@ -264,13 +233,14 @@ def recover_stale_jobs() -> dict:
             "stale_jobs": len(stale_jobs),
             "recovered": len(recovered),
             "resumed": len(resumed),
+            "reporting_requeued": len(reporting_requeued),
             "details": recovered,
             "resumed_details": resumed,
         }
-        if recovered or resumed:
+        if recovered or resumed or reporting_requeued:
             logger.warning(
-                "recover.summary stale=%d recovered=%d resumed=%d",
-                len(stale_jobs), len(recovered), len(resumed),
+                "recover.summary stale=%d recovered=%d resumed=%d reporting_requeued=%d",
+                len(stale_jobs), len(recovered), len(resumed), len(reporting_requeued),
             )
         return result
 

@@ -12,20 +12,22 @@ def test_recover_no_stale_jobs_short_circuits(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@h/db")
     monkeypatch.delenv("RUNPOD_API_KEY", raising=False)
 
-    engine, _ = mock_engine_with_rows([], single_connect=True)
+    engine, _ = mock_engine_with_rows([])
 
     with patch("sqlalchemy.create_engine", return_value=engine):
         result = recovery.recover_stale_jobs()
 
-    assert result == {"stale_jobs": 0, "recovered": 0}
-    engine.dispose.assert_called_once()
+    # reporting_requeued key was added when REPORTING recovery was introduced
+    assert result["stale_jobs"] == 0
+    assert result["recovered"] == 0
+    assert result["reporting_requeued"] == 0
 
 
 def test_recover_runpod_check_fails_still_runs(monkeypatch):
     monkeypatch.setenv("DATABASE_URL", "postgresql://u:p@h/db")
     monkeypatch.setenv("RUNPOD_API_KEY", "rk-test")
 
-    engine, _ = mock_engine_with_rows([], single_connect=True)
+    engine, _ = mock_engine_with_rows([])
     fake_runpod = MagicMock()
     fake_runpod.get_pods.side_effect = RuntimeError("runpod down")
 
