@@ -29,6 +29,11 @@ COPY alembic.ini ./
 COPY infra/ ./infra/
 COPY demos/ ./demos/
 
+# /app holds source-tree packages (saas/, simswarm/) that are NOT pip-installed.
+# Console scripts like the `celery` CLI don't add cwd to sys.path, so set
+# PYTHONPATH explicitly — matches how uvicorn's factory loader behaves.
+ENV PYTHONPATH=/app
+
 # Copy built frontend
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
