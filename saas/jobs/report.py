@@ -76,8 +76,12 @@ class ReportRunner:
         artifacts = self._load_artifacts()
         tools = ReportTools(artifacts)
 
+        # Anthropic's Messages API requires at least one user turn — OpenAI-compat
+        # servers accept system-only, but AnthropicClient targets Anthropic directly.
+        # Seed the loop with an explicit request to produce the report.
         messages: list[dict[str, Any]] = [
-            {"role": "system", "content": self._render_system_prompt()}
+            {"role": "system", "content": self._render_system_prompt()},
+            {"role": "user", "content": "Please generate the report now."},
         ]
         markdown = ""
 
