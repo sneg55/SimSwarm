@@ -2,11 +2,7 @@
 the LLM succeeds, and falls back to the one-liner on failure."""
 from __future__ import annotations
 
-import asyncio
-import json
 from pathlib import Path
-from types import SimpleNamespace
-from unittest.mock import patch
 
 import pytest
 
