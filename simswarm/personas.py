@@ -81,11 +81,17 @@ async def extract_personas(
     valid_ids = {p["agent_id"] for p in profiles}
     for agent_id, persona in data.items():
         if agent_id not in valid_ids:
+            logger.warning("personas.skip_unknown_agent id=%s", agent_id)
             continue
         if not isinstance(persona, str):
+            logger.warning(
+                "personas.skip_non_string id=%s type=%s",
+                agent_id, type(persona).__name__,
+            )
             continue
         cleaned = persona.strip()
         if not cleaned:
+            logger.warning("personas.skip_empty id=%s", agent_id)
             continue
         result[agent_id] = cleaned[:_MAX_PERSONA_CHARS]
 

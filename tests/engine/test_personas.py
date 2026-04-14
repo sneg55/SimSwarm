@@ -44,6 +44,14 @@ async def test_happy_path_returns_persona_per_agent():
         "alice": "A cautious pragmatist.",
         "bob": "A blunt contrarian.",
     }
+    # Lock down the prompt shape so silent regressions in the template or
+    # temperature override get caught.
+    assert llm.calls[0]["temperature"] == 0.4
+    prompt = llm.calls[0]["messages"][0]["content"]
+    assert "test" in prompt  # goal interpolated
+    assert "Alice" in prompt  # agent name rendered
+    assert "Alice post 0" in prompt  # sample_posts rendered
+    assert "neutral throughout" in prompt  # sentiment_arc rendered
 
 
 @pytest.mark.asyncio
