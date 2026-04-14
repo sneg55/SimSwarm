@@ -52,7 +52,9 @@ def score_entity_sentiment(graph_data: dict, chat_log: list[dict]) -> None:
     neg_counts: dict[int, int] = {}
 
     for entry in chat_log:
-        content = (entry.get("action_args") or {}).get("content", "")
+        args = entry.get("action_args") or {}
+        # Native social env uses the "text" key; older records use "content".
+        content = args.get("text") or args.get("content") or ""
         if not content:
             continue
         content_lower = content.lower()

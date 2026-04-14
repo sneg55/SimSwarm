@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 
-from simswarm.extractor_common import is_post
+from simswarm.extractor_common import is_post, post_text
 from simswarm.types import ActionRecord
 
 
@@ -26,7 +26,7 @@ def extract_posts(chat_log: list[ActionRecord]) -> list[dict]:
             "agent_id": record.agent_id,
             "agent_name": record.agent_name,
             "platform": record.platform,
-            "content": record.action_args.get("content", ""),
+            "content": post_text(record.action_args),
             "round_num": record.round_num,
             "action_type": record.action_type,
             "timestamp": record.timestamp,
@@ -60,7 +60,7 @@ def extract_top_posts(chat_log: list[ActionRecord], limit: int = 20) -> list[dic
             "agent_id": record.agent_id,
             "agent_name": record.agent_name,
             "platform": record.platform,
-            "content": args.get("content", ""),
+            "content": post_text(args),
             "round_num": record.round_num,
             "timestamp": record.timestamp,
             "num_likes": 0,

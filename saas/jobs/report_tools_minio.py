@@ -79,7 +79,9 @@ class ReportTools:
             "total_posts": len(posts),
             "rounds_active": len({r.get("round_num") for r in actions}),
             "sample_posts": [
-                (r.get("action_args") or {}).get("content", "") for r in posts[:3]
+                ((r.get("action_args") or {}).get("text")
+                 or (r.get("action_args") or {}).get("content") or "")
+                for r in posts[:3]
             ],
         }
 

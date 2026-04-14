@@ -8,7 +8,9 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import Any
 
-from simswarm.extractor_common import is_comment, is_like, is_post, score_sentiment
+from simswarm.extractor_common import (
+    is_comment, is_like, is_post, post_text, score_sentiment,
+)
 from simswarm.types import ActionRecord
 
 
@@ -67,13 +69,10 @@ def extract_agent_trajectories(chat_log: list[ActionRecord]) -> list[dict]:
 
         rd = round_data[aid][record.round_num]
         rd["actions"] += 1
-        if is_post(record.action_type):
-            rd["posts"] += 1
-            content = record.action_args.get("content", "")
-            if content:
-                rd["texts"].append(content)
-        elif is_comment(record.action_type):
-            content = record.action_args.get("content", "")
+        if is_post(record.action_type) or is_comment(record.action_type):
+            if is_post(record.action_type):
+                rd["posts"] += 1
+            content = post_text(record.action_args)
             if content:
                 rd["texts"].append(content)
 

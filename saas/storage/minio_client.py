@@ -16,6 +16,7 @@ SIM_DATA_FILES = [
     "social_graph.json",
     "profiles.json",
     "chat_log.json",  # required by the external-LLM report task (saas/jobs/report.py)
+    "relations.json",  # LLM-extracted typed graph edges; useful for post-mortems
 ]
 
 UPLOAD_EXPIRY = timedelta(hours=2)

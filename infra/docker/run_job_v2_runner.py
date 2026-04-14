@@ -92,9 +92,15 @@ async def run_simulation(
         # SUPPORTS, RESPONDS_TO, …). This is the post-cutover replacement for
         # the Graphiti knowledge-graph edges. On failure we keep the
         # interaction-only graph rather than failing the whole job.
+        relations: list[dict] = []
         try:
             relations = await extract_relations(
                 list(config.entities), result.chat_log, smart_llm, goal=goal,
+            )
+            print(
+                f"relations.extracted count={len(relations)} "
+                f"types={sorted({r['type'] for r in relations})}",
+                flush=True,
             )
             if relations:
                 result.graph_data = build_graph(
@@ -102,6 +108,9 @@ async def run_simulation(
                 )
         except RelationExtractionError as exc:
             print(f"relations.extraction_failed: {exc}", flush=True)
+        # Stash for write_results so relations.json lands in MinIO for
+        # post-mortem diagnostics.
+        result.trajectories = {**(result.trajectories or {}), "relations": relations}
         return result
     finally:
         await fast_llm.close()
@@ -153,6 +162,7 @@ def write_results(result: SimulationResult, output_dir: str) -> None:
     _w("agent_trajectories.json", extract_agent_trajectories(result.chat_log))
     _w("social_graph.json", extract_social_graph(result.chat_log))
     _w("trades.json", extract_market_data(result.chat_log))
+    _w("relations.json", (result.trajectories or {}).get("relations", []))
 
     meta = adapted_graph.get("metadata", {})
     summary = {

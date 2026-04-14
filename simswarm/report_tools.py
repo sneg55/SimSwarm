@@ -7,6 +7,7 @@ from typing import Any
 
 from simswarm.adapter import _detect_coalitions
 from simswarm.extractor import extract_agent_trajectories, extract_posts
+from simswarm.extractor_common import post_text
 from simswarm.types import SimulationResult
 
 logger = logging.getLogger(__name__)
@@ -70,7 +71,7 @@ class ReportTools:
             "total_actions": len(actions),
             "total_posts": len(posts),
             "rounds_active": len({r.round_num for r in actions}),
-            "sample_posts": [r.action_args.get("content", "") for r in posts[:3]],
+            "sample_posts": [post_text(r.action_args) for r in posts[:3]],
         }
 
     def get_trajectory(self, agent_id: str) -> list[dict]:

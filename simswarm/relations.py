@@ -16,6 +16,7 @@ from pathlib import Path
 
 from jinja2 import Environment, FileSystemLoader
 
+from simswarm.extractor_common import post_text
 from simswarm.llm import LLMClient
 from simswarm.types import ActionRecord, Entity
 
@@ -115,7 +116,7 @@ def _sample_posts(chat_log: list[ActionRecord], max_posts: int) -> list[dict]:
     for r in chat_log:
         if r.action_type.lower() != "create_post":
             continue
-        content = (r.action_args or {}).get("content", "")
+        content = post_text(r.action_args)
         if not content:
             continue
         out.append({"agent_id": r.agent_id, "content": content})

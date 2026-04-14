@@ -4,13 +4,14 @@ from saas.storage.minio_client import SimDataStorage, SIM_DATA_FILES
 
 
 def test_sim_data_files_list():
-    """All 9 expected files are defined, including chat_log.json needed by the
-    external-LLM report task."""
-    assert len(SIM_DATA_FILES) == 9
+    """All expected files are defined, including chat_log.json for the
+    external-LLM report task and relations.json for post-mortem diagnostics."""
+    assert len(SIM_DATA_FILES) == 10
     assert "market_curves.json" in SIM_DATA_FILES
     assert "posts.json" in SIM_DATA_FILES
     assert "agent_trajectories.json" in SIM_DATA_FILES
     assert "chat_log.json" in SIM_DATA_FILES
+    assert "relations.json" in SIM_DATA_FILES
 
 
 def test_generate_upload_urls_returns_dict():
@@ -25,7 +26,7 @@ def test_generate_upload_urls_returns_dict():
 
     urls = storage.generate_upload_urls(job_id=42)
 
-    assert len(urls) == 9
+    assert len(urls) == 10
     assert all(url == "https://minio.example.com/presigned-put" for url in urls.values())
     assert "market_curves.json" in urls
     calls = mock_client.presigned_put_object.call_args_list
@@ -47,7 +48,7 @@ def test_generate_download_urls_returns_dict():
 
     urls = storage.generate_download_urls(job_id=42)
 
-    assert len(urls) == 9
+    assert len(urls) == 10
     assert all(url == "https://minio.example.com/presigned-get" for url in urls.values())
 
 

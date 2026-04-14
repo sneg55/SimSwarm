@@ -29,6 +29,7 @@ EXPECTED_FILES = {
     "agent_trajectories.json",
     "social_graph.json",
     "trades.json",
+    "relations.json",
     "summary.json",
 }
 

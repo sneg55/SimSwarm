@@ -8,6 +8,19 @@ from __future__ import annotations
 from simswarm.adapter import NEGATIVE_WORDS, POSITIVE_WORDS
 
 
+def post_text(action_args: dict | None) -> str:
+    """Return the post body text from an ActionRecord's action_args.
+
+    The native social environment stores post bodies under the ``text`` key
+    (see simswarm/environments/social.py:_handle_create_post) but older
+    fixtures and some tests use ``content``. Check both, preferring ``text``
+    since that is what production records actually contain.
+    """
+    if not action_args:
+        return ""
+    return str(action_args.get("text") or action_args.get("content") or "")
+
+
 # Case-insensitive predicates over ActionRecord.action_type. Keep these cheap
 # and pure — every extractor iterates the full chat log at least once.
 
