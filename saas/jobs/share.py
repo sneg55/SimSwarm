@@ -1,11 +1,12 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
-from fastapi.responses import HTMLResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, Response
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 import json
 import html as html_mod
 
 from saas.database import get_session
+from saas.jobs.graph_adapter import adapt_graph_payload
 from saas.jobs.models import SimulationJob, JobStatus
 
 router = APIRouter(prefix="/share", tags=["share"])
@@ -142,7 +143,7 @@ async def get_shared_graph(
     if not job.result_graph:
         raise HTTPException(status_code=404, detail="Graph data not available")
     try:
-        json.loads(job.result_graph)
+        raw = json.loads(job.result_graph)
     except (json.JSONDecodeError, TypeError):
         raise HTTPException(status_code=500, detail="Invalid graph data")
-    return Response(content=job.result_graph, media_type="application/json")
+    return JSONResponse(content=adapt_graph_payload(raw))

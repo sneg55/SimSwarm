@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import Response
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy import select, func, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from saas.database import get_session
+from saas.jobs.graph_adapter import adapt_graph_payload
 from saas.jobs.models import SimulationJob, JobStatus
 from saas.jobs.models import ModelRouting
 from saas.jobs.schemas import JobCreate, JobResponse, JobListResponse
@@ -242,10 +243,10 @@ async def get_job_graph(
     if not job.result_graph:
         raise HTTPException(status_code=404, detail="Graph data not available for this job")
     try:
-        json.loads(job.result_graph)
+        raw = json.loads(job.result_graph)
     except (json.JSONDecodeError, TypeError):
         raise HTTPException(status_code=500, detail="Invalid graph data stored for this job")
-    return Response(content=job.result_graph, media_type="application/json")
+    return JSONResponse(content=adapt_graph_payload(raw))
 
 
 @router.get("", response_model=JobListResponse)

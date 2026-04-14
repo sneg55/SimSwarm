@@ -23,6 +23,8 @@ EXPECTED_FILES = {
     "chat_log.json",
     "graph_data.json",
     "posts.json",
+    "top_posts.json",
+    "profiles.json",
     "engagement_summary.json",
     "agent_trajectories.json",
     "social_graph.json",

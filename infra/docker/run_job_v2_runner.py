@@ -26,7 +26,9 @@ from simswarm.extractor import (  # noqa: E402
     extract_engagement_summary,
     extract_market_data,
     extract_posts,
+    extract_profiles,
     extract_social_graph,
+    extract_top_posts,
 )
 from simswarm.llm import LLMClient  # noqa: E402
 from simswarm.types import (  # noqa: E402
@@ -125,6 +127,8 @@ def write_results(result: SimulationResult, output_dir: str) -> None:
     _w("graph_data.json", adapted_graph)
 
     _w("posts.json", extract_posts(result.chat_log))
+    _w("top_posts.json", extract_top_posts(result.chat_log))
+    _w("profiles.json", extract_profiles(result.chat_log))
     _w("engagement_summary.json", extract_engagement_summary(result.chat_log))
     _w("agent_trajectories.json", extract_agent_trajectories(result.chat_log))
     _w("social_graph.json", extract_social_graph(result.chat_log))
