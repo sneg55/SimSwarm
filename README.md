@@ -1,6 +1,8 @@
-# SimSwarm (FishCloud)
+# SimSwarm
 
-A fully managed SaaS wrapping the open-source [MiroFish](https://github.com/666ghj/MiroFish) swarm intelligence engine (AGPL-3.0). Users buy credits, upload a seed document, set a prediction goal, and receive a prediction report with interactive agent chat replay, entity graph visualization, and web-sourced research context.
+Fully managed SaaS for swarm intelligence simulations. Upload a document, set a prediction goal, and watch AI agents debate, trade, and publish across a simulated ecosystem. Get a deep analysis report, entity knowledge graph, prediction market data, and full chat replay.
+
+**Live at [simswarm.xyz](https://simswarm.xyz)**
 
 ## Architecture
 
@@ -9,24 +11,31 @@ Frontend (Vue 3 + Vite + Tailwind)
         |
 SaaS API (FastAPI)
         |
-   +---------+----------+
-   |                     |
+   +----------+-----------+
+   |                      |
 Celery + Redis      PostgreSQL
    |
-GPU Workers (RunPod spot instances)
+   +-- GPU Workers (RunPod spot) -- simswarm engine + vLLM (Qwen3-14B)
+   |        |
+   |        +-- artifacts → MinIO (chat_log, posts, trades, graph)
    |
-MiroFish Engine (git submodule)
-+ vLLM + Zep
+   +-- generate_report_task -- Claude Opus 4.6 (Anthropic Messages API)
 ```
 
-- **Frontend** — Vue 3, Pinia, Cytoscape.js for graph visualization, Tailwind CSS
-- **Backend** — FastAPI, async SQLAlchemy, Celery task queue, Redis
-- **GPU** — Ephemeral RunPod spot instances (A100/H100), auto spin-up/teardown per job
-- **Enrichment** — xAI Grok (web_search + x_search) for seed text research
-- **Billing** — Stripe one-time credit packs (DB-configurable), double-entry credit ledger
-- **Database** — PostgreSQL 16, Alembic migrations
-- **Monitoring** — Error event capture (API middleware + Celery failure handler), auto-prune
-- **Proxy** — Caddy with automatic TLS, security headers, SSRF protection
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Vue 3 (Composition API), Vite 6, Pinia, Tailwind CSS, Cytoscape.js |
+| Backend | Python 3.11+, FastAPI, async SQLAlchemy + asyncpg, Celery + Redis, Alembic |
+| Database | PostgreSQL 16 |
+| Engine | `simswarm/` — native async Python swarm engine |
+| GPU | RunPod spot instances (H100/L40S/A100), ephemeral per-job |
+| Fast LLM | Qwen3-14B via vLLM on-pod with tool calling (hermes parser) |
+| Smart LLM | Claude Opus 4.6 via Anthropic Messages API (off-pod, report gen) |
+| Enrichment | xAI Grok (web_search + x_search) |
+| Object storage | MinIO (S3-compatible) for simulation artifacts |
+| Billing | Stripe one-time credit packs, double-entry credit ledger |
+| Proxy | Caddy with automatic TLS, security headers, SSRF protection |
+| CI/CD | GitHub Actions -- tests, worker image build, SSH deploy to Hetzner |
 
 ## Prerequisites
 
@@ -37,8 +46,8 @@ MiroFish Engine (git submodule)
 ## Quick Start (Docker)
 
 ```bash
-# 1. Clone with submodules
-git clone --recurse-submodules https://github.com/sneg55/SimSwarm.git
+# 1. Clone
+git clone https://github.com/sneg55/SimSwarm.git
 cd SimSwarm
 
 # 2. Configure environment
@@ -93,7 +102,7 @@ npm run build      # Production build to frontend/dist/
 ### Tests
 
 ```bash
-# Backend tests (316 tests, in-memory SQLite — no external DB needed)
+# Backend tests (600+ tests, in-memory SQLite — no external DB needed)
 pytest
 
 # Frontend tests (Vitest)
@@ -122,48 +131,54 @@ The deploy script pulls latest code, validates migrations (single Alembic head c
 | `STRIPE_SECRET_KEY` | Yes | Stripe API key |
 | `STRIPE_WEBHOOK_SECRET` | Yes | Stripe webhook signing secret |
 | `RUNPOD_API_KEY` | Yes | RunPod GPU provisioning |
+| `ANTHROPIC_API_KEY` | Yes | Claude Opus 4.6 for report generation (Celery-side) |
+| `SMART_MODEL` | No | Report model override (default: `claude-opus-4-6`) |
 | `XAI_API_KEY` | No | xAI API key for seed enrichment (web + X search) |
 | `DOMAIN` | No | Production domain (default: `localhost`) |
-| `LLM_API_KEY` | Yes | LLM API key for MiroFish engine |
-| `LLM_BASE_URL` | No | vLLM endpoint (default: `http://localhost:8000/v1`) |
-| `LLM_MODEL_NAME` | No | Model ID (default: `Qwen2.5-32B-Instruct-AWQ`) |
-| `ZEP_API_KEY` | Yes | Zep memory/graph service key |
+| `MINIO_ENDPOINT` | Yes | MinIO for simulation artifact storage |
+| `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` | Yes | MinIO credentials |
+| `OPENAI_API_KEY` | No | Optional embeddings fallback |
 | `ALERT_WEBHOOK_URL` | No | Webhook URL for orphan pod / error alerts |
 
 ## Project Structure
 
 ```
-fishandcat/
-├── saas/                  # FastAPI backend
-│   ├── api/               #   Route handlers (auth, jobs, billing, profile, share)
-│   ├── auth/              #   JWT auth, email verification, password hashing
-│   ├── billing/           #   Stripe integration, credit ledger, credit packs
-│   ├── gpu/               #   RunPod/Vast.ai provider, failover, error classification
-│   ├── middleware/        #   Error tracking middleware
-│   ├── models/            #   SQLAlchemy ORM models (job, user, credit_entry, credit_pack, error_event)
-│   ├── workers/           #   Celery app, job runner, enrichment, cleanup, recovery
-│   └── adapters/          #   MiroFish engine adapter
-├── frontend/              # Vue 3 SPA
-│   └── src/
-│       ├── views/         #   Pages (Landing, Dashboard, SimulationResults, Account, etc.)
-│       ├── components/    #   Reusable components (graph viz, skeleton, pipeline progress)
-│       ├── composables/   #   Shared logic (useSimulationData, useScrollReveal)
-│       ├── stores/        #   Pinia state management
-│       └── api/           #   Axios API clients
-├── vendor/miroshark/       # MiroFish engine (git submodule)
-├── infra/docker/          # GPU worker image (Dockerfile, run_job.py, worker_api.py)
-├── infra/scripts/         # Benchmark, demo refresh scripts
-├── alembic/               # Database migrations
-├── docs/                  # Specs, plans, benchmarks
-├── Dockerfile             # Multi-stage build (frontend + backend)
-├── docker-compose.yml     # Full stack orchestration
-├── Caddyfile              # Reverse proxy config (TLS, security headers, OG routing)
-└── deploy.sh              # Hetzner deployment script
+saas/
+  adapters/         # External LLM adapter (Anthropic Messages API)
+  auth/             # Authentication: API, models, JWT, email verification
+  billing/          # Credits: API, Stripe integration, ledger, credit packs
+  jobs/             # Simulation lifecycle: API, runner, tasks, tasks_report (off-pod
+                    #   report gen), recovery, persistence, enrichment, cleanup, alerts,
+                    #   refund, export, share, report + report_tools_minio
+  gpu/              # GPU providers: abstract base + RunPod implementation
+  storage/          # MinIO client for simulation artifact upload/download
+  constants/        # Tier config (credits, timeouts, costs)
+  workers/          # Celery app + async utilities
+  middleware/       # Error tracking middleware
+  models/           # Base model class + re-exports for Alembic discovery
+  config.py         # Pydantic Settings
+  main.py           # FastAPI app factory
+simswarm/           # Native swarm engine — entities, engine, belief, graph, report, envs
+frontend/src/
+  views/            # Pages (Landing, Dashboard, Wizard, Results, Account)
+  components/       # Reusable components (graph/, wizard/, results/, data/)
+  composables/      # Shared Composition API logic
+  stores/           # Pinia (auth, credits)
+  api/              # Axios clients
+infra/docker/       # GPU worker image (Dockerfile.worker, run_job_v2.py, worker_api.py)
+alembic/            # Database migrations
+tests/              # pytest + pytest-asyncio (950+ tests)
 ```
 
-## Credit Packs & Pricing
+## Simulation Tiers
 
-Credit packs are configurable from the database (`credit_packs` table). Defaults:
+| Tier | Agents | Credits | Timeout |
+|------|--------|---------|---------|
+| Small | 1--500 | 30 | 45 min |
+| Medium | 501--2,000 | 90 | 5 hours |
+| Large | 2,001--10,000 | 300 | 12 hours |
+
+### Credit Packs
 
 | Pack | Credits | Price |
 |------|---------|-------|
@@ -171,22 +186,19 @@ Credit packs are configurable from the database (`credit_packs` table). Defaults
 | Pro | 500 | $79 |
 | Heavy | 2,000 | $249 |
 
-| Simulation Tier | Agents | Credits |
-|-----------------|--------|---------|
-| Small | 1-500 | 30 |
-| Medium | 501-2,000 | 90 |
-| Large | 2,001-10,000 | 300 |
-
 ## Key Features
 
-- **Seed Enrichment** — Optionally enriches user seed text with live web + X/Twitter research via xAI Grok before simulation runs. Toggle per-simulation, retry on failure.
-- **Entity Graph** — Interactive knowledge graph with sentiment scoring, agent stance, influence weights, and per-agent activity timeline on click.
-- **Job Retry** — Failed simulations can be retried with one click (same seed/goal/tier, new job).
-- **Error Monitoring** — Unhandled API exceptions and Celery task failures captured to `error_events` table with auto-pruning.
-- **Account Management** — Password change and account deletion (soft-delete).
-- **Share Links** — Public share URLs with OpenGraph meta tags for rich previews on Slack/Twitter/LinkedIn.
-- **Orphan Protection** — Celery beat runs cleanup every 10 min; healthcheck verifies beat is active; recovery terminates stale pods.
+- **Four result views** — Story (narrative overview), Graph (interactive entity graph), Data (prediction market charts), Report (deep analysis with citations).
+- **Off-pod report generation** — GPU pod uploads sim artifacts to MinIO and tears down; a Celery task then drives Claude Opus 4.6 through a tool-calling loop over the artifacts. Any failure before `COMPLETED` triggers a 100% credit refund.
+- **Draft workflow** — Save partial simulations and resume later from any wizard step.
+- **Seed enrichment** — Optionally enriches seed text with live web + X/Twitter research via xAI Grok. Toggle per-simulation, retry on failure.
+- **Entity graph** — Interactive Cytoscape viz with per-agent activity stats and interaction edges (follow / reply / like / mention) extracted by `simswarm.graph`.
+- **Belief dynamics** — Agent positions and confidence mutate per round via `simswarm.belief.update_beliefs` using trust-weighted exposure math.
+- **Simulation data** — Market predictions, social posts, and trading data extracted from the GPU simulation's SQLite databases and uploaded to MinIO.
+- **Deploy-safe recovery** — If a deploy kills the Celery worker mid-simulation, recovery auto-resumes jobs on their existing GPU pods, and re-enqueues orphaned `REPORTING`-state jobs.
+- **Share links** — Public share URLs with OpenGraph meta tags for rich previews on Slack/Twitter/LinkedIn.
+- **Error monitoring** — API exceptions and Celery failures captured to `error_events` table with auto-pruning.
 
 ## License
 
-The SaaS layer (`saas/`, `frontend/` additions, `infra/`) is proprietary. The MiroFish engine in `vendor/miroshark/` is licensed under [AGPL-3.0](https://www.gnu.org/licenses/agpl-3.0.html).
+Proprietary.
