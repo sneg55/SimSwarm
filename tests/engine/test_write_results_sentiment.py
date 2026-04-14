@@ -5,8 +5,6 @@ import json
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
-
 from simswarm.types import ActionRecord, GraphSnapshot
 
 
@@ -21,10 +19,12 @@ def _post(agent_id: str, agent_name: str, content: str, round_num: int) -> Actio
 def test_write_results_stamps_sentiment_onto_agent_nodes(tmp_path: Path):
     from infra.docker.run_job_v2_runner import write_results
 
-    # Positive words are scored > 0 by score_sentiment.
+    # Alice's posts include words that appear in simswarm.stance.POSITIVE_WORDS
+    # (e.g. "success", "support", "progress"); Bob's hit NEGATIVE_WORDS. The test asserts
+    # directional sentiment, not exact scores — robust to scorer tuning.
     chat_log = [
-        _post("alice", "Alice", "great wonderful excellent success", 1),
-        _post("alice", "Alice", "happy love fantastic win", 2),
+        _post("alice", "Alice", "great wonderful excellent success support", 1),
+        _post("alice", "Alice", "happy love fantastic win progress", 2),
         _post("bob", "Bob", "oppose condemn reject threaten crisis", 1),
     ]
 
