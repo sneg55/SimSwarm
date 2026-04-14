@@ -215,7 +215,6 @@ async function handleSubmit() {
   }
 }
 
-defineExpose({ enrichWeb })
 </script>
 
 <style scoped>

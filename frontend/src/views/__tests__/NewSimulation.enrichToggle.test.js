@@ -36,23 +36,25 @@ describe('NewSimulation step 1 — enrichWeb toggle surface', () => {
     // clicks on the text accidentally toggle the checkbox.
     const descInsideLabel = label.find('p.text-xs.text-mist-slate')
     expect(descInsideLabel.exists()).toBe(false)
+    // The input MUST be inside the label so the label still forwards
+    // clicks to the checkbox.
+    expect(label.find('input[type=checkbox]').exists()).toBe(true)
   })
 
-  it('description paragraph exists outside the <label>', async () => {
+  it('description paragraph exists outside the <label> and checkbox defaults to checked', async () => {
     const wrapper = await mountView()
     // Default is true (see script setup: const enrichWeb = ref(true)).
-    expect(wrapper.vm.enrichWeb).toBe(true)
+    expect(wrapper.find('input[type=checkbox]').element.checked).toBe(true)
     const desc = wrapper.find('p.text-xs.text-mist-slate')
     expect(desc.exists()).toBe(true)
   })
 
-  it('clicking the title span toggles enrichWeb', async () => {
+  it('clicking the title span inside the label toggles enrichWeb', async () => {
     const wrapper = await mountView()
-    const initial = wrapper.vm.enrichWeb
-    // Use setValue to simulate a user toggling the checkbox (v-model + jsdom).
-    const checkbox = wrapper.find('input[type="checkbox"]')
-    expect(checkbox.exists()).toBe(true)
-    await checkbox.setValue(!initial)
-    expect(wrapper.vm.enrichWeb).toBe(!initial)
+    const initial = wrapper.find('input[type=checkbox]').element.checked
+    const titleSpan = wrapper.find('label span')
+    expect(titleSpan.exists()).toBe(true)
+    await titleSpan.trigger('click')
+    expect(wrapper.find('input[type=checkbox]').element.checked).toBe(!initial)
   })
 })
