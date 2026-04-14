@@ -8,6 +8,7 @@ so callers continue to import from `simswarm.extractor`.
 from __future__ import annotations
 
 from simswarm.extractor_activity import (
+    agent_sentiment_from_trajectories,
     extract_agent_trajectories,
     extract_engagement_summary,
     extract_profiles,
@@ -17,6 +18,7 @@ from simswarm.extractor_market_social import extract_market_data, extract_social
 from simswarm.extractor_posts import extract_posts, extract_top_posts
 
 __all__ = [
+    "agent_sentiment_from_trajectories",
     "extract_agent_trajectories",
     "extract_engagement_summary",
     "extract_market_data",

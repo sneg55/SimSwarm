@@ -22,6 +22,7 @@ for _p in (str(_DOCKER_DIR), str(_REPO_ROOT)):
 from simswarm.adapter import adapt_chat_log, adapt_graph_data  # noqa: E402
 from simswarm.engine import Engine  # noqa: E402
 from simswarm.extractor import (  # noqa: E402
+    agent_sentiment_from_trajectories,
     extract_agent_trajectories,
     extract_engagement_summary,
     extract_market_data,
@@ -30,8 +31,13 @@ from simswarm.extractor import (  # noqa: E402
     extract_social_graph,
     extract_top_posts,
 )
+from simswarm.extractor_common import is_post, post_text  # noqa: E402
 from simswarm.graph import build_graph  # noqa: E402
 from simswarm.llm import LLMClient  # noqa: E402
+from simswarm.personas import (  # noqa: E402
+    PersonaExtractionError,
+    extract_personas,
+)
 from simswarm.relations import (  # noqa: E402
     RelationExtractionError,
     extract_relations,
@@ -52,6 +58,94 @@ _VLLM_URL = os.environ.get("VLLM_URL", "http://localhost:8000/v1")
 _FAST_MODEL = os.environ.get("FAST_MODEL", os.environ.get("MODEL_ID", "Qwen/Qwen3-14B"))
 _SMART_MODEL = os.environ.get("SMART_MODEL", _FAST_MODEL)
 _LLM_API_KEY = os.environ.get("LLM_API_KEY", "none")
+
+
+# Threshold below which per-round sentiment endpoints are considered flat.
+# score_sentiment returns (pos - neg) / total_words clamped to [-1, 1], so
+# 0.15 roughly means "15 percent polarity shift across an agent's span."
+_SENTIMENT_ARC_EPSILON = 0.15
+
+
+# ---------------------------------------------------------------------------
+# enrich_profiles_with_personas
+# ---------------------------------------------------------------------------
+
+async def enrich_profiles_with_personas(
+    profiles: list[dict],
+    chat_log: list,
+    llm: LLMClient,
+    *,
+    goal: str = "",
+    max_sample_posts: int = 5,
+) -> list[dict]:
+    """Mutate *profiles* in place with LLM-generated personas.
+
+    On any failure (extraction error, unexpected exception, partial
+    response, or setup error before the LLM call) the original one-liner
+    persona is preserved for the affected agent. Returns the same list
+    for caller convenience.
+    """
+    if not profiles or not chat_log:
+        return profiles
+
+    try:
+        # Build sample posts per agent: up to *max_sample_posts*, taken in
+        # chat-log order (early rounds will be over-represented for heavy
+        # early posters — acceptable coarse sampling).
+        samples: dict[str, list[str]] = {}
+        for record in chat_log:
+            if not is_post(record.action_type):
+                continue
+            text = post_text(record.action_args)
+            if not text:
+                continue
+            lst = samples.setdefault(record.agent_id, [])
+            if len(lst) < max_sample_posts:
+                lst.append(text[:400])
+
+        # Build a coarse sentiment-arc label from trajectories.
+        arc_by_agent: dict[str, str] = {}
+        for traj in extract_agent_trajectories(chat_log):
+            rounds = traj.get("rounds") or []
+            if not rounds:
+                continue
+            scores = [float(r.get("sentiment", 0.0)) for r in rounds]
+            first, last = scores[0], scores[-1]
+            if abs(last - first) < _SENTIMENT_ARC_EPSILON:
+                arc = f"roughly steady around {sum(scores) / len(scores):+.2f}"
+            elif last > first:
+                arc = f"moves from {first:+.2f} to {last:+.2f} (upward)"
+            else:
+                arc = f"moves from {first:+.2f} to {last:+.2f} (downward)"
+            arc_by_agent[traj["agent_id"]] = arc
+
+        payload = [
+            {
+                "agent_id": p["agent_id"],
+                "name": p["name"],
+                "posts": p.get("total_posts", 0),
+                "actions": p.get("total_actions", 0),
+                "rounds_active": p.get("rounds_active", 0),
+                "platforms": p.get("platforms", []),
+                "sample_posts": samples.get(p["agent_id"], []),
+                "sentiment_arc": arc_by_agent.get(p["agent_id"], "no activity recorded"),
+            }
+            for p in profiles
+        ]
+
+        personas = await extract_personas(payload, llm, goal=goal)
+    except PersonaExtractionError as exc:
+        print(f"personas.extraction_failed: {exc}", flush=True)
+        return profiles
+    except Exception as exc:
+        print(f"personas.unexpected_error: {exc!r}", flush=True)
+        return profiles
+
+    for p in profiles:
+        persona = personas.get(p["agent_id"])
+        if persona:
+            p["persona"] = persona
+    return profiles
 
 
 # ---------------------------------------------------------------------------
@@ -108,9 +202,20 @@ async def run_simulation(
                 )
         except RelationExtractionError as exc:
             print(f"relations.extraction_failed: {exc}", flush=True)
-        # Stash for write_results so relations.json lands in MinIO for
-        # post-mortem diagnostics.
-        result.trajectories = {**(result.trajectories or {}), "relations": relations}
+        # Enrich the profiles list with LLM-generated personas. On any
+        # failure we keep the one-line activity summary per-agent.
+        profiles = extract_profiles(result.chat_log)
+        try:
+            profiles = await enrich_profiles_with_personas(
+                profiles, result.chat_log, smart_llm, goal=goal,
+            )
+        except Exception as exc:
+            print(f"personas.wiring_error: {exc!r}", flush=True)
+        result.trajectories = {
+            **(result.trajectories or {}),
+            "relations": relations,
+            "profiles": profiles,
+        }
         return result
     finally:
         await fast_llm.close()
@@ -153,13 +258,26 @@ def write_results(result: SimulationResult, output_dir: str) -> None:
     _w("chat_log.json", adapted_chat)
 
     adapted_graph = adapt_graph_data(result.graph_data)
+
+    trajectories = extract_agent_trajectories(result.chat_log)
+    sentiment_by_agent = agent_sentiment_from_trajectories(trajectories)
+    # Stamp mean-per-agent sentiment onto matching graph nodes so the
+    # frontend GraphCanvas can color them. _adapt_node reads this field.
+    for node in adapted_graph.get("nodes", []):
+        nid = node.get("id")
+        if nid in sentiment_by_agent:
+            node["sentiment"] = sentiment_by_agent[nid]
+
     _w("graph_data.json", adapted_graph)
 
     _w("posts.json", extract_posts(result.chat_log))
     _w("top_posts.json", extract_top_posts(result.chat_log))
-    _w("profiles.json", extract_profiles(result.chat_log))
+    enriched_profiles = (result.trajectories or {}).get("profiles")
+    if enriched_profiles is None:
+        enriched_profiles = extract_profiles(result.chat_log)
+    _w("profiles.json", enriched_profiles)
     _w("engagement_summary.json", extract_engagement_summary(result.chat_log))
-    _w("agent_trajectories.json", extract_agent_trajectories(result.chat_log))
+    _w("agent_trajectories.json", trajectories)
     _w("social_graph.json", extract_social_graph(result.chat_log))
     _w("trades.json", extract_market_data(result.chat_log))
     _w("relations.json", (result.trajectories or {}).get("relations", []))

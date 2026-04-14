@@ -73,6 +73,7 @@ def extract_top_posts(chat_log: list[ActionRecord], limit: int = 20) -> list[dic
         return []
 
     likes: dict[str, int] = defaultdict(int)
+    dislikes: dict[str, int] = defaultdict(int)
     shares: dict[str, int] = defaultdict(int)
     comments: dict[str, int] = defaultdict(int)
     for record in chat_log:
@@ -83,6 +84,19 @@ def extract_top_posts(chat_log: list[ActionRecord], limit: int = 20) -> list[dic
         t = record.action_type.lower()
         if t in ("like_post", "like"):
             likes[target] += 1
+        elif t == "vote":
+            # Native social env encodes vote direction in args["value"]: value > 0
+            # is a like, anything else (including 0, missing, or non-numeric)
+            # counts as a dislike — matches environments/social.py:_handle_vote.
+            value = args.get("value", 0)
+            try:
+                is_like = int(value) > 0
+            except (TypeError, ValueError):
+                is_like = False
+            if is_like:
+                likes[target] += 1
+            else:
+                dislikes[target] += 1
         elif t in ("repost", "retweet", "share"):
             shares[target] += 1
         elif t in ("create_comment", "comment", "reply"):
@@ -91,6 +105,7 @@ def extract_top_posts(chat_log: list[ActionRecord], limit: int = 20) -> list[dic
     for p in posts:
         pid = p["post_id"]
         p["num_likes"] = likes.get(pid, 0)
+        p["num_dislikes"] = dislikes.get(pid, 0)
         p["num_shares"] = shares.get(pid, 0) + comments.get(pid, 0)
         p["engagement"] = p["num_likes"] + p["num_shares"]
 

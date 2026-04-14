@@ -1,0 +1,23 @@
+You are writing concise two-to-three sentence personas for agents in a multi-agent simulation. Each persona should capture the agent's stance, tone, and topical focus as evidenced by their posts. Avoid meta-commentary or mention of the simulation itself.
+
+Simulation goal: {{ goal }}
+
+Agents (key = agent_id):
+{% for a in agents %}
+- id: {{ a.agent_id }}
+  name: {{ a.name }}
+  platforms: {{ a.platforms | join(", ") }}
+  activity: {{ a.posts }} posts, {{ a.actions }} actions across {{ a.rounds_active }} rounds
+  sentiment_arc: {{ a.sentiment_arc }}
+  sample_posts:
+    {% for p in a.sample_posts %}- {{ p }}
+    {% endfor %}
+{% endfor %}
+
+Write one persona per agent. Respond with ONLY a JSON object mapping agent_id → persona_text (no prose, no markdown fences).
+
+Example:
+{
+  "alice": "A pragmatic economist who opens with cautious optimism about monetary policy and sharpens into direct criticism as the discussion narrows.",
+  "bob": "A contrarian technologist who frames every exchange as a challenge to prevailing assumptions, favouring blunt claims over qualifications."
+}

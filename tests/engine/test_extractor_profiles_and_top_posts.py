@@ -93,6 +93,34 @@ class TestExtractTopPosts:
         result = extract_top_posts(log)
         assert result[0]["post_id"]  # non-empty
 
+    def test_top_posts_tallies_dislikes(self):
+        """Vote actions with value=-1 increment num_dislikes on the target post."""
+        post = ActionRecord(
+            round_num=1, agent_id="alice", agent_name="Alice",
+            action_type="create_post", platform="twitter",
+            action_args={"post_id": "p1", "text": "claim"},
+            timestamp="t", success=True,
+        )
+        dislike = ActionRecord(
+            round_num=1, agent_id="bob", agent_name="Bob",
+            action_type="vote", platform="twitter",
+            action_args={"post_id": "p1", "value": -1},
+            timestamp="t", success=True,
+        )
+        like = ActionRecord(
+            round_num=1, agent_id="carol", agent_name="Carol",
+            action_type="vote", platform="twitter",
+            action_args={"post_id": "p1", "value": 1},
+            timestamp="t", success=True,
+        )
+        top = extract_top_posts([post, dislike, like])
+        assert len(top) == 1
+        assert top[0]["num_dislikes"] == 1
+        assert top[0]["num_likes"] == 1
+        # Engagement deliberately excludes dislikes — controversial posts shouldn't
+        # get boosted purely by being dogpiled.
+        assert top[0]["engagement"] == 1
+
 
 # ---------------------------------------------------------------------------
 # extract_profiles
