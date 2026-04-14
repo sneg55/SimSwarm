@@ -85,15 +85,17 @@ def extract_top_posts(chat_log: list[ActionRecord], limit: int = 20) -> list[dic
         if t in ("like_post", "like"):
             likes[target] += 1
         elif t == "vote":
-            # Native social env encodes vote direction in args["value"]:
-            # +1 is a like, -1 is a dislike. See environments/social.py:142.
+            # Native social env encodes vote direction in args["value"]: value > 0
+            # is a like, anything else (including 0, missing, or non-numeric)
+            # counts as a dislike — matches environments/social.py:_handle_vote.
+            value = args.get("value", 0)
             try:
-                value = int(args.get("value", 0))
+                is_like = int(value) > 0
             except (TypeError, ValueError):
-                value = 0
-            if value > 0:
+                is_like = False
+            if is_like:
                 likes[target] += 1
-            elif value < 0:
+            else:
                 dislikes[target] += 1
         elif t in ("repost", "retweet", "share"):
             shares[target] += 1

@@ -117,6 +117,9 @@ class TestExtractTopPosts:
         assert len(top) == 1
         assert top[0]["num_dislikes"] == 1
         assert top[0]["num_likes"] == 1
+        # Engagement deliberately excludes dislikes — controversial posts shouldn't
+        # get boosted purely by being dogpiled.
+        assert top[0]["engagement"] == 1
 
 
 # ---------------------------------------------------------------------------
