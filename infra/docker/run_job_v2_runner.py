@@ -22,6 +22,7 @@ for _p in (str(_DOCKER_DIR), str(_REPO_ROOT)):
 from simswarm.adapter import adapt_chat_log, adapt_graph_data  # noqa: E402
 from simswarm.engine import Engine  # noqa: E402
 from simswarm.extractor import (  # noqa: E402
+    agent_sentiment_from_trajectories,
     extract_agent_trajectories,
     extract_engagement_summary,
     extract_market_data,
@@ -153,13 +154,23 @@ def write_results(result: SimulationResult, output_dir: str) -> None:
     _w("chat_log.json", adapted_chat)
 
     adapted_graph = adapt_graph_data(result.graph_data)
+
+    trajectories = extract_agent_trajectories(result.chat_log)
+    sentiment_by_agent = agent_sentiment_from_trajectories(trajectories)
+    # Stamp mean-per-agent sentiment onto matching graph nodes so the
+    # frontend GraphCanvas can color them. _adapt_node reads this field.
+    for node in adapted_graph.get("nodes", []):
+        nid = node.get("id")
+        if nid in sentiment_by_agent:
+            node["sentiment"] = sentiment_by_agent[nid]
+
     _w("graph_data.json", adapted_graph)
 
     _w("posts.json", extract_posts(result.chat_log))
     _w("top_posts.json", extract_top_posts(result.chat_log))
     _w("profiles.json", extract_profiles(result.chat_log))
     _w("engagement_summary.json", extract_engagement_summary(result.chat_log))
-    _w("agent_trajectories.json", extract_agent_trajectories(result.chat_log))
+    _w("agent_trajectories.json", trajectories)
     _w("social_graph.json", extract_social_graph(result.chat_log))
     _w("trades.json", extract_market_data(result.chat_log))
     _w("relations.json", (result.trajectories or {}).get("relations", []))
