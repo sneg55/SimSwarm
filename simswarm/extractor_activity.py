@@ -140,3 +140,22 @@ def _profile_summary(data: dict[str, Any]) -> str:
         f"{data.get('posts', 0)} posts, {data.get('actions', 0)} actions "
         f"across {rounds} round{'' if rounds == 1 else 's'}{plat}."
     )
+
+
+def agent_sentiment_from_trajectories(
+    trajectories: list[dict],
+) -> dict[str, float]:
+    """Return {agent_id: mean_sentiment} from an agent-trajectory list.
+
+    Sentiments are per-round scores from ``extract_agent_trajectories``.
+    Agents with no rounds are skipped; missing per-round sentiment fields
+    are treated as 0.0. Returned floats are NOT clamped.
+    """
+    result: dict[str, float] = {}
+    for traj in trajectories:
+        rounds = traj.get("rounds") or []
+        if not rounds:
+            continue
+        total = sum(float(r.get("sentiment", 0.0)) for r in rounds)
+        result[traj["agent_id"]] = round(total / len(rounds), 10)
+    return result
