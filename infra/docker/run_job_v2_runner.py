@@ -33,6 +33,10 @@ from simswarm.extractor import (  # noqa: E402
 )
 from simswarm.graph import build_graph  # noqa: E402
 from simswarm.llm import LLMClient  # noqa: E402
+from simswarm.personas import (  # noqa: E402
+    PersonaExtractionError,
+    extract_personas,
+)
 from simswarm.relations import (  # noqa: E402
     RelationExtractionError,
     extract_relations,
@@ -109,13 +113,106 @@ async def run_simulation(
                 )
         except RelationExtractionError as exc:
             print(f"relations.extraction_failed: {exc}", flush=True)
-        # Stash for write_results so relations.json lands in MinIO for
-        # post-mortem diagnostics.
-        result.trajectories = {**(result.trajectories or {}), "relations": relations}
+        # Enrich the profiles list with LLM-generated personas. On any
+        # failure we keep the one-line activity summary per-agent.
+        profiles = extract_profiles(result.chat_log)
+        try:
+            profiles = await enrich_profiles_with_personas(
+                profiles, result.chat_log, smart_llm, goal=goal,
+            )
+        except Exception as exc:  # pragma: no cover
+            print(f"personas.wiring_error: {exc!r}", flush=True)
+        result.trajectories = {
+            **(result.trajectories or {}),
+            "relations": relations,
+            "profiles": profiles,
+        }
         return result
     finally:
         await fast_llm.close()
         await smart_llm.close()
+
+
+# ---------------------------------------------------------------------------
+# enrich_profiles_with_personas
+# ---------------------------------------------------------------------------
+
+async def enrich_profiles_with_personas(
+    profiles: list[dict],
+    chat_log: list,
+    llm: LLMClient,
+    *,
+    goal: str = "",
+    max_sample_posts: int = 5,
+) -> list[dict]:
+    """Mutate *profiles* in place with LLM-generated personas.
+
+    On any failure (extraction error, unexpected exception, partial
+    response) the original one-liner persona is preserved for the
+    affected agent. Returns the same list for caller convenience.
+    """
+    if not profiles or not chat_log:
+        return profiles
+
+    from simswarm.extractor_common import is_post, post_text
+    from simswarm.extractor import extract_agent_trajectories
+
+    # Build sample posts per agent: up to *max_sample_posts*, spread across rounds.
+    samples: dict[str, list[str]] = {}
+    for record in chat_log:
+        if not is_post(record.action_type):
+            continue
+        text = post_text(record.action_args)
+        if not text:
+            continue
+        lst = samples.setdefault(record.agent_id, [])
+        if len(lst) < max_sample_posts:
+            lst.append(text[:400])
+
+    # Build a coarse sentiment-arc label from trajectories.
+    arc_by_agent: dict[str, str] = {}
+    for traj in extract_agent_trajectories(chat_log):
+        rounds = traj.get("rounds") or []
+        if not rounds:
+            continue
+        scores = [float(r.get("sentiment", 0.0)) for r in rounds]
+        first, last = scores[0], scores[-1]
+        if abs(last - first) < 0.15:
+            arc = f"roughly steady around {sum(scores) / len(scores):+.2f}"
+        elif last > first:
+            arc = f"moves from {first:+.2f} to {last:+.2f} (upward)"
+        else:
+            arc = f"moves from {first:+.2f} to {last:+.2f} (downward)"
+        arc_by_agent[traj["agent_id"]] = arc
+
+    payload = [
+        {
+            "agent_id": p["agent_id"],
+            "name": p["name"],
+            "posts": p.get("total_posts", 0),
+            "actions": p.get("total_actions", 0),
+            "rounds_active": p.get("rounds_active", 0),
+            "platforms": p.get("platforms", []),
+            "sample_posts": samples.get(p["agent_id"], []),
+            "sentiment_arc": arc_by_agent.get(p["agent_id"], "no activity recorded"),
+        }
+        for p in profiles
+    ]
+
+    try:
+        personas = await extract_personas(payload, llm, goal=goal)
+    except PersonaExtractionError as exc:
+        print(f"personas.extraction_failed: {exc}", flush=True)
+        return profiles
+    except Exception as exc:  # pragma: no cover - defensive; never fail the job
+        print(f"personas.unexpected_error: {exc!r}", flush=True)
+        return profiles
+
+    for p in profiles:
+        persona = personas.get(p["agent_id"])
+        if persona:
+            p["persona"] = persona
+    return profiles
 
 
 # ---------------------------------------------------------------------------
@@ -168,7 +265,10 @@ def write_results(result: SimulationResult, output_dir: str) -> None:
 
     _w("posts.json", extract_posts(result.chat_log))
     _w("top_posts.json", extract_top_posts(result.chat_log))
-    _w("profiles.json", extract_profiles(result.chat_log))
+    enriched_profiles = (result.trajectories or {}).get("profiles")
+    if enriched_profiles is None:
+        enriched_profiles = extract_profiles(result.chat_log)
+    _w("profiles.json", enriched_profiles)
     _w("engagement_summary.json", extract_engagement_summary(result.chat_log))
     _w("agent_trajectories.json", trajectories)
     _w("social_graph.json", extract_social_graph(result.chat_log))
