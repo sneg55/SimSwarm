@@ -111,9 +111,22 @@ def resume_simulation_task(
         error_msg = f"Resume failed: {exc}"
         logger.error("job.resume_failed job_id=%d pod_id=%s error=%s", job_id, pod_id, error_msg)
 
-        _mark_job_failed(job_id=job_id, error_message=error_msg)
-        if credits_charged > 0:
-            _refund_credits(job_id=job_id, user_id=user_id, credits=credits_charged)
+        # Guard against the phantom-resume race: the main run_simulation task
+        # may have just completed and moved the job past the states resume
+        # owns (PROVISIONING/RUNNING). In that case the pod becoming
+        # unreachable is the main task tearing it down after a successful
+        # run — not a failure we should clobber with FAILED + a refund.
+        current_status = _get_job_status(job_id)
+        if current_status in ("PROVISIONING", "RUNNING"):
+            _mark_job_failed(job_id=job_id, error_message=error_msg)
+            if credits_charged > 0:
+                _refund_credits(job_id=job_id, user_id=user_id, credits=credits_charged)
+        else:
+            logger.info(
+                "job.resume_skip_mark_failed job_id=%d current_status=%s "
+                "(main task moved the job past resume's scope)",
+                job_id, current_status,
+            )
 
         # Terminate the pod — it's no use to us anymore
         try:
