@@ -40,17 +40,57 @@ _TARGET_ARG_KEYS = ("target_id", "target_agent", "target_name", "target",
 _MENTION_RE = re.compile(r"@(\w+)")
 
 
-def build_graph(entities: list[Entity], chat_log: list[ActionRecord]) -> GraphSnapshot:
-    """Return a GraphSnapshot populated from the simulation's entities + chat log."""
+def build_graph(
+    entities: list[Entity],
+    chat_log: list[ActionRecord],
+    relations: list[dict] | None = None,
+) -> GraphSnapshot:
+    """Return a GraphSnapshot populated from the simulation's entities + chat log.
+
+    *relations*, when provided, is a list of dicts with keys ``source``,
+    ``target`` (entity names), ``type`` (edge label), and optional ``fact``.
+    These typed semantic edges are merged alongside the follow/like/mention
+    interaction edges derived from the chat log. This is how the post-cutover
+    pipeline restores the Graphiti-era knowledge-graph relations the frontend
+    renders on the Graph tab.
+    """
     nodes = _build_nodes(entities, chat_log)
     id_by_name = {n["label"]: n["id"] for n in nodes}
     edges = _build_edges(chat_log, id_by_name)
+    if relations:
+        edges.extend(_relations_to_edges(relations, id_by_name))
     metadata = {
         "total_nodes": len(nodes),
         "total_edges": len(edges),
         "total_rounds": max((a.round_num for a in chat_log), default=0),
     }
     return GraphSnapshot(nodes=nodes, edges=edges, metadata=metadata)
+
+
+def _relations_to_edges(
+    relations: list[dict],
+    id_by_name: dict[str, str],
+) -> list[dict[str, Any]]:
+    """Map LLM-extracted relations (keyed by entity *name*) to graph edges
+    keyed by entity *id*. Drops rows whose endpoints don't map."""
+    out: list[dict[str, Any]] = []
+    for r in relations:
+        src_id = id_by_name.get(r.get("source", ""))
+        tgt_id = id_by_name.get(r.get("target", ""))
+        rtype = str(r.get("type", "")).strip()
+        if not src_id or not tgt_id or not rtype or src_id == tgt_id:
+            continue
+        edge = {
+            "source": src_id,
+            "target": tgt_id,
+            "type": rtype,
+            "weight": 1,
+        }
+        fact = r.get("fact")
+        if fact:
+            edge["fact"] = str(fact)
+        out.append(edge)
+    return out
 
 
 # ---------------------------------------------------------------------------

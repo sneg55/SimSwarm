@@ -30,7 +30,12 @@ from simswarm.extractor import (  # noqa: E402
     extract_social_graph,
     extract_top_posts,
 )
+from simswarm.graph import build_graph  # noqa: E402
 from simswarm.llm import LLMClient  # noqa: E402
+from simswarm.relations import (  # noqa: E402
+    RelationExtractionError,
+    extract_relations,
+)
 from simswarm.types import (  # noqa: E402
     EngineConfig,
     Entity,
@@ -82,7 +87,22 @@ async def run_simulation(
         engine_config=EngineConfig(concurrency=target_agents),
     )
     try:
-        return await engine.run(config)
+        result = await engine.run(config)
+        # Enrich the graph with LLM-extracted typed relations (DISAGREES_WITH,
+        # SUPPORTS, RESPONDS_TO, …). This is the post-cutover replacement for
+        # the Graphiti knowledge-graph edges. On failure we keep the
+        # interaction-only graph rather than failing the whole job.
+        try:
+            relations = await extract_relations(
+                list(config.entities), result.chat_log, smart_llm, goal=goal,
+            )
+            if relations:
+                result.graph_data = build_graph(
+                    list(config.entities), result.chat_log, relations=relations,
+                )
+        except RelationExtractionError as exc:
+            print(f"relations.extraction_failed: {exc}", flush=True)
+        return result
     finally:
         await fast_llm.close()
         await smart_llm.close()

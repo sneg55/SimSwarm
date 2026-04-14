@@ -73,6 +73,9 @@ def _adapt_edge(e: dict[str, Any], name_by_id: dict[str, str]) -> dict[str, Any]
     src = e.get("source", "")
     tgt = e.get("target", "")
     etype = e.get("type", "")
+    # LLM-extracted relation edges carry a real `fact`; interaction edges
+    # (follow/like/mention) only have a type — fall back to the type label.
+    fact = e.get("fact") or etype
     return {
         **e,
         "source_node_uuid": src,
@@ -80,5 +83,5 @@ def _adapt_edge(e: dict[str, Any], name_by_id: dict[str, str]) -> dict[str, Any]
         "source_node_name": name_by_id.get(src, ""),
         "target_node_name": name_by_id.get(tgt, ""),
         "name": etype,
-        "fact": etype,
+        "fact": fact,
     }
