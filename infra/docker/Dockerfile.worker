@@ -54,6 +54,7 @@ COPY infra/docker/service_init.py /app/service_init.py
 COPY infra/docker/run_job_v2.py /app/run_job_v2.py
 COPY infra/docker/run_job_v2_runner.py /app/run_job_v2_runner.py
 COPY infra/docker/run_job_v2_entities.py /app/run_job_v2_entities.py
+COPY infra/docker/enrichment.py /app/enrichment.py
 COPY infra/docker/worker_api.py /app/worker_api.py
 COPY infra/docker/sim_data_extractor.py /app/sim_data_extractor.py
 COPY infra/docker/start.sh /app/start.sh
