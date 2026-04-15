@@ -58,3 +58,32 @@ def test_permanent_failure_marks_failed_and_refunds():
 
     mk_failed.assert_called_once()
     refund.assert_called_once_with(job_id=123, user_id="u1", credits=30)
+
+
+def test_post_runner_exception_marks_failed_and_refunds():
+    """If _build_structured or _save_report_result raises (e.g. corrupt artifacts),
+    generate_report_task must call _finalize_as_failed and refund the user —
+    NOT leak the exception past Celery and leave the job stuck in REPORTING."""
+    from saas.jobs.report import ReportResult
+
+    result = ReportResult(
+        report_markdown="## Executive Summary\nAll went well.\n",
+        executive_brief="All went well.",
+        findings=[{"title": "F1", "content": "X"}],
+    )
+
+    with patch("saas.jobs.tasks_report._build_runner", return_value=_DummyRunner(result=result)), \
+         patch("saas.jobs.tasks_report._load_job_artifacts",
+               side_effect=RuntimeError("db down")), \
+         patch("saas.jobs.tasks_report._mark_job_failed") as mk_failed, \
+         patch("saas.jobs.tasks_report._refund_credits") as refund, \
+         patch("saas.jobs.tasks_report._load_credits_charged", return_value=30):
+        with pytest.raises(RuntimeError):
+            generate_report_task.run(job_id=123, user_id="u1")
+
+    mk_failed.assert_called_once()
+    call = mk_failed.call_args
+    assert call.kwargs.get("job_id") == 123 or (call.args and call.args[0] == 123)
+    reason_arg = call.kwargs.get("error_message") or (call.args[1] if len(call.args) > 1 else "")
+    assert "report_persist_failed" in reason_arg
+    refund.assert_called_once_with(job_id=123, user_id="u1", credits=30)

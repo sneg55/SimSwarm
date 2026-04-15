@@ -117,15 +117,19 @@ def generate_report_task(self, job_id: int, user_id: str) -> dict:
         _finalize_as_failed(job_id, user_id, f"report_generation_failed: {exc}")
         raise
 
-    structured = _build_structured(job_id=job_id, result=result)
-    key_insight = _extract_key_insight(result.report_markdown)
+    try:
+        structured = _build_structured(job_id=job_id, result=result)
+        key_insight = _extract_key_insight(result.report_markdown)
+        _save_report_result(
+            job_id=job_id,
+            report_markdown=result.report_markdown,
+            structured=structured,
+            key_insight=key_insight,
+        )
+    except Exception as exc:
+        _finalize_as_failed(job_id, user_id, f"report_persist_failed: {exc}")
+        raise
 
-    _save_report_result(
-        job_id=job_id,
-        report_markdown=result.report_markdown,
-        structured=structured,
-        key_insight=key_insight,
-    )
     try:
         put_report_md(job_id, result.report_markdown)
     except Exception as exc:  # noqa: BLE001 — non-fatal; DB row is authoritative
