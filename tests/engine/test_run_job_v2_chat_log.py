@@ -55,3 +55,50 @@ class TestChatLogJson:
         for entry in data:
             missing = required - entry.keys()
             assert not missing, f"Entry missing fields: {missing}"
+
+
+class TestGraphNodeAgentAttrs:
+    def test_nodes_carry_stance_and_influence_weight(self, rjv2, tmp_path):  # noqa: F811
+        """write_results must stamp AgentActivityConfig.stance and
+        influence_weight onto graph nodes so the Graph detail panel can
+        render them."""
+        import json
+        from simswarm.types import (
+            Agent, AgentActivityConfig, BeliefState, GraphSnapshot,
+            SimulationResult, SimulationState,
+        )
+
+        # Build a minimal SimulationResult whose graph nodes use "id" keys
+        # that match the agent ids in raw_state.
+        graph = GraphSnapshot(
+            nodes=[
+                {"id": "n1", "label": "Alice"},
+                {"id": "n2", "label": "Bob"},
+            ],
+            edges=[],
+            metadata={"entity_types": [], "total_nodes": 2, "total_edges": 0},
+        )
+        result = SimulationResult(chat_log=[], graph_data=graph, trajectories={})
+
+        ag1 = Agent(
+            id="n1", name="Alice", persona="", environments=[],
+            belief_state=BeliefState(),
+            config=AgentActivityConfig(stance="supportive", influence_weight=1.5),
+        )
+        ag2 = Agent(
+            id="n2", name="Bob", persona="", environments=[],
+            belief_state=BeliefState(),
+            config=AgentActivityConfig(stance="opposing", influence_weight=0.8),
+        )
+        result.raw_state = SimulationState(
+            round=1, agents={"n1": ag1, "n2": ag2},
+            environments={}, events=[], snapshots=[],
+        )
+        rjv2.write_results(result, str(tmp_path))
+
+        data = json.loads((tmp_path / "graph_data.json").read_text(encoding="utf-8"))
+        by_id = {n["id"]: n for n in data["nodes"]}
+        assert by_id["n1"]["stance"] == "supportive"
+        assert by_id["n1"]["influence_weight"] == 1.5
+        assert by_id["n2"]["stance"] == "opposing"
+        assert by_id["n2"]["influence_weight"] == 0.8
