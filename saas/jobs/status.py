@@ -5,13 +5,24 @@ import re
 
 
 def _infer_pipeline_stage(log_lines: list[str]) -> int | None:
-    """Map worker log lines to a pipeline stage number (1-5)."""
+    """Map worker log lines to a pipeline stage number (1-5).
+
+    Checked from latest phase to earliest so later markers that linger in
+    log_text outrank earlier ones.
+
+    Phase mapping (frontend STAGE_NAMES aligned):
+      1 Seeding           = 'Generating ontology'
+      2 Researching       = 'Building'
+      3 Simulating        = 'Running simulation' / 'round='
+      4 Analyzing         = 'preparing' (post-sim artifact extraction)
+      5 Generating report = 'report'
+    """
     log_text = " ".join(log_lines)
     if "report" in log_text.lower():
         return 5
-    if "Running simulation" in log_text or "round=" in log_text:
-        return 4
     if "preparing" in log_text:
+        return 4
+    if "Running simulation" in log_text or "round=" in log_text:
         return 3
     if "Building" in log_text:
         return 2
