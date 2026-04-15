@@ -230,6 +230,10 @@ def _load_job_artifacts(job_id: int) -> tuple[str, str]:
 
     Used by the report task to hand already-persisted sim artifacts to
     simswarm.adapter.adapt_structured without re-fetching from MinIO.
+
+    Returns ("[]", "{}") when the engine is not configured (dev/test) or
+    when the row is genuinely missing. DB errors propagate so the Celery
+    task's existing failure path can mark the job failed and refund.
     """
     from sqlalchemy import text
 
@@ -245,11 +249,12 @@ def _load_job_artifacts(job_id: int) -> tuple[str, str]:
                 ),
                 {"id": job_id},
             ).first()
-            if not row:
-                return "[]", "{}"
-            return (row[0] or "[]", row[1] or "{}")
     finally:
         engine.dispose()
+    if not row:
+        logger.warning("report.artifacts_row_missing job_id=%d", job_id)
+        return "[]", "{}"
+    return (row[0] or "[]", row[1] or "{}")
 
 
 def _save_report_result(

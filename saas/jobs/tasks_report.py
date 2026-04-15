@@ -6,6 +6,7 @@ and issues a 100% credit refund.
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 
@@ -22,7 +23,6 @@ from saas.jobs.persistence import (
 )
 from saas.jobs.persistence_sync import _load_job_artifacts
 from saas.jobs.refund import _refund_credits
-from simswarm.adapter import adapt_structured
 from saas.jobs.report import (
     ReportArtifactsMissingError,
     ReportExhaustedError,
@@ -31,6 +31,7 @@ from saas.jobs.report import (
 from saas.storage.minio_download import put_report_md
 from saas.workers.celery_app import celery_app
 from saas.workers.utils import _run_async
+from simswarm.adapter import adapt_structured
 
 logger = logging.getLogger(__name__)
 
@@ -151,18 +152,15 @@ def _build_structured(job_id: int, result) -> str:
     SimulationResults Story view. Loads the chat log + graph the sim task
     already wrote to the DB, then delegates to simswarm.adapter.adapt_structured
     so `brief`, correctly-shaped `findings`, `confidence`, `coalitions`,
-    and `sentiment` are all present."""
-    import json as _json
+    and `sentiment` are all present.
 
+    Returns the full 5-key payload on the happy path. If the row's artifacts
+    are absent (rare — a job id without persisted sim data), adapt_structured
+    degrades gracefully on empty inputs. JSON decode errors propagate so the
+    Celery task's failure path can mark the job failed and refund."""
     chat_log_json, graph_json = _load_job_artifacts(job_id)
-    try:
-        chat_log = _json.loads(chat_log_json) if chat_log_json else []
-    except _json.JSONDecodeError:
-        chat_log = []
-    try:
-        graph_data = _json.loads(graph_json) if graph_json else {}
-    except _json.JSONDecodeError:
-        graph_data = {}
+    chat_log = json.loads(chat_log_json) if chat_log_json else []
+    graph_data = json.loads(graph_json) if graph_json else {}
 
     structured_dict = adapt_structured(
         brief=result.executive_brief,
@@ -170,4 +168,4 @@ def _build_structured(job_id: int, result) -> str:
         chat_log=chat_log,
         graph_data=graph_data,
     )
-    return _json.dumps(structured_dict)
+    return json.dumps(structured_dict)
