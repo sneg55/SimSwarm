@@ -14,10 +14,12 @@ export function useSimulationData(job) {
     return chatLog.value
       .map(entry => {
         if (entry.content && entry.role) return entry
+        const args = entry.action_args || {}
+        const body = args.text ?? args.content ?? entry.content
         return {
           role: 'assistant',
           agent: entry.agent_name || entry.agent || 'Agent',
-          content: entry.action_args?.content || entry.content || JSON.stringify(entry.action_args || {}),
+          content: body ?? JSON.stringify(args),
           timestamp: entry.timestamp || null,
         }
       })

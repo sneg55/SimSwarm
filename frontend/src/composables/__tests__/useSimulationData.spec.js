@@ -76,4 +76,21 @@ describe('useSimulationData', () => {
     expect(result[0].relationships[0].direction).toBe('outgoing')
     expect(result[1].relationships[0].direction).toBe('incoming')
   })
+
+  it('reads post body from action_args.text (native engine key)', () => {
+    const job = ref({ result_chat_log: JSON.stringify([
+      { agent_name: 'Alice', action_type: 'CREATE_POST', action_args: { text: 'hello world' } },
+    ]) })
+    const { chatMessages } = useSimulationData(job)
+    expect(chatMessages.value[0].content).toBe('hello world')
+  })
+
+  it('prefers action_args.text over action_args.content when both present', () => {
+    const job = ref({ result_chat_log: JSON.stringify([
+      { agent_name: 'Alice', action_type: 'CREATE_POST',
+        action_args: { text: 'from text', content: 'from content' } },
+    ]) })
+    const { chatMessages } = useSimulationData(job)
+    expect(chatMessages.value[0].content).toBe('from text')
+  })
 })
