@@ -57,17 +57,23 @@ def run_pipeline(
 ) -> dict:
     """Sim-only pipeline: entities → simulation → write non-report artifacts.
 
-    Report generation has moved to the SaaS-side Celery task
-    (saas/jobs/tasks_report.py); the pod no longer writes report.md or
-    structured_results.json.
+    Stage markers below match the keywords saas/jobs/status.py scans for.
     """
+    print("[stage] Generating ontology", flush=True)
     entities = get_entities(seed_text, goal, target_agents)
 
+    print("[stage] Building entity graph", flush=True)
+
+    print("[stage] Running simulation", flush=True)
     result = asyncio.run(
         run_simulation(seed_text, goal, max_rounds, entities, target_agents)
     )
-    print(f"[run_job_v2] Simulation complete: {len(result.chat_log)} actions", flush=True)
+    print(
+        f"[run_job_v2] Simulation complete: {len(result.chat_log)} actions",
+        flush=True,
+    )
 
+    print("[stage] preparing sim data artifacts", flush=True)
     write_results(result, output_dir)
 
     out = Path(output_dir)

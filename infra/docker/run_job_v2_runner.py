@@ -88,8 +88,11 @@ async def run_simulation(
         smart_llm=smart_llm,
         engine_config=EngineConfig(concurrency=target_agents),
     )
+    async def _on_progress(round_num: int, total: int, _metrics: dict) -> None:
+        print(f"round={round_num}/{total}", flush=True)
+
     try:
-        result = await engine.run(config)
+        result = await engine.run(config, on_progress=_on_progress)
         # Enrich the graph with LLM-extracted typed relations (DISAGREES_WITH,
         # SUPPORTS, RESPONDS_TO, …). This is the post-cutover replacement for
         # the Graphiti knowledge-graph edges. On failure we keep the
