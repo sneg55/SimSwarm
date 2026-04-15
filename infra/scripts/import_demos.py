@@ -5,7 +5,6 @@ Usage (on server):
     docker compose exec -T app python infra/scripts/import_demos.py
 """
 import asyncio
-import json as _json
 import json
 import secrets
 import sys
@@ -30,7 +29,7 @@ def build_structured_payload(
     shape (brief, findings, confidence, coalitions, sentiment) the frontend
     expects from live runs post-cutover.
     """
-    return _json.dumps(adapt_structured(
+    return json.dumps(adapt_structured(
         brief=brief,
         findings=findings,
         chat_log=chat_log,

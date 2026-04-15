@@ -239,6 +239,9 @@ def _load_job_artifacts(job_id: int) -> tuple[str, str]:
 
     engine = _get_sync_engine()
     if engine is None:
+        logger.warning(
+            "DATABASE_URL not set; returning empty artifacts for job %d", job_id
+        )
         return "[]", "{}"
     try:
         with engine.connect() as conn:
