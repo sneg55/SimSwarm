@@ -30,7 +30,12 @@ export function useSimulationData(job) {
     const raw = job.value?.result_structured ?? job.value?.structured ?? null
     if (!raw) return null
     try {
-      return typeof raw === 'string' ? JSON.parse(raw) : raw
+      const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+          && Object.keys(parsed).length === 0) {
+        return null
+      }
+      return parsed
     } catch { return null }
   })
 

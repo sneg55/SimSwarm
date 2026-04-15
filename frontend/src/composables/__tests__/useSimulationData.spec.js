@@ -93,4 +93,16 @@ describe('useSimulationData', () => {
     const { chatMessages } = useSimulationData(job)
     expect(chatMessages.value[0].content).toBe('from text')
   })
+
+  it('returns null for empty-object structured (REPORTING window)', () => {
+    const job = ref({ result_structured: '{}' })
+    const { structured } = useSimulationData(job)
+    expect(structured.value).toBe(null)
+  })
+
+  it('returns object for non-empty structured', () => {
+    const job = ref({ result_structured: JSON.stringify({ brief: 'x' }) })
+    const { structured } = useSimulationData(job)
+    expect(structured.value).toEqual({ brief: 'x' })
+  })
 })
