@@ -63,6 +63,7 @@ def build_graph(
         "total_nodes": len(nodes),
         "total_edges": len(edges),
         "total_rounds": max((a.round_num for a in chat_log), default=0),
+        "entity_types": sorted({e.type for e in entities}),
     }
     return GraphSnapshot(nodes=nodes, edges=edges, metadata=metadata)
 

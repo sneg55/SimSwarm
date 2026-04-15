@@ -126,3 +126,21 @@ def test_unresolved_target_does_not_crash():
     ]
     graph = build_graph(entities, chat_log)
     assert graph.edges == []
+
+
+def _ents():
+    return [
+        Entity(id="a1", name="Alice", type="Person", summary=""),
+        Entity(id="o1", name="OpenAI", type="Organization", summary=""),
+        Entity(id="a2", name="Bob", type="Person", summary=""),
+    ]
+
+
+def test_metadata_entity_types_is_unique_sorted():
+    g = build_graph(_ents(), chat_log=[])
+    assert g.metadata["entity_types"] == ["Organization", "Person"]
+
+
+def test_metadata_entity_types_empty_for_no_entities():
+    g = build_graph([], chat_log=[])
+    assert g.metadata["entity_types"] == []
