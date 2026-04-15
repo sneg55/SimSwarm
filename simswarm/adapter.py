@@ -24,16 +24,17 @@ _COALITION_COLORS = ["#22D3EE", "#A78BFA", "#F97316", "#6EE7B7", "#FF6B6B"]
 
 
 def adapt_chat_log(chat_log: list[ActionRecord]) -> list[dict]:
-    """Convert ActionRecords to MiroShark-compatible dicts.
+    """Convert ActionRecords to dicts consumed by the SaaS frontend.
 
-    agent_id is converted from string to int via abs(hash(agent_id)) % 10**9
-    for backwards compatibility with the SaaS layer.
+    agent_id is preserved as a string. (The old MiroShark-compat hashing was
+    dropped after the engine cutover — extractors keep string agent_ids and
+    the frontend never required int typing.)
     """
     result = []
     for record in chat_log:
         result.append({
             "round_num": record.round_num,
-            "agent_id": abs(hash(record.agent_id)) % 10**9,
+            "agent_id": record.agent_id,
             "agent_name": record.agent_name,
             "action_type": record.action_type,
             "platform": record.platform,

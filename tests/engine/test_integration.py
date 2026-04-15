@@ -66,12 +66,11 @@ class TestFullSimulation:
         assert len(result.chat_log) > 0
 
         # Every entry should validate against contract schema
-        # agent_id in the engine is a str (e.g. "e1"), but ChatLogEntry expects int.
-        # We hash the agent_id to an int for validation purposes.
+        # agent_id is a str (e.g. "e1") — ChatLogEntry.agent_id is str after miroshark removal.
         for entry in result.chat_log:
             ChatLogEntry.model_validate({
                 "round_num": entry.round_num,
-                "agent_id": abs(hash(entry.agent_id)) % (10 ** 9),
+                "agent_id": entry.agent_id,
                 "agent_name": entry.agent_name,
                 "action_type": entry.action_type,
                 "platform": entry.platform,

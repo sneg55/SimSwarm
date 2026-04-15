@@ -11,7 +11,7 @@ from pydantic import BaseModel, field_validator
 
 class ChatLogEntry(BaseModel):
     round_num: int
-    agent_id: int
+    agent_id: str
     agent_name: str
     action_type: str
     platform: str

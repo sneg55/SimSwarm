@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from simswarm.adapter import adapt_chat_log, adapt_graph_data
-from simswarm.types import ActionRecord, GraphSnapshot
+from simswarm.types import GraphSnapshot
 from tests.contracts.schemas import ChatLogEntry, GraphData
 from tests.engine.adapter_fixtures import make_graph, make_records
 
@@ -13,26 +13,14 @@ class TestAdaptChatLog:
         assert isinstance(result, list)
         assert all(isinstance(e, dict) for e in result)
 
-    def test_agent_id_converted_to_int(self):
+    def test_agent_id_preserved_as_string(self):
         for entry in adapt_chat_log(make_records()):
-            assert isinstance(entry["agent_id"], int)
+            assert isinstance(entry["agent_id"], str)
 
-    def test_agent_id_hash_formula(self):
-        record = ActionRecord(
-            round_num=1, agent_id="agent-abc", agent_name="TestBot",
-            action_type="CREATE_POST", platform="twitter", action_args={},
-        )
-        result = adapt_chat_log([record])
-        assert result[0]["agent_id"] == abs(hash("agent-abc")) % 10**9
-
-    def test_same_agent_id_str_maps_to_same_int(self):
-        result = adapt_chat_log(make_records())
-        # agent-abc appears at indices 0, 2, 3
-        assert result[0]["agent_id"] == result[2]["agent_id"] == result[3]["agent_id"]
-
-    def test_different_agent_ids_map_to_different_ints(self):
-        result = adapt_chat_log(make_records())
-        assert result[0]["agent_id"] != result[1]["agent_id"]
+    def test_agent_id_value_matches_record(self):
+        record_ids = [r.agent_id for r in make_records()]
+        adapted_ids = [e["agent_id"] for e in adapt_chat_log(make_records())]
+        assert adapted_ids == record_ids
 
     def test_preserves_core_fields(self):
         entry = adapt_chat_log(make_records())[0]
