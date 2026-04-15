@@ -225,6 +225,33 @@ def _transition_to_reporting(job_id: int) -> None:
         engine.dispose()
 
 
+def _load_job_artifacts(job_id: int) -> tuple[str, str]:
+    """Return (result_chat_log, result_graph) JSON strings for *job_id*.
+
+    Used by the report task to hand already-persisted sim artifacts to
+    simswarm.adapter.adapt_structured without re-fetching from MinIO.
+    """
+    from sqlalchemy import text
+
+    engine = _get_sync_engine()
+    if engine is None:
+        return "[]", "{}"
+    try:
+        with engine.connect() as conn:
+            row = conn.execute(
+                text(
+                    "SELECT result_chat_log, result_graph "
+                    "FROM simulation_jobs WHERE id = :id"
+                ),
+                {"id": job_id},
+            ).first()
+            if not row:
+                return "[]", "{}"
+            return (row[0] or "[]", row[1] or "{}")
+    finally:
+        engine.dispose()
+
+
 def _save_report_result(
     job_id: int,
     report_markdown: str,

@@ -20,7 +20,9 @@ from saas.jobs.persistence import (
     _save_report_result,
     _extract_key_insight,
 )
+from saas.jobs.persistence_sync import _load_job_artifacts
 from saas.jobs.refund import _refund_credits
+from simswarm.adapter import adapt_structured
 from saas.jobs.report import (
     ReportArtifactsMissingError,
     ReportExhaustedError,
@@ -114,7 +116,7 @@ def generate_report_task(self, job_id: int, user_id: str) -> dict:
         _finalize_as_failed(job_id, user_id, f"report_generation_failed: {exc}")
         raise
 
-    structured = _build_structured(result)
+    structured = _build_structured(job_id=job_id, result=result)
     key_insight = _extract_key_insight(result.report_markdown)
 
     _save_report_result(
@@ -144,11 +146,28 @@ def _finalize_as_failed(job_id: int, user_id: str, reason: str) -> None:
     logger.warning("report.failed job_id=%d reason=%s refunded=%d", job_id, reason, credits)
 
 
-def _build_structured(result) -> str:
-    """Minimal structured_results.json replacement (no chat/graph here —
-    those are already persisted by run_simulation_task)."""
+def _build_structured(job_id: int, result) -> str:
+    """Produce the full structured_results JSON string consumed by the Vue
+    SimulationResults Story view. Loads the chat log + graph the sim task
+    already wrote to the DB, then delegates to simswarm.adapter.adapt_structured
+    so `brief`, correctly-shaped `findings`, `confidence`, `coalitions`,
+    and `sentiment` are all present."""
     import json as _json
-    return _json.dumps({
-        "executive_brief": result.executive_brief,
-        "findings": result.findings,
-    })
+
+    chat_log_json, graph_json = _load_job_artifacts(job_id)
+    try:
+        chat_log = _json.loads(chat_log_json) if chat_log_json else []
+    except _json.JSONDecodeError:
+        chat_log = []
+    try:
+        graph_data = _json.loads(graph_json) if graph_json else {}
+    except _json.JSONDecodeError:
+        graph_data = {}
+
+    structured_dict = adapt_structured(
+        brief=result.executive_brief,
+        findings=result.findings,
+        chat_log=chat_log,
+        graph_data=graph_data,
+    )
+    return _json.dumps(structured_dict)

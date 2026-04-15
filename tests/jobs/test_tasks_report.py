@@ -30,6 +30,7 @@ async def test_happy_path_persists_and_marks_completed():
     )
 
     with patch("saas.jobs.tasks_report._build_runner", return_value=_DummyRunner(result=result)), \
+         patch("saas.jobs.tasks_report._load_job_artifacts", return_value=("[]", "{}")), \
          patch("saas.jobs.tasks_report._save_report_result") as save, \
          patch("saas.jobs.tasks_report.put_report_md") as putmd, \
          patch("saas.jobs.tasks_report._load_credits_charged", return_value=30):
@@ -37,6 +38,10 @@ async def test_happy_path_persists_and_marks_completed():
 
     assert out["status"] == "completed"
     save.assert_called_once()
+    saved_structured = save.call_args.kwargs["structured"]
+    import json as _json
+    parsed = _json.loads(saved_structured)
+    assert {"brief", "findings", "confidence", "coalitions", "sentiment"} <= set(parsed.keys())
     putmd.assert_called_once_with(123, result.report_markdown)
 
 
