@@ -5,6 +5,7 @@ Usage (on server):
     docker compose exec -T app python infra/scripts/import_demos.py
 """
 import asyncio
+import json as _json
 import json
 import secrets
 import sys
@@ -13,6 +14,28 @@ from datetime import datetime, timezone
 
 # Make saas importable
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+
+from simswarm.adapter import adapt_structured
+
+
+def build_structured_payload(
+    brief: str,
+    findings: list[dict],
+    chat_log: list[dict],
+    graph_data: dict,
+) -> str:
+    """Demo-import wrapper — same contract as saas/jobs/tasks_report._build_structured.
+
+    Uses simswarm.adapter.adapt_structured so demo rows carry the exact 5-key
+    shape (brief, findings, confidence, coalitions, sentiment) the frontend
+    expects from live runs post-cutover.
+    """
+    return _json.dumps(adapt_structured(
+        brief=brief,
+        findings=findings,
+        chat_log=chat_log,
+        graph_data=graph_data,
+    ))
 
 DEMOS_DIR = Path(__file__).parent.parent.parent / "demos"
 SYSTEM_USER_EMAIL = "demo@fishcloud.internal"
@@ -94,12 +117,22 @@ async def main():
             report = data.get("report_markdown", "")
             chat_log = data.get("chat_log", [])
             graph_data = data.get("graph_data", {})
-            structured = data.get("structured_results", {})
             token = secrets.token_urlsafe(32)
 
             chat_log_str = json.dumps(chat_log, ensure_ascii=False) if isinstance(chat_log, list) else str(chat_log)
             graph_str = json.dumps(graph_data, ensure_ascii=False) if isinstance(graph_data, dict) else str(graph_data)
-            structured_str = json.dumps(structured, ensure_ascii=False) if isinstance(structured, dict) else None
+
+            # Build structured payload via adapt_structured (same shape as live pipeline).
+            # Fall back to safe defaults if brief/findings are absent.
+            brief = data.get("brief", data.get("executive_brief", ""))
+            findings = data.get("findings", [])
+            _empty_graph = {"nodes": [], "edges": [], "metadata": {"entity_types": [], "total_nodes": 0, "total_edges": 0}}
+            structured_str = build_structured_payload(
+                brief=brief,
+                findings=findings,
+                chat_log=chat_log if isinstance(chat_log, list) else [],
+                graph_data=graph_data if isinstance(graph_data, dict) else _empty_graph,
+            )
 
             result = await session.execute(
                 text(
