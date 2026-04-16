@@ -22,15 +22,15 @@ SUPPORT_SIGNALS: frozenset[str] = frozenset({
     "strengthen", "clarity",
 })
 
-# Phase accent colors — aligned with tailwind.config.js tokens. These are
-# hex values (Vue components use the class names; Python stores hex for
-# JSON transport).
-_SLOT_COLORS: dict[str, str] = {
-    "industry":     "#F97316",  # coral-amber
-    "regulator":    "#22D3EE",  # ocean-glow
-    "intermediary": "#A78BFA",  # organic-violet
-    "market":       "#6EE7B7",  # organic-seafoam
-    "turning_point":"#FF6B6B",  # coral
+# Phase accent colors — aligned with tailwind.config.js tokens. Public so
+# saas/jobs/report.py can tag LLM-produced findings with the correct hex
+# without duplicating the mapping.
+SLOT_COLORS: dict[str, str] = {
+    "industry":      "#F97316",  # coral-amber
+    "regulator":     "#22D3EE",  # ocean-glow
+    "intermediary":  "#A78BFA",  # organic-violet
+    "market":        "#6EE7B7",  # organic-seafoam
+    "turning_point": "#FF6B6B",  # coral
 }
 
 
@@ -40,6 +40,15 @@ def build_story_signals(
     forecast_days: int,
 ) -> dict[str, Any]:
     """Top-level entry. Returns the deterministic signals dict.
+
+    Args:
+        chat_log: List of dicts matching the ActionRecord schema serialized
+            to MinIO (i.e., already-parsed JSON). Each row has keys
+            round_num, agent_id, agent_name, action_type, platform,
+            action_args, timestamp, success. Post body lives at
+            action_args["text"] (or action_args["content"] for legacy rows).
+        graph_data: {"nodes": [...], "edges": [...], "metadata": {...}} dict.
+        forecast_days: User-chosen horizon from JobCreate; required.
 
     Shape (see spec for full schema):
         {
