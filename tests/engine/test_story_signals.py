@@ -6,7 +6,7 @@ is importable without carrying unused imports (ruff F401).
 from __future__ import annotations
 
 from simswarm import story_signals
-from tests.engine.story_signals_fixtures import make_chat_log
+from tests.engine.story_signals_fixtures import make_chat_log, make_graph_data
 
 
 class TestBuildStorySignals:
@@ -171,3 +171,31 @@ class TestExtractPhaseBoundaries:
         assert len(phases) == 1
         assert phases[0]["phase"] == "Full horizon"
         assert phases[0]["dominant_topic"] == ""
+
+
+class TestExtractQuotablePosts:
+    def test_returns_list_of_dicts_with_expected_keys(self):
+        chat_log = make_chat_log()
+        phases = story_signals.extract_phase_boundaries(chat_log, forecast_days=30)
+        quotes = story_signals.extract_quotable_posts(chat_log, phases, graph_data=make_graph_data())
+        assert isinstance(quotes, list)
+        for q in quotes:
+            assert set(q.keys()) >= {"agent_name", "agent_role", "phase", "text", "engagement"}
+
+    def test_no_duplicate_agent_across_quotes(self):
+        chat_log = make_chat_log()
+        phases = story_signals.extract_phase_boundaries(chat_log, forecast_days=30)
+        quotes = story_signals.extract_quotable_posts(chat_log, phases, graph_data=make_graph_data())
+        names = [q["agent_name"] for q in quotes]
+        assert len(names) == len(set(names))
+
+    def test_role_derived_from_graph_labels(self):
+        chat_log = make_chat_log()
+        phases = story_signals.extract_phase_boundaries(chat_log, forecast_days=30)
+        quotes = story_signals.extract_quotable_posts(chat_log, phases, graph_data=make_graph_data())
+        ms_quote = next((q for q in quotes if q["agent_name"] == "Morgan Stanley"), None)
+        if ms_quote is not None:
+            assert ms_quote["agent_role"] == "Bank"
+
+    def test_empty_chat_log_returns_empty(self):
+        assert story_signals.extract_quotable_posts([], [], {"nodes": [], "edges": [], "metadata": {}}) == []

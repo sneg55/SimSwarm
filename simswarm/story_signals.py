@@ -10,32 +10,13 @@ from collections import Counter, defaultdict
 from typing import Any
 
 from simswarm.extractor_common import post_text as _extractor_post_text
-
-# Curated stance-signal keyword sets. Extracted from a corpus of prod goals
-# (policy/markets/crisis/competitive/public-opinion verticals). These are
-# intentionally conservative — a post that triggers neither set is neutral.
-OPPOSED_SIGNALS: frozenset[str] = frozenset({
-    "oppose", "against", "reject", "block", "resist", "pushback",
-    "overreach", "mandate", "prescriptive", "burden", "compliance cost",
-    "unworkable", "chilling", "harmful",
-})
-
-SUPPORT_SIGNALS: frozenset[str] = frozenset({
-    "support", "endorse", "align with", "back the", "welcome", "approve",
-    "transparency", "accountability", "standardized", "enforce",
-    "strengthen", "clarity",
-})
-
-# Phase accent colors — aligned with tailwind.config.js tokens. Public so
-# saas/jobs/report.py can tag LLM-produced findings with the correct hex
-# without duplicating the mapping.
-SLOT_COLORS: dict[str, str] = {
-    "industry":      "#F97316",  # coral-amber
-    "regulator":     "#22D3EE",  # ocean-glow
-    "intermediary":  "#A78BFA",  # organic-violet
-    "market":        "#6EE7B7",  # organic-seafoam
-    "turning_point": "#FF6B6B",  # coral
-}
+from simswarm.story_signals_constants import (
+    COALITION_LABEL as _COALITION_LABEL,
+    OPPOSED_SIGNALS,
+    SLOT_COLORS,  # re-exported for saas.jobs.report consumers  # noqa: F401
+    STANCE_BLOC_NAME as _STANCE_BLOC_NAME,
+    SUPPORT_SIGNALS,
+)
 
 
 def _classify_stance(text: str) -> str:
@@ -101,14 +82,6 @@ def _top_keywords(
     return [w for w, _ in tokens.most_common(limit)]
 
 
-_STANCE_BLOC_NAME = {
-    "opposed":  "Opposition bloc",
-    "supports": "Support bloc",
-    "neutral":  "Neutral bloc",
-    "split":    "Split bloc",
-}
-
-
 def extract_stakeholder_positions(chat_log: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Cluster agents by dominant stance and return stakeholder position dicts."""
     posts_by_agent: dict[str, list[dict]] = defaultdict(list)
@@ -145,14 +118,6 @@ def extract_stakeholder_positions(chat_log: list[dict[str, Any]]) -> list[dict[s
     order = {"opposed": 0, "supports": 1, "split": 2, "neutral": 3}
     positions.sort(key=lambda p: order.get(p["stance"], 99))
     return positions
-
-
-_COALITION_LABEL = {
-    "opposed":  "Opposition alignment",
-    "supports": "Support alignment",
-    "split":    "Mixed-stance group",
-    "neutral":  "Neutral observers",
-}
 
 
 def name_coalitions(positions: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -219,6 +184,84 @@ def extract_phase_boundaries(
             "dominant_topic": topics[0] if topics else "",
         })
     return phases
+
+
+def _role_map(graph_data: dict[str, Any]) -> dict[str, str]:
+    """Map agent_name → first non-'Entity' label from graph nodes, for role chips."""
+    roles: dict[str, str] = {}
+    for node in graph_data.get("nodes", []):
+        name = node.get("name", "")
+        labels = [lab for lab in node.get("labels", []) if lab and lab != "Entity"]
+        if name and labels:
+            roles[name] = labels[0]
+    return roles
+
+
+def _phase_for_round(round_num: int, phases: list[dict]) -> str:
+    for p in phases:
+        r_start, r_end = p["rounds"]
+        if r_start <= round_num <= r_end:
+            return p["phase"]
+    return phases[0]["phase"] if phases else ""
+
+
+def _engagement_for_post(
+    post: dict[str, Any],
+    chat_log: list[dict[str, Any]],
+) -> int:
+    """Heuristic engagement: count LIKE_POST / REPOST actions targeting this post.
+
+    Target matching uses agent_id + round_num prefix in target_post field,
+    which is the convention the extractor produces (e.g., "ms_r8").
+    """
+    agent = post.get("agent_id", "")
+    round_num = post.get("round_num", 0)
+    target_marker = f"{agent}_r{round_num}"
+    count = 0
+    for action in chat_log:
+        if action.get("action_type") in ("LIKE_POST", "REPOST"):
+            target = (action.get("action_args") or {}).get("target_post", "")
+            if target_marker in target:
+                count += 1
+    return count
+
+
+def extract_quotable_posts(
+    chat_log: list[dict[str, Any]],
+    phases: list[dict[str, Any]],
+    graph_data: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Top-engagement post per phase per stance, deduped by agent."""
+    roles = _role_map(graph_data)
+    posts = [a for a in chat_log if a.get("action_type") == "CREATE_POST"]
+
+    # Group candidates by (phase, stance)
+    candidates: dict[tuple[str, str], list[dict]] = defaultdict(list)
+    for post in posts:
+        text = _post_text(post)
+        if not text:
+            continue
+        phase = _phase_for_round(post.get("round_num", 0), phases)
+        stance = _classify_stance(text)
+        candidates[(phase, stance)].append(post)
+
+    selected: list[dict[str, Any]] = []
+    seen_agents: set[str] = set()
+    for (phase, stance), posts_list in candidates.items():
+        posts_list.sort(key=lambda p: _engagement_for_post(p, chat_log), reverse=True)
+        for post in posts_list:
+            name = post.get("agent_name", "")
+            if name and name not in seen_agents:
+                seen_agents.add(name)
+                selected.append({
+                    "agent_name": name,
+                    "agent_role": roles.get(name, ""),
+                    "phase": phase,
+                    "text": _post_text(post),
+                    "engagement": _engagement_for_post(post, chat_log),
+                })
+                break
+    return selected
 
 
 def build_story_signals(
