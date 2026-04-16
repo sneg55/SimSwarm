@@ -34,6 +34,20 @@ SLOT_COLORS: dict[str, str] = {
 }
 
 
+def _classify_stance(text: str) -> str:
+    """Return 'opposed' | 'supports' | 'neutral' | 'split' based on keyword signals."""
+    lowered = text.lower()
+    has_opposed = any(kw in lowered for kw in OPPOSED_SIGNALS)
+    has_support = any(kw in lowered for kw in SUPPORT_SIGNALS)
+    if has_opposed and has_support:
+        return "split"
+    if has_opposed:
+        return "opposed"
+    if has_support:
+        return "supports"
+    return "neutral"
+
+
 def build_story_signals(
     chat_log: list[dict[str, Any]],
     graph_data: dict[str, Any],
