@@ -6,7 +6,7 @@ these validators.
 """
 from __future__ import annotations
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel
 
 
 class ChatLogEntry(BaseModel):
@@ -52,54 +52,63 @@ class GraphData(BaseModel):
     metadata: GraphMetadata
 
 
-class Finding(BaseModel):
-    label: str
-    title: str
-    description: str
-    metric: str
-    accentColor: str
-
-    @field_validator("accentColor")
-    @classmethod
-    def valid_hex(cls, v: str) -> str:
-        if not v.startswith("#") or len(v) not in (4, 7):
-            raise ValueError(f"Invalid hex color: {v}")
-        return v
-
-
-class SentimentEntry(BaseModel):
-    label: str
-    value: int
-    direction: str
-
-    @field_validator("direction")
-    @classmethod
-    def valid_direction(cls, v: str) -> str:
-        if v not in ("positive", "negative"):
-            raise ValueError(f"direction must be positive or negative, got {v}")
-        return v
-
-
-class Coalition(BaseModel):
+class StakeholderPosition(BaseModel):
     name: str
-    description: str
-    agents: int
-    strength: int
-    color: str
+    stance: str  # opposed | supports | neutral | split
+    members: list[str]
+    member_count: int
+    rationale_keywords: list[str]
 
 
-class ConfidenceEntry(BaseModel):
-    label: str
-    value: str
-    color: str
+class NamedCoalition(BaseModel):
+    name: str
+    members: list[str]
+    size: int
+    stance: str
+
+
+class PhaseBoundary(BaseModel):
+    phase: str
+    rounds: list[int]  # [start, end] inclusive
+    week_range: str
+    dominant_topic: str
+
+
+class QuotablePost(BaseModel):
+    agent_name: str
+    agent_role: str
+    phase: str
+    text: str
+    engagement: int
+
+
+class SimScale(BaseModel):
+    participants: int
+    horizon_days: int
+    bloc_count: int
+    market_stress: str  # "present" | "none_observed"
+
+
+class FindingSlot(BaseModel):
+    slot: str  # "industry" | "regulator" | "intermediary" | "market" | "turning_point"
+    title: str
+    body: str
+    citation: str
+    accent_color: str
 
 
 class StructuredResults(BaseModel):
+    # LLM-authored
     brief: str
-    findings: list[Finding]
-    sentiment: list[SentimentEntry]
-    coalitions: list[Coalition]
-    confidence: list[ConfidenceEntry]
+    verdict: str
+    findings: list[FindingSlot]
+    # Deterministic (Path 3)
+    stakeholder_positions: list[StakeholderPosition]
+    named_coalitions: list[NamedCoalition]
+    phase_boundaries: list[PhaseBoundary]
+    quotable_posts: list[QuotablePost]
+    disagreement_axis: str
+    sim_scale: SimScale
 
 
 class WorkerStatusResponse(BaseModel):
