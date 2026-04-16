@@ -75,21 +75,21 @@ async def extract_relations(
             f"Expected JSON array, got {type(data).__name__}"
         )
 
-    valid_names = {e.name for e in entities}
+    canonical = _build_canonical_name_lookup(entities)
     result: list[dict] = []
     for i, item in enumerate(data):
         if not isinstance(item, dict):
             logger.warning("relations.skip_non_dict index=%d", i)
             continue
-        src = str(item.get("source", "")).strip()
-        tgt = str(item.get("target", "")).strip()
+        raw_src = str(item.get("source", "")).strip()
+        raw_tgt = str(item.get("target", "")).strip()
         rtype = str(item.get("type", "")).strip().upper()
         fact = str(item.get("fact", "")).strip()
-        if not src or not tgt or not rtype:
+        if not raw_src or not raw_tgt or not rtype:
             continue
-        if src == tgt:
-            continue
-        if src not in valid_names or tgt not in valid_names:
+        src = canonical.get(raw_src) or canonical.get(raw_src.lower())
+        tgt = canonical.get(raw_tgt) or canonical.get(raw_tgt.lower())
+        if not src or not tgt or src == tgt:
             continue
         result.append({
             "source": src,
@@ -98,11 +98,31 @@ async def extract_relations(
             "fact": fact[:400],
         })
 
+    if not result and data:
+        # Every row was filtered. Surface the raw response preview so a
+        # silent zero-edge regression (see prod sim #112) is diagnosable
+        # from celery logs without re-running the pipeline.
+        logger.warning(
+            "relations.empty_after_filter raw_response=%s",
+            raw[:500],
+        )
     logger.info(
         "relations.extracted count=%d types=%s",
         len(result), sorted({r["type"] for r in result}),
     )
     return result
+
+
+def _build_canonical_name_lookup(entities: list[Entity]) -> dict[str, str]:
+    """Map any plausible name/id variant the LLM might emit back to
+    ``entity.name``. Covers: canonical name, lowered name, entity.id,
+    lowered entity.id. Earlier entries win on collision."""
+    lookup: dict[str, str] = {}
+    for e in entities:
+        for key in (e.name, e.name.lower(), e.id, e.id.lower()):
+            if key and key not in lookup:
+                lookup[key] = e.name
+    return lookup
 
 
 # ---------------------------------------------------------------------------
@@ -111,7 +131,14 @@ async def extract_relations(
 
 
 def _sample_posts(chat_log: list[ActionRecord], max_posts: int) -> list[dict]:
-    """Return up to *max_posts* create_post records as {agent_id, content}."""
+    """Return up to *max_posts* create_post records as {author, content}.
+
+    ``author`` is the agent's display name (falling back to agent_id) so the
+    prompt shows the LLM one consistent naming style — the same one that
+    appears in the entity list. Previously we showed snake_case agent_ids
+    here, which biased the LLM into echoing those ids back as source/target
+    values and caused every relation to be dropped by name filtering (prod
+    sim #112 regression)."""
     out: list[dict] = []
     for r in chat_log:
         if r.action_type.lower() != "create_post":
@@ -119,7 +146,8 @@ def _sample_posts(chat_log: list[ActionRecord], max_posts: int) -> list[dict]:
         content = post_text(r.action_args)
         if not content:
             continue
-        out.append({"agent_id": r.agent_id, "content": content})
+        author = r.agent_name or r.agent_id
+        out.append({"author": author, "content": content})
         if len(out) >= max_posts:
             break
     return out

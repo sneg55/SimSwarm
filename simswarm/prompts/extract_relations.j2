@@ -6,9 +6,9 @@ Entities (only these names are valid as source/target):
 
 Simulation goal: {{ goal }}
 
-Posts written by the entities during the simulation (agent_id: content):
+Posts written by the entities during the simulation (attributed by entity name):
 ---
-{% for p in posts %}{{ p.agent_id }}: {{ p.content }}
+{% for p in posts %}{{ p.author }}: {{ p.content }}
 {% endfor %}---
 
 Identify up to {{ max_relations }} meaningful directed relationships supported by the posts. Focus on substantive semantic links — disagreement, endorsement, response, influence, reframing. Skip trivial co-mentions.

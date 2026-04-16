@@ -116,9 +116,69 @@ async def test_extract_relations_samples_posts_up_to_max():
     ents = [_entity("Alice")]
     log = [_post("alice", "Alice", f"post {i}") for i in range(100)]
     await extract_relations(ents, log, llm, max_posts=10)
-    # The prompt should include at most 10 posts.
+    # The prompt should include exactly 10 posts, attributed by entity name
+    # (not agent_id) so the LLM uses canonical names in its response.
     prompt = llm.calls[0]["messages"][0]["content"]
-    assert prompt.count("alice:") <= 10
+    assert prompt.count("Alice:") == 10
+    assert "alice:" not in prompt  # agent_id form should not leak into prompt
+
+
+# ---------------------------------------------------------------------------
+# Fuzzy name resolution — regression for sim #112 (relations.extracted
+# count=0 on valid data because the LLM emitted snake_case ids instead of
+# canonical names while the filter was strict case-sensitive match).
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_extract_relations_resolves_snake_case_ids_to_canonical_names():
+    """LLM emits agent_id style (`jpmorgan`) instead of the canonical
+    entity.name (`JPMorgan`); we should still keep the edge and return the
+    canonical name so downstream id-lookups in _relations_to_edges work."""
+    llm = _StubLLM(
+        '[{"source": "jpmorgan", "target": "goldman_sachs", '
+        '"type": "DISAGREES_WITH", "fact": "JPM and GS differ on scope."}]'
+    )
+    ents = [_entity("JPMorgan", "organization"), _entity("Goldman Sachs", "organization")]
+    log = [_post("jpmorgan", "JPMorgan", "we disagree")]
+    rels = await extract_relations(ents, log, llm)
+    assert len(rels) == 1
+    assert rels[0]["source"] == "JPMorgan"
+    assert rels[0]["target"] == "Goldman Sachs"
+
+
+@pytest.mark.asyncio
+async def test_extract_relations_resolves_case_insensitive_names():
+    llm = _StubLLM(
+        '[{"source": "alice", "target": "BOB", "type": "T", "fact": "f"}]'
+    )
+    rels = await extract_relations(
+        [_entity("Alice"), _entity("Bob")],
+        [_post("alice", "Alice", "x")],
+        llm,
+    )
+    assert len(rels) == 1
+    assert rels[0]["source"] == "Alice"
+    assert rels[0]["target"] == "Bob"
+
+
+@pytest.mark.asyncio
+async def test_extract_relations_logs_raw_response_when_empty_after_filter(caplog):
+    """When every row is filtered out, log the raw LLM response so future
+    silent-failure regressions are diagnosable from celery logs."""
+    import logging
+    llm = _StubLLM(
+        '[{"source": "Unknown", "target": "Also Unknown", "type": "T", "fact": "f"}]'
+    )
+    with caplog.at_level(logging.WARNING, logger="simswarm.relations"):
+        rels = await extract_relations(
+            [_entity("Alice"), _entity("Bob")],
+            [_post("alice", "Alice", "x")],
+            llm,
+        )
+    assert rels == []
+    warning_records = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert any("empty_after_filter" in r.message for r in warning_records)
 
 
 # ---------------------------------------------------------------------------
