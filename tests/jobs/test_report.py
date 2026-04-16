@@ -73,6 +73,58 @@ async def test_happy_path_returns_markdown_and_findings():
 
 
 @pytest.mark.asyncio
+async def test_findings_parse_full_deck_past_intermediate_h3_headings():
+    """Regression for prod sim #112: LLM emitted 4 slotted findings and a
+    trailing '## Agent Coalitions' H2, but only the first finding was parsed
+    because the Key Findings section-capture lookahead matched '\\n##' inside
+    '### slot=...' (since '##' is a prefix of '###').
+    """
+    script = [
+        LLMResponse(content=(
+            "## Executive Summary\n"
+            "Healthy engagement across all stakeholders.\n\n"
+            "## Verdict\n"
+            "Compromise prevails.\n\n"
+            "## Key Findings\n"
+            "### slot=industry — Industry bloc aligns\n"
+            "Private-sector actors coalesce around shared framing.\n"
+            "_Citation: quotes from JPMorgan and Goldman Sachs._\n\n"
+            "### slot=regulator — Regulator signals openness\n"
+            "Oversight posture softens mid-phase.\n"
+            "_Citation: SEC trajectory declines from 0.08 to 0.02._\n\n"
+            "### slot=intermediary — Intermediaries anchor middle\n"
+            "Bridge actors carry the compromise.\n"
+            "_Citation: Google and Microsoft bridging posts._\n\n"
+            "### slot=turning_point — Late-phase pivot\n"
+            "Opposition shifts from blocking to shaping.\n"
+            "_Citation: Bank Lobbying Coalition late-phase post._\n\n"
+            "## Agent Coalitions\n"
+            "Two named coalitions surfaced.\n\n"
+            "## Market Analysis\n"
+            "No speculative trades formed.\n\n"
+            "## Conclusion\n"
+            "Compromise prevails.\n"
+        ), tool_calls=[]),
+    ]
+    runner = ReportRunner(
+        job_id=112,
+        goal="Test goal",
+        forecast_days=30,
+        client=_StubClient(script),
+        fetcher=_canned_fetcher(),
+    )
+    result = await runner.run()
+    assert len(result.findings) == 4
+    assert [f["slot"] for f in result.findings] == [
+        "industry", "regulator", "intermediary", "turning_point",
+    ]
+    # Each finding should carry its body and citation, not leak into the next.
+    assert result.findings[1]["title"] == "Regulator signals openness"
+    assert "0.08 to 0.02" in result.findings[1]["citation"]
+    assert result.findings[3]["title"] == "Late-phase pivot"
+
+
+@pytest.mark.asyncio
 async def test_missing_required_artifact_raises():
     from saas.jobs.report import ReportArtifactsMissingError
     runner = ReportRunner(

@@ -202,8 +202,10 @@ def _extract_verdict(markdown: str) -> str:
 
 def _extract_findings(markdown: str) -> list[dict[str, str]]:
     """Extract up to 4 slotted findings from '### slot=X — Title' blocks."""
+    # Lookahead guards against '###' (H3) being treated as the next H2:
+    # `(?!#)` ensures the two pounds aren't followed by a third.
     section_match = re.search(
-        r"##\s+Key Findings\s*\n+(.*?)(?=\n##|\Z)",
+        r"##\s+Key Findings\s*\n+(.*?)(?=\n##(?!#)|\Z)",
         markdown,
         re.DOTALL | re.IGNORECASE,
     )
