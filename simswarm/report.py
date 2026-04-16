@@ -12,7 +12,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import ChainableUndefined, Environment, FileSystemLoader
 
 from simswarm.llm import LLMClient, LLMResponse
 from simswarm.report_tools import ReportTools
@@ -22,6 +22,10 @@ _TEMPLATE_DIR = Path(__file__).parent / "prompts"
 _jinja_env = Environment(
     loader=FileSystemLoader(str(_TEMPLATE_DIR)),
     keep_trailing_newline=False,
+    # ChainableUndefined lets `signals.foo` render empty when `signals` isn't
+    # passed — the template expects Path 3 context (Task 14) but this engine-
+    # side renderer doesn't thread it in yet.
+    undefined=ChainableUndefined,
 )
 
 _MAX_ROUNDS = 5

@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import ChainableUndefined, Environment, FileSystemLoader
 
 from saas.jobs.report_tools_minio import ReportArtifacts, ReportTools
 from saas.storage.minio_download import ArtifactMissingError, fetch_artifact
@@ -27,6 +27,9 @@ _TEMPLATE_DIR = Path(__file__).resolve().parent.parent.parent / "simswarm" / "pr
 _jinja_env = Environment(
     loader=FileSystemLoader(str(_TEMPLATE_DIR)),
     keep_trailing_newline=False,
+    # ChainableUndefined lets `signals.foo` render empty when `signals` isn't
+    # passed — keeps Task 14 (template) and Task 15 (runner wiring) separable.
+    undefined=ChainableUndefined,
 )
 
 _REQUIRED_ARTIFACTS = ("chat_log.json", "posts.json", "trades.json", "agent_trajectories.json")
