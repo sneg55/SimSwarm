@@ -100,12 +100,12 @@ SUPPORT_SIGNALS: frozenset[str] = frozenset({
 # Phase accent colors — aligned with tailwind.config.js tokens. These are
 # hex values (Vue components use the class names; Python stores hex for
 # JSON transport).
-_SLOT_COLORS: dict[str, str] = {
-    "industry":     "#F97316",  # coral-amber
-    "regulator":    "#22D3EE",  # ocean-glow
-    "intermediary": "#A78BFA",  # organic-violet
-    "market":       "#6EE7B7",  # organic-seafoam
-    "turning_point":"#FF6B6B",  # coral
+SLOT_COLORS: dict[str, str] = {
+    "industry":      "#F97316",  # coral-amber
+    "regulator":     "#22D3EE",  # ocean-glow
+    "intermediary":  "#A78BFA",  # organic-violet
+    "market":        "#6EE7B7",  # organic-seafoam
+    "turning_point": "#FF6B6B",  # coral
 }
 
 
