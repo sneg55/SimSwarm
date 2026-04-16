@@ -9,6 +9,8 @@ import re
 from collections import Counter, defaultdict
 from typing import Any
 
+from simswarm.extractor_common import post_text as _extractor_post_text
+
 # Curated stance-signal keyword sets. Extracted from a corpus of prod goals
 # (policy/markets/crisis/competitive/public-opinion verticals). These are
 # intentionally conservative — a post that triggers neither set is neutral.
@@ -51,27 +53,46 @@ def _classify_stance(text: str) -> str:
 
 
 def _post_text(action: dict[str, Any]) -> str:
-    args = action.get("action_args") or {}
-    return args.get("text") or args.get("content") or ""
+    """Defensive accessor for post body text; delegates to extractor_common."""
+    return _extractor_post_text(action.get("action_args"))
 
 
 def _agent_dominant_stance(agent_posts: list[dict[str, Any]]) -> str:
-    """A single agent's overall stance = majority stance across their posts."""
+    """A single agent's overall stance = majority stance across their posts.
+
+    Ties between directional stances resolve to "split" rather than being
+    order-dependent.
+    """
     if not agent_posts:
         return "neutral"
     counts = Counter(_classify_stance(_post_text(p)) for p in agent_posts)
     # Drop neutral when any directional stance exists — neutral shouldn't win by default.
     directional = {k: v for k, v in counts.items() if k != "neutral"}
     if directional:
-        return max(directional.items(), key=lambda kv: kv[1])[0]
+        top_count = max(directional.values())
+        top_stances = [k for k, v in directional.items() if v == top_count]
+        if len(top_stances) > 1:
+            return "split"
+        return top_stances[0]
     return "neutral"
 
 
-def _top_keywords(texts: list[str], limit: int = 3) -> list[str]:
-    """Top non-stopword tokens across a bag of texts."""
+def _top_keywords(
+    texts: list[str],
+    limit: int = 3,
+    extra_stopwords: frozenset[str] = frozenset(),
+) -> list[str]:
+    """Top non-stopword tokens across a bag of texts.
+
+    `extra_stopwords` lets callers exclude domain-specific tokens they don't
+    want dominating the output — e.g., stance words when naming a bloc's
+    rationale, so "oppose" doesn't become the top keyword for an opposed
+    bloc.
+    """
     stopwords = {"the", "a", "an", "is", "are", "to", "of", "for", "and", "or",
                  "in", "on", "we", "our", "this", "that", "it", "be", "by",
                  "with", "as", "at", "from", "will", "not", "but"}
+    stopwords |= set(extra_stopwords)
     tokens: Counter[str] = Counter()
     for t in texts:
         for word in re.findall(r"[a-z][a-z\-]{3,}", t.lower()):
@@ -115,7 +136,10 @@ def extract_stakeholder_positions(chat_log: list[dict[str, Any]]) -> list[dict[s
             "stance": stance,
             "members": sorted(members),
             "member_count": len(members),
-            "rationale_keywords": _top_keywords(bucket_texts, limit=3),
+            "rationale_keywords": _top_keywords(
+                bucket_texts, limit=3,
+                extra_stopwords=OPPOSED_SIGNALS | SUPPORT_SIGNALS,
+            ),
         })
     # Stable order: opposed, supports, split, neutral
     order = {"opposed": 0, "supports": 1, "split": 2, "neutral": 3}

@@ -65,3 +65,29 @@ class TestExtractStakeholderPositions:
         names = {p["name"] for p in positions}
         assert any("oppos" in n.lower() or "against" in n.lower() or "industry" in n.lower() for n in names) \
             or any("support" in n.lower() or "regulator" in n.lower() or "transparency" in n.lower() for n in names)
+
+    def test_tied_agent_resolves_to_split(self):
+        """An agent with equal opposed+supports posts lands in split, not whichever came first."""
+        tied_log = [
+            {"round_num": 1, "agent_id": "a", "agent_name": "Tied",
+             "action_type": "CREATE_POST", "platform": "twitter",
+             "action_args": {"text": "We oppose prescriptive mandates."},
+             "timestamp": None, "success": True},
+            {"round_num": 2, "agent_id": "a", "agent_name": "Tied",
+             "action_type": "CREATE_POST", "platform": "twitter",
+             "action_args": {"text": "We endorse standardized frameworks."},
+             "timestamp": None, "success": True},
+        ]
+        positions = story_signals.extract_stakeholder_positions(tied_log)
+        split_bucket = next((p for p in positions if p["stance"] == "split"), None)
+        assert split_bucket is not None
+        assert "Tied" in split_bucket["members"]
+
+    def test_rationale_keywords_exclude_stance_words(self):
+        """Stance keywords like 'oppose', 'prescriptive' must not dominate rationale output."""
+        positions = story_signals.extract_stakeholder_positions(make_chat_log())
+        opposed = next((p for p in positions if p["stance"] == "opposed"), None)
+        assert opposed is not None
+        # stance keywords that appear in the opposed bloc's posts but should be filtered
+        assert "oppose" not in opposed["rationale_keywords"]
+        assert "prescriptive" not in opposed["rationale_keywords"]
