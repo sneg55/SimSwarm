@@ -91,3 +91,38 @@ class TestExtractStakeholderPositions:
         # stance keywords that appear in the opposed bloc's posts but should be filtered
         assert "oppose" not in opposed["rationale_keywords"]
         assert "prescriptive" not in opposed["rationale_keywords"]
+
+
+class TestNameCoalitions:
+    def test_coalitions_named_by_stance_not_generic(self):
+        positions = story_signals.extract_stakeholder_positions(make_chat_log())
+        coalitions = story_signals.name_coalitions(positions)
+        for c in coalitions:
+            assert not c["name"].startswith("Coalition ")
+
+    def test_coalition_has_required_keys(self):
+        positions = story_signals.extract_stakeholder_positions(make_chat_log())
+        coalitions = story_signals.name_coalitions(positions)
+        for c in coalitions:
+            assert set(c.keys()) >= {"name", "members", "size", "stance"}
+
+    def test_size_matches_members(self):
+        positions = story_signals.extract_stakeholder_positions(make_chat_log())
+        coalitions = story_signals.name_coalitions(positions)
+        for c in coalitions:
+            assert c["size"] == len(c["members"])
+
+    def test_singleton_buckets_excluded(self):
+        # A bucket of 1 is not a coalition.
+        positions = [
+            {"name": "Opposition bloc", "stance": "opposed",
+             "members": ["Solo"], "member_count": 1, "rationale_keywords": []},
+            {"name": "Support bloc", "stance": "supports",
+             "members": ["A", "B"], "member_count": 2, "rationale_keywords": []},
+        ]
+        coalitions = story_signals.name_coalitions(positions)
+        assert len(coalitions) == 1
+        assert coalitions[0]["stance"] == "supports"
+
+    def test_empty_positions_returns_empty(self):
+        assert story_signals.name_coalitions([]) == []

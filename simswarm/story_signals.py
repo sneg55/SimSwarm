@@ -147,6 +147,36 @@ def extract_stakeholder_positions(chat_log: list[dict[str, Any]]) -> list[dict[s
     return positions
 
 
+_COALITION_LABEL = {
+    "opposed":  "Opposition alignment",
+    "supports": "Support alignment",
+    "split":    "Mixed-stance group",
+    "neutral":  "Neutral observers",
+}
+
+
+def name_coalitions(positions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Promote stakeholder_positions with ≥2 members to named coalitions."""
+    coalitions: list[dict[str, Any]] = []
+    for p in positions:
+        if p["member_count"] < 2:
+            continue
+        # Prefer a keyword-derived name when rationale keywords are present;
+        # fall back to stance label.
+        kw = p.get("rationale_keywords") or []
+        if kw:
+            name = f"{kw[0].capitalize()}-focused {p['stance']} group"
+        else:
+            name = _COALITION_LABEL.get(p["stance"], "Group")
+        coalitions.append({
+            "name": name,
+            "members": list(p["members"]),
+            "size": p["member_count"],
+            "stance": p["stance"],
+        })
+    return coalitions
+
+
 def build_story_signals(
     chat_log: list[dict[str, Any]],
     graph_data: dict[str, Any],
