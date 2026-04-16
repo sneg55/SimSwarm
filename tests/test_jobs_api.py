@@ -16,6 +16,7 @@ async def test_create_job(client, auth_headers, funded_user, seeded_routing):
                 "seed_text": "Breaking news: markets are volatile.",
                 "goal": "Predict market sentiment over 7 days",
                 "tier": "small",
+                "forecast_days": 30,
             },
         )
     assert response.status_code == 201
@@ -35,6 +36,7 @@ async def test_create_job_invalid_tier(client, auth_headers):
             "seed_text": "Test",
             "goal": "Test",
             "tier": "mega",
+            "forecast_days": 30,
         },
     )
     assert response.status_code == 422
@@ -49,6 +51,7 @@ async def test_create_job_seed_too_long(client, auth_headers, funded_user, seede
                 "seed_text": "x" * 50_001,
                 "goal": "Test",
                 "tier": "small",
+                "forecast_days": 30,
             },
         )
     assert response.status_code == 400
@@ -64,6 +67,7 @@ async def test_get_job_status(client, auth_headers, funded_user, seeded_routing)
                 "seed_text": "Test seed",
                 "goal": "Test goal",
                 "tier": "medium",
+                "forecast_days": 30,
             },
         )
     job_id = create_resp.json()["id"]
@@ -91,6 +95,7 @@ async def test_list_user_jobs(client, auth_headers, funded_user, seeded_routing)
                     "seed_text": "Test",
                     "goal": "Test",
                     "tier": "small",
+                    "forecast_days": 30,
                 },
             )
 
@@ -114,6 +119,7 @@ async def test_unauthenticated_request_returns_401(client):
             "seed_text": "Test",
             "goal": "Test",
             "tier": "small",
+            "forecast_days": 30,
         },
     )
     assert response.status_code == 401
@@ -135,18 +141,3 @@ async def test_create_job_with_forecast_days(client, auth_headers, funded_user, 
     data = response.json()
     assert data["tier"] == "small"
     assert data["credits_charged"] == 30
-
-
-async def test_create_job_without_forecast_days(client, auth_headers, funded_user, seeded_routing):
-    """forecast_days is optional — existing behavior still works."""
-    with _mock_delay():
-        response = await client.post(
-            "/api/jobs",
-            headers=auth_headers,
-            json={
-                "seed_text": "Breaking news: markets are volatile.",
-                "goal": "Predict market sentiment",
-                "tier": "small",
-            },
-        )
-    assert response.status_code == 201

@@ -54,7 +54,7 @@ async def test_delete_job_forbidden(client, auth_headers, db_session):
 async def test_create_job_no_routing(client, auth_headers, funded_user):
     resp = await client.post(
         "/api/jobs", headers=auth_headers,
-        json={"seed_text": "seed", "goal": "goal", "tier": "small"},
+        json={"seed_text": "seed", "goal": "goal", "tier": "small", "forecast_days": 30},
     )
     assert resp.status_code == 500
 
@@ -62,7 +62,7 @@ async def test_create_job_no_routing(client, auth_headers, funded_user):
 async def test_create_job_insufficient_credits(client, auth_headers, seeded_routing):
     resp = await client.post(
         "/api/jobs", headers=auth_headers,
-        json={"seed_text": "seed", "goal": "goal", "tier": "small"},
+        json={"seed_text": "seed", "goal": "goal", "tier": "small", "forecast_days": 30},
     )
     assert resp.status_code == 402
 
@@ -71,7 +71,7 @@ async def test_create_job_dispatch_failure(client, auth_headers, funded_user, se
     with patch("saas.jobs.api.run_simulation_task.delay", side_effect=RuntimeError("fail")):
         resp = await client.post(
             "/api/jobs", headers=auth_headers,
-            json={"seed_text": "seed", "goal": "goal", "tier": "small"},
+            json={"seed_text": "seed", "goal": "goal", "tier": "small", "forecast_days": 30},
         )
     assert resp.status_code == 500
 

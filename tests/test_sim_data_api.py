@@ -13,7 +13,12 @@ async def test_sim_data_returns_404_when_not_available(client, auth_headers, fun
         create_resp = await client.post(
             "/api/jobs",
             headers=auth_headers,
-            json={"seed_text": "Test seed text for simulation.", "goal": "Test goal", "tier": "small"},
+            json={
+                "seed_text": "Test seed text for simulation.",
+                "goal": "Test goal",
+                "tier": "small",
+                "forecast_days": 30,
+            },
         )
     job_id = create_resp.json()["id"]
 

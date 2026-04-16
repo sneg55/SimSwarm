@@ -18,13 +18,20 @@ class JobCreate(BaseModel):
     goal: str
     tier: TierEnum
     enrich_web: bool = True
-    forecast_days: int | None = None
+    forecast_days: int  # REQUIRED — removed default None
 
     @field_validator("seed_text")
     @classmethod
     def seed_not_empty(cls, v: str) -> str:
         if not v.strip():
             raise ValueError("seed_text cannot be empty")
+        return v
+
+    @field_validator("forecast_days")
+    @classmethod
+    def forecast_days_positive(cls, v: int) -> int:
+        if v < 1 or v > 730:
+            raise ValueError("forecast_days must be between 1 and 730")
         return v
 
 

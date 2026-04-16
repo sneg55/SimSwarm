@@ -132,7 +132,7 @@ class TestLaunchDraft:
 
         await client.patch(
             f"/api/jobs/draft/{draft_id}",
-            json={"goal": "Predict impact", "tier": "small"},
+            json={"goal": "Predict impact", "tier": "small", "forecast_days": 30},
             headers=auth_headers,
         )
 
@@ -176,7 +176,7 @@ class TestLaunchDraft:
         draft_id = create.json()["id"]
         await client.patch(
             f"/api/jobs/draft/{draft_id}",
-            json={"goal": "Predict impact", "tier": "small"},
+            json={"goal": "Predict impact", "tier": "small", "forecast_days": 30},
             headers=auth_headers,
         )
 
@@ -206,6 +206,24 @@ class TestLaunchDraft:
             headers=auth_headers,
         )
         assert resp.status_code == 409
+
+    async def test_launch_draft_rejects_null_forecast_days(
+        self, client, funded_user, auth_headers, seeded_routing
+    ):
+        """A draft without forecast_days cannot be launched (422)."""
+        draft_resp = await client.post(
+            "/api/jobs/draft",
+            json={"seed_text": SEED, "goal": "some goal", "tier": "small"},
+            headers=auth_headers,
+        )
+        assert draft_resp.status_code == 201
+        draft_id = draft_resp.json()["id"]
+
+        launch_resp = await client.post(
+            f"/api/jobs/draft/{draft_id}/launch", headers=auth_headers,
+        )
+        assert launch_resp.status_code == 422
+        assert "forecast_days" in launch_resp.text.lower()
 
 
 class TestListIncludesDrafts:

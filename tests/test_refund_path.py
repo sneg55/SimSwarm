@@ -17,7 +17,12 @@ async def test_job_dispatch_passes_credits_charged(client, auth_headers, funded_
         resp = await client.post(
             "/api/jobs",
             headers=auth_headers,
-            json={"seed_text": "Test seed text for dispatch.", "goal": "Test goal", "tier": "small"},
+            json={
+                "seed_text": "Test seed text for dispatch.",
+                "goal": "Test goal",
+                "tier": "small",
+                "forecast_days": 30,
+            },
         )
     assert resp.status_code == 201
     kwargs = mock_delay.call_args.kwargs

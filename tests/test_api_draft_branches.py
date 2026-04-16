@@ -19,7 +19,9 @@ async def test_launch_missing_routing(client, auth_headers, funded_user, db_sess
     )
     did = create.json()["id"]
     await client.patch(
-        f"/api/jobs/draft/{did}", json={"goal": "g", "tier": "small"}, headers=auth_headers,
+        f"/api/jobs/draft/{did}",
+        json={"goal": "g", "tier": "small", "forecast_days": 30},
+        headers=auth_headers,
     )
     resp = await client.post(f"/api/jobs/draft/{did}/launch", headers=auth_headers)
     assert resp.status_code == 500
@@ -31,7 +33,9 @@ async def test_launch_dispatch_failure(client, auth_headers, funded_user, seeded
     )
     did = create.json()["id"]
     await client.patch(
-        f"/api/jobs/draft/{did}", json={"goal": "g", "tier": "small"}, headers=auth_headers,
+        f"/api/jobs/draft/{did}",
+        json={"goal": "g", "tier": "small", "forecast_days": 30},
+        headers=auth_headers,
     )
     with patch("saas.jobs.api_draft.run_simulation_task.delay", side_effect=RuntimeError("boom")):
         resp = await client.post(f"/api/jobs/draft/{did}/launch", headers=auth_headers)
