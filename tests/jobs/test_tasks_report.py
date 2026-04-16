@@ -41,7 +41,13 @@ async def test_happy_path_persists_and_marks_completed():
     saved_structured = save.call_args.kwargs["structured"]
     import json as _json
     parsed = _json.loads(saved_structured)
-    assert {"brief", "findings", "confidence", "coalitions", "sentiment"} <= set(parsed.keys())
+    # Path-3 structured shape: LLM-authored + deterministic signals
+    expected_keys = {
+        "brief", "verdict", "findings",
+        "stakeholder_positions", "named_coalitions", "phase_boundaries",
+        "quotable_posts", "disagreement_axis", "sim_scale",
+    }
+    assert expected_keys <= set(parsed.keys())
     putmd.assert_called_once_with(123, result.report_markdown)
 
 

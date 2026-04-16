@@ -171,5 +171,7 @@ def _build_structured(job_id: int, result) -> str:
         findings=result.findings,
         chat_log=chat_log,
         graph_data=graph_data,
+        forecast_days=30,  # TODO(task15): thread forecast_days from job
+        verdict=getattr(result, "verdict", ""),
     )
     return json.dumps(structured_dict)

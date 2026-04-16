@@ -25,15 +25,17 @@ def build_structured_payload(
 ) -> str:
     """Demo-import wrapper — same contract as saas/jobs/tasks_report._build_structured.
 
-    Uses simswarm.adapter.adapt_structured so demo rows carry the exact 5-key
-    shape (brief, findings, confidence, coalitions, sentiment) the frontend
-    expects from live runs post-cutover.
+    Uses simswarm.adapter.adapt_structured so demo rows carry the Path-3
+    structured shape (brief, verdict, findings + deterministic signals) the
+    frontend expects from live runs post-cutover.
     """
     return json.dumps(adapt_structured(
         brief=brief,
         findings=findings,
         chat_log=chat_log,
         graph_data=graph_data,
+        forecast_days=30,  # TODO(task15): thread forecast_days from demo JSON
+        verdict="",
     ))
 
 DEMOS_DIR = Path(__file__).parent.parent.parent / "demos"

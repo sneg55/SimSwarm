@@ -5,7 +5,7 @@ posts/activity/market submodules can stay focused on their own concerns.
 """
 from __future__ import annotations
 
-from simswarm.adapter import NEGATIVE_WORDS, POSITIVE_WORDS
+from simswarm.stance import NEGATIVE_WORDS, POSITIVE_WORDS
 
 
 def post_text(action_args: dict | None) -> str:
