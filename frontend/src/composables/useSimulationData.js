@@ -39,18 +39,14 @@ export function useSimulationData(job) {
     } catch { return null }
   })
 
-  const sentimentBars = computed(() => {
-    if (!structured.value?.sentiment) return []
-    return structured.value.sentiment.map(s => ({
-      label: s.label,
-      width: s.value,
-      value: s.value === 0 ? 'N/A' : `${s.value}%`,
-      gradient: s.direction === 'positive'
-        ? 'linear-gradient(90deg, #22D3EE, #6EE7B7)'
-        : 'linear-gradient(90deg, #FF6B6B, #F97316)',
-      valueColor: s.value === 0 ? '#64748B' : (s.direction === 'positive' ? '#6EE7B7' : '#FF6B6B'),
-    }))
-  })
+  // New Path 3 / Path 2 fields — all lift straight out of structured
+  const verdict = computed(() => structured.value?.verdict || '')
+  const stakeholderPositions = computed(() => structured.value?.stakeholder_positions || [])
+  const namedCoalitions = computed(() => structured.value?.named_coalitions || [])
+  const phaseBoundaries = computed(() => structured.value?.phase_boundaries || [])
+  const quotablePosts = computed(() => structured.value?.quotable_posts || [])
+  const simScale = computed(() => structured.value?.sim_scale || {})
+  const disagreementAxis = computed(() => structured.value?.disagreement_axis || '')
 
   function buildNodeRelationships(nodes, edges) {
     const nameMap = Object.fromEntries(nodes.map(n => [n.uuid, n.name || n.uuid]))
@@ -78,5 +74,10 @@ export function useSimulationData(job) {
     return nodes.map(n => ({ ...n, relationships: relMap[n.uuid] || [] }))
   }
 
-  return { chatLog, chatMessages, structured, sentimentBars, buildNodeRelationships }
+  return {
+    chatLog, chatMessages, structured,
+    verdict, stakeholderPositions, namedCoalitions,
+    phaseBoundaries, quotablePosts, simScale, disagreementAxis,
+    buildNodeRelationships,
+  }
 }
