@@ -19,7 +19,7 @@ from saas.constants.tiers import TIER_REPORT_TIMEOUT_S  # noqa: F401 — used in
 from saas.jobs.persistence import (
     _mark_job_failed,
     _save_report_result,
-    _extract_key_insight,
+    _derive_key_insight,
 )
 from saas.jobs.persistence_sync import _load_job_artifacts
 from saas.jobs.refund import _refund_credits
@@ -123,7 +123,10 @@ def generate_report_task(self, job_id: int, user_id: str) -> dict:
 
     try:
         structured = _build_structured(job_id=job_id, result=result)
-        key_insight = _extract_key_insight(result.report_markdown)
+        key_insight = _derive_key_insight(
+            verdict=result.verdict,
+            report_markdown=result.report_markdown,
+        )
         _save_report_result(
             job_id=job_id,
             report_markdown=result.report_markdown,
