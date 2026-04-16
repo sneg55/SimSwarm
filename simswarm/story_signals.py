@@ -177,6 +177,50 @@ def name_coalitions(positions: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return coalitions
 
 
+def _days_to_week_range(day_start: int, day_end: int) -> str:
+    """Render a day-range as 'Week N' or 'Weeks N-M'. 1-indexed."""
+    week_start = max(1, (day_start + 6) // 7)
+    week_end = max(1, (day_end + 6) // 7)
+    if week_start == week_end:
+        return f"Week {week_start}"
+    return f"Weeks {week_start}-{week_end}"
+
+
+def extract_phase_boundaries(
+    chat_log: list[dict[str, Any]],
+    forecast_days: int,
+) -> list[dict[str, Any]]:
+    """Chunk simulation into thirds (or one 'Full horizon' if <3 rounds)."""
+    max_round = max((a.get("round_num", 0) for a in chat_log), default=0)
+
+    if max_round < 3:
+        topics = _top_keywords([_post_text(a) for a in chat_log], limit=1)
+        return [{
+            "phase": "Full horizon",
+            "rounds": [1, max(1, max_round)],
+            "week_range": _days_to_week_range(1, forecast_days),
+            "dominant_topic": topics[0] if topics else "",
+        }]
+
+    labels = ["Early", "Mid", "Late"]
+    third = max_round / 3
+    phases: list[dict[str, Any]] = []
+    for i, label in enumerate(labels):
+        r_start = int(i * third) + 1
+        r_end = int((i + 1) * third) if i < 2 else max_round
+        d_start = int(i * forecast_days / 3) + 1
+        d_end = int((i + 1) * forecast_days / 3) if i < 2 else forecast_days
+        bucket = [a for a in chat_log if r_start <= a.get("round_num", 0) <= r_end]
+        topics = _top_keywords([_post_text(a) for a in bucket], limit=1)
+        phases.append({
+            "phase": label,
+            "rounds": [r_start, r_end],
+            "week_range": _days_to_week_range(d_start, d_end),
+            "dominant_topic": topics[0] if topics else "",
+        })
+    return phases
+
+
 def build_story_signals(
     chat_log: list[dict[str, Any]],
     graph_data: dict[str, Any],

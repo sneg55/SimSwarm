@@ -126,3 +126,48 @@ class TestNameCoalitions:
 
     def test_empty_positions_returns_empty(self):
         assert story_signals.name_coalitions([]) == []
+
+
+class TestExtractPhaseBoundaries:
+    def test_15_rounds_30_days_gives_three_phases(self):
+        phases = story_signals.extract_phase_boundaries(make_chat_log(), forecast_days=30)
+        assert len(phases) == 3
+        labels = [p["phase"] for p in phases]
+        assert labels == ["Early", "Mid", "Late"]
+
+    def test_phase_has_required_keys(self):
+        phases = story_signals.extract_phase_boundaries(make_chat_log(), forecast_days=30)
+        for p in phases:
+            assert set(p.keys()) >= {"phase", "rounds", "week_range", "dominant_topic"}
+
+    def test_rounds_cover_full_range(self):
+        phases = story_signals.extract_phase_boundaries(make_chat_log(), forecast_days=30)
+        early_start = phases[0]["rounds"][0]
+        late_end = phases[-1]["rounds"][1]
+        assert early_start == 1
+        assert late_end == 10  # max round_num in fixture is 10
+
+    def test_week_range_scales_with_forecast_days(self):
+        phases = story_signals.extract_phase_boundaries(make_chat_log(), forecast_days=30)
+        # 30 days / 3 phases = 10 days per phase ≈ 1.4 weeks; accept "Weeks 1-2"/"Week 3"/"Week 4"
+        assert "Week" in phases[0]["week_range"]
+        assert "Week" in phases[-1]["week_range"]
+
+    def test_fewer_than_three_rounds_collapses_to_single_phase(self):
+        two_rounds = [
+            {"round_num": 1, "agent_id": "a", "agent_name": "A",
+             "action_type": "CREATE_POST", "platform": "twitter",
+             "action_args": {"text": "hello"}, "timestamp": None, "success": True},
+            {"round_num": 2, "agent_id": "a", "agent_name": "A",
+             "action_type": "CREATE_POST", "platform": "twitter",
+             "action_args": {"text": "world"}, "timestamp": None, "success": True},
+        ]
+        phases = story_signals.extract_phase_boundaries(two_rounds, forecast_days=7)
+        assert len(phases) == 1
+        assert phases[0]["phase"] == "Full horizon"
+
+    def test_empty_chat_log_returns_single_empty_phase(self):
+        phases = story_signals.extract_phase_boundaries([], forecast_days=7)
+        assert len(phases) == 1
+        assert phases[0]["phase"] == "Full horizon"
+        assert phases[0]["dominant_topic"] == ""
