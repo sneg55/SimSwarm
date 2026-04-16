@@ -17,6 +17,10 @@ from simswarm.story_signals_constants import (
     STANCE_BLOC_NAME as _STANCE_BLOC_NAME,
     SUPPORT_SIGNALS,
 )
+from simswarm.story_signals_scale import (  # noqa: F401 — public re-export
+    compute_sim_scale,
+    extract_disagreement_axis,
+)
 
 
 def _classify_stance(text: str) -> str:
