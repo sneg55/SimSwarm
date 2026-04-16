@@ -1,5 +1,5 @@
 <template>
-  <div class="relative bg-ocean-deep border border-mist-depth rounded-2xl p-8 overflow-hidden">
+  <section class="relative bg-ocean-deep border border-mist-depth rounded-2xl p-8 overflow-hidden" aria-labelledby="story-question">
     <!-- Subtle glow -->
     <div class="absolute -top-1/2 -left-1/5 w-3/5 h-[200%] pointer-events-none"
          style="background: radial-gradient(ellipse, rgba(34, 211, 238, 0.08), transparent 60%);"></div>
@@ -9,7 +9,7 @@
         <span class="inline-block w-4 h-px bg-coral-amber"></span>
         The question
       </div>
-      <div class="text-xl font-semibold text-mist-foam mt-3 leading-snug tracking-tight">{{ question }}</div>
+      <h2 id="story-question" class="text-xl font-semibold text-mist-foam mt-3 leading-snug tracking-tight">{{ question }}</h2>
 
       <div class="flex items-center gap-2 font-mono text-[10px] text-ocean-glow tracking-[0.15em] uppercase font-semibold mt-7">
         <span class="inline-block w-4 h-px bg-ocean-glow"></span>
@@ -29,7 +29,7 @@
         />
       </div>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup>
