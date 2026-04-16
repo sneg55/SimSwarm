@@ -18,6 +18,8 @@
 </template>
 
 <script setup>
+import { onMounted } from 'vue'
+
 const props = defineProps({
   modelValue: { type: Number, default: null },
 })
@@ -32,6 +34,10 @@ const presets = [
   { label: '6 months', days: 180 },
   { label: '1 year', days: 365 },
 ]
+
+onMounted(() => {
+  if (props.modelValue == null) emit('update:modelValue', 30)
+})
 
 function toggle(days) {
   emit('update:modelValue', props.modelValue === days ? null : days)
