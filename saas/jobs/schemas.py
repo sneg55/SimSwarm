@@ -30,8 +30,11 @@ class JobCreate(BaseModel):
     @field_validator("forecast_days")
     @classmethod
     def forecast_days_positive(cls, v: int) -> int:
-        if v < 1 or v > 730:
-            raise ValueError("forecast_days must be between 1 and 730")
+        # Max 365 matches the wizard's TimelineChips preset ceiling; values
+        # above 365 aren't reachable from the UI and haven't been validated
+        # against the simulation budget.
+        if v < 1 or v > 365:
+            raise ValueError("forecast_days must be between 1 and 365")
         return v
 
 

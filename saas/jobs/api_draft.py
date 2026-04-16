@@ -125,10 +125,7 @@ async def launch_draft(
     if job.forecast_days is None:
         raise HTTPException(
             status_code=422,
-            detail={
-                "field": "forecast_days",
-                "message": "forecast_days is required to launch a simulation",
-            },
+            detail="forecast_days is required to launch a simulation",
         )
 
     # 2. Validate routing
