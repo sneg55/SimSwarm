@@ -283,15 +283,18 @@ def build_story_signals(
             action_args["text"] (or action_args["content"] for legacy rows).
         graph_data: {"nodes": [...], "edges": [...], "metadata": {...}} dict.
         forecast_days: User-chosen horizon from JobCreate; required.
-
-    Shape (see spec for full schema):
-        {
-            "stakeholder_positions": [...],
-            "disagreement_axis": str,
-            "quotable_posts": [...],
-            "named_coalitions": [...],
-            "phase_boundaries": [...],
-            "sim_scale": {...},
-        }
     """
-    raise NotImplementedError
+    positions = extract_stakeholder_positions(chat_log)
+    named = name_coalitions(positions)
+    phases = extract_phase_boundaries(chat_log, forecast_days)
+    quotes = extract_quotable_posts(chat_log, phases, graph_data)
+    axis = extract_disagreement_axis(chat_log)
+    scale = compute_sim_scale(chat_log, forecast_days, bloc_count=len(named))
+    return {
+        "stakeholder_positions": positions,
+        "named_coalitions": named,
+        "phase_boundaries": phases,
+        "quotable_posts": quotes,
+        "disagreement_axis": axis,
+        "sim_scale": scale,
+    }

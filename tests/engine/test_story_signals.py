@@ -10,8 +10,34 @@ from tests.engine.story_signals_fixtures import make_chat_log, make_graph_data
 
 
 class TestBuildStorySignals:
-    """Placeholder — filled in by Task 8 once build_story_signals is wired up."""
-    pass
+    def test_returns_expected_top_level_keys(self):
+        result = story_signals.build_story_signals(
+            make_chat_log(), make_graph_data(), forecast_days=30,
+        )
+        expected = {
+            "stakeholder_positions", "disagreement_axis", "quotable_posts",
+            "named_coalitions", "phase_boundaries", "sim_scale",
+        }
+        assert set(result.keys()) >= expected
+
+    def test_empty_inputs_produce_valid_shape(self):
+        result = story_signals.build_story_signals(
+            chat_log=[],
+            graph_data={"nodes": [], "edges": [], "metadata": {}},
+            forecast_days=7,
+        )
+        assert result["stakeholder_positions"] == []
+        assert result["named_coalitions"] == []
+        assert result["quotable_posts"] == []
+        assert result["sim_scale"]["participants"] == 0
+        assert result["sim_scale"]["horizon_days"] == 7
+        assert len(result["phase_boundaries"]) == 1
+
+    def test_bloc_count_matches_named_coalitions(self):
+        result = story_signals.build_story_signals(
+            make_chat_log(), make_graph_data(), forecast_days=30,
+        )
+        assert result["sim_scale"]["bloc_count"] == len(result["named_coalitions"])
 
 
 class TestClassifyStance:
