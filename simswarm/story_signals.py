@@ -24,17 +24,15 @@ from simswarm.story_signals_scale import (  # noqa: F401 — public re-export
 
 
 def _classify_stance(text: str) -> str:
-    """Return 'opposed' | 'supports' | 'neutral' | 'split' based on keyword signals."""
+    """Return 'opposed' | 'supports' | 'neutral' | 'split'. Counts signals; dominant side wins."""
     lowered = text.lower()
-    has_opposed = any(kw in lowered for kw in OPPOSED_SIGNALS)
-    has_support = any(kw in lowered for kw in SUPPORT_SIGNALS)
-    if has_opposed and has_support:
+    opp = sum(1 for kw in OPPOSED_SIGNALS if kw in lowered)
+    sup = sum(1 for kw in SUPPORT_SIGNALS if kw in lowered)
+    if opp == 0 and sup == 0:
+        return "neutral"
+    if opp == sup:
         return "split"
-    if has_opposed:
-        return "opposed"
-    if has_support:
-        return "supports"
-    return "neutral"
+    return "opposed" if opp > sup else "supports"
 
 
 def _post_text(action: dict[str, Any]) -> str:
@@ -90,7 +88,7 @@ def extract_stakeholder_positions(chat_log: list[dict[str, Any]]) -> list[dict[s
     """Cluster agents by dominant stance and return stakeholder position dicts."""
     posts_by_agent: dict[str, list[dict]] = defaultdict(list)
     for action in chat_log:
-        if action.get("action_type") in ("CREATE_POST", "CREATE_COMMENT"):
+        if action.get("action_type", "").lower() in ("create_post", "create_comment"):
             posts_by_agent[action.get("agent_name", "")].append(action)
 
     agent_stances: dict[str, str] = {
@@ -223,7 +221,7 @@ def _engagement_for_post(
     target_marker = f"{agent}_r{round_num}"
     count = 0
     for action in chat_log:
-        if action.get("action_type") in ("LIKE_POST", "REPOST"):
+        if action.get("action_type", "").lower() in ("like_post", "repost"):
             target = (action.get("action_args") or {}).get("target_post", "")
             if target_marker in target:
                 count += 1
@@ -237,7 +235,7 @@ def extract_quotable_posts(
 ) -> list[dict[str, Any]]:
     """Top-engagement post per phase per stance, deduped by agent."""
     roles = _role_map(graph_data)
-    posts = [a for a in chat_log if a.get("action_type") == "CREATE_POST"]
+    posts = [a for a in chat_log if a.get("action_type", "").lower() == "create_post"]
 
     # Group candidates by (phase, stance)
     candidates: dict[tuple[str, str], list[dict]] = defaultdict(list)

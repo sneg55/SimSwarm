@@ -17,7 +17,11 @@ def compute_sim_scale(
 ) -> dict[str, Any]:
     """Honest sim-scale aggregates. Renames the old 'confidence' grid."""
     participants = len({a.get("agent_name", "") for a in chat_log if a.get("agent_name")})
-    has_trade = any(a.get("action_type") in ("BUY", "SELL") for a in chat_log)
+    has_trade = any(
+        a.get("action_type", "").lower() in ("buy_shares", "sell_shares", "buy", "sell")
+        and a.get("success")
+        for a in chat_log
+    )
     return {
         "participants": participants,
         "horizon_days": forecast_days,
@@ -35,7 +39,7 @@ def extract_disagreement_axis(chat_log: list[dict[str, Any]]) -> str:
     opposed_texts: list[str] = []
     support_texts: list[str] = []
     for action in chat_log:
-        if action.get("action_type") not in ("CREATE_POST", "CREATE_COMMENT"):
+        if action.get("action_type", "").lower() not in ("create_post", "create_comment"):
             continue
         text = _post_text(action)
         stance = _classify_stance(text)
