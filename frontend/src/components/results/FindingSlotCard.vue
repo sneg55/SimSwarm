@@ -13,8 +13,10 @@
 <script setup>
 import { computed } from 'vue'
 
+// `slotName` (not `slot`) — `slot` is a reserved attribute name in Vue and
+// passing `:slot="..."` from a parent template gets stripped by the compiler.
 const props = defineProps({
-  slot: { type: String, required: true },
+  slotName: { type: String, required: true },
   title: { type: String, required: true },
   body: { type: String, required: true },
   citation: { type: String, default: '' },
@@ -28,7 +30,7 @@ const _labels = {
   turning_point: 'Turning point',
 }
 
-const slotLabel = computed(() => _labels[props.slot] || props.slot)
+const slotLabel = computed(() => _labels[props.slotName] || props.slotName)
 
 const accentClass = computed(() => ({
   industry: 'bg-coral-amber',
@@ -36,7 +38,7 @@ const accentClass = computed(() => ({
   intermediary: 'bg-organic-violet',
   market: 'bg-organic-seafoam',
   turning_point: 'bg-coral',
-})[props.slot] || 'bg-ocean-glow')
+})[props.slotName] || 'bg-ocean-glow')
 
 const labelClass = computed(() => ({
   industry: 'text-coral-amber',
@@ -44,5 +46,5 @@ const labelClass = computed(() => ({
   intermediary: 'text-organic-violet',
   market: 'text-organic-seafoam',
   turning_point: 'text-coral',
-})[props.slot] || 'text-ocean-glow')
+})[props.slotName] || 'text-ocean-glow')
 </script>

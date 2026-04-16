@@ -25,53 +25,48 @@
     </div>
 
     <template v-else>
-      <!-- ── Story View ── (identical to dashboard) -->
+      <!-- ── Story View ── (mirrors SimulationResults Story layout) -->
       <div v-if="viewMode === 'story'" class="relative pt-[120px] pb-24">
-        <StoryTimeline :sections="storySections" />
+        <ReportToc :items="storySections" />
 
-        <div class="max-w-[800px] mx-auto pl-12 pr-4 xl:pl-16 space-y-12">
-          <!-- Simulation header card -->
-          <div id="story-header" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-8">
-            <h1 class="text-2xl font-bold text-mist-foam mb-2">{{ result.title }}</h1>
-            <p class="text-sm text-mist-slate capitalize">
-              {{ result.tier }} tier
-              <span v-if="result.created_at"> &bull; {{ formatDate(result.created_at) }}</span>
-              <span v-if="result.completed_at"> &bull; Completed {{ formatDate(result.completed_at) }}</span>
-            </p>
+        <div class="max-w-[820px] mx-auto px-6 space-y-6">
+          <!-- Meta row -->
+          <div id="story-meta" class="flex items-center gap-3 font-mono text-[10px] text-mist-slate uppercase tracking-wider">
+            <span>Simulation</span>
+            <span class="w-1 h-1 rounded-full bg-mist-depth"></span>
+            <span>{{ simScale.participants ?? '—' }} participants</span>
+            <span class="w-1 h-1 rounded-full bg-mist-depth"></span>
+            <span>{{ simScale.horizon_days ?? '—' }}d horizon</span>
+            <span v-if="result.tier" class="w-1 h-1 rounded-full bg-mist-depth"></span>
+            <span v-if="result.tier" class="capitalize">{{ result.tier }} depth</span>
           </div>
 
-          <!-- Report content card -->
-          <div id="story-report" data-reveal class="bg-ocean-deep border border-mist-depth rounded-2xl p-10">
-            <template v-if="structured">
-              <div v-if="structured.brief" class="mb-8">
-                <h2 class="text-lg font-bold text-mist-foam mb-3">Executive Brief</h2>
-                <p class="text-sm text-mist-drift leading-relaxed">{{ structured.brief }}</p>
-              </div>
-              <ConfidenceGrid v-if="structured.confidence?.length" :items="structured.confidence" class="mb-8" />
-              <div v-if="structured.findings?.length" class="mb-8" data-reveal data-reveal-stagger>
-                <h2 class="text-lg font-bold text-mist-foam mb-4">Key Findings</h2>
-                <div class="grid gap-4">
-                  <FindingCard v-for="(f, i) in structured.findings" :key="i"
-                    data-reveal-child
-                    :label="f.label" :title="f.title" :description="f.description"
-                    :metric="f.metric" :accent-color="f.accentColor" />
-                </div>
-              </div>
-              <SentimentBars v-if="sentimentBars.length" :bars="sentimentBars" class="mb-8" />
-              <div v-if="structured.coalitions?.length" class="mb-8">
-                <h2 class="text-lg font-bold text-mist-foam mb-4">Agent Coalitions</h2>
-                <div class="grid gap-4 md:grid-cols-2">
-                  <CoalitionCard v-for="(c, i) in structured.coalitions" :key="i"
-                    :name="c.name" :description="c.description" :agents="c.agents"
-                    :strength="c.strength" :color="c.color" />
-                </div>
-              </div>
-              <ReportViewer :content="result.report || ''" />
-            </template>
-            <template v-else>
-              <ReportViewer :content="result.report || 'No report available.'" />
-            </template>
+          <!-- Q+A Hero -->
+          <div id="story-hero" data-reveal>
+            <QuestionAnswerHero
+              :question="result.title || ''"
+              :verdict="verdict"
+              :stakeholder-positions="stakeholderPositions"
+            />
           </div>
+
+          <!-- What the simulation surfaced -->
+          <div v-if="structured?.findings?.length" id="story-findings">
+            <div class="font-mono text-[10px] text-mist-slate uppercase tracking-wider mb-4 pl-1">What the simulation surfaced</div>
+            <div :class="findingsGridClass">
+              <FindingSlotCard
+                v-for="(f, i) in structured.findings"
+                :key="i"
+                :slot-name="f.slot"
+                :title="f.title"
+                :body="f.body"
+                :citation="f.citation"
+              />
+            </div>
+          </div>
+
+          <!-- Sim-scale footer -->
+          <SimScaleFooter id="story-scale" :scale="simScale" />
         </div>
       </div>
 
@@ -126,15 +121,13 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import ResultsToolbar from '../components/results/ResultsToolbar.vue'
-import StoryTimeline from '../components/results/StoryTimeline.vue'
 import ReportToc from '../components/results/ReportToc.vue'
 import ReportViewer from '../components/ReportViewer.vue'
 import ChatReplay from '../components/ChatReplay.vue'
 import GraphVisualization from '../components/graph/GraphVisualization.vue'
-import FindingCard from '../components/results/FindingCard.vue'
-import SentimentBars from '../components/results/SentimentBars.vue'
-import CoalitionCard from '../components/results/CoalitionCard.vue'
-import ConfidenceGrid from '../components/results/ConfidenceGrid.vue'
+import QuestionAnswerHero from '../components/results/QuestionAnswerHero.vue'
+import FindingSlotCard from '../components/results/FindingSlotCard.vue'
+import SimScaleFooter from '../components/results/SimScaleFooter.vue'
 import { useScrollReveal } from '../composables/useScrollReveal.js'
 import { useSimulationData } from '../composables/useSimulationData.js'
 
@@ -148,14 +141,30 @@ const loading = ref(true)
 const error = ref(null)
 const viewMode = ref('story')
 
-const { chatMessages, structured, sentimentBars, buildNodeRelationships } = useSimulationData(result)
+const {
+  chatMessages,
+  structured,
+  verdict,
+  stakeholderPositions,
+  simScale,
+  buildNodeRelationships,
+} = useSimulationData(result)
 
 // ── Story sections for timeline ──────────────────────────────────────────────
 
 const storySections = computed(() => [
-  { id: 'story-header', label: 'Overview' },
-  { id: 'story-report', label: 'Report' },
+  { id: 'story-hero', label: 'Question & answer' },
+  { id: 'story-findings', label: 'Findings' },
+  { id: 'story-scale', label: 'Scale' },
 ])
+
+const findingsGridClass = computed(() => {
+  const n = structured.value?.findings?.length ?? 0
+  if (n <= 1) return 'grid gap-4 grid-cols-1'
+  if (n === 2) return 'grid gap-4 grid-cols-1 md:grid-cols-2'
+  if (n === 3) return 'grid gap-4 grid-cols-1 md:grid-cols-2 [&>*:nth-child(3)]:md:col-span-2'
+  return 'grid gap-4 grid-cols-1 md:grid-cols-2'  // 4+ → 2x2
+})
 
 // ── TOC items for report view ────────────────────────────────────────────────
 

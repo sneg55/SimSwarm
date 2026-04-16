@@ -4,7 +4,7 @@ import FindingSlotCard from '../FindingSlotCard.vue'
 
 describe('FindingSlotCard', () => {
   const baseProps = {
-    slot: 'industry',
+    slotName: 'industry',
     title: 'Banks aligned on adaptable frameworks',
     body: 'Every private-sector participant converged on "industry-led" language.',
     citation: 'Morgan Stanley · 9 posts',
