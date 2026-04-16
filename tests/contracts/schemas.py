@@ -64,7 +64,7 @@ class NamedCoalition(BaseModel):
     name: str
     members: list[str]
     size: int
-    stance: str
+    stance: str  # opposed | supports | neutral | split
 
 
 class PhaseBoundary(BaseModel):
