@@ -44,9 +44,12 @@ async def test_happy_path_returns_markdown_and_findings():
         LLMResponse(content=(
             "## Executive Summary\n"
             "The simulation showed healthy engagement.\n\n"
+            "## Verdict\n"
+            "Adoption proceeds with measured friction.\n\n"
             "## Key Findings\n"
-            "### Finding 1: Core coalition emerged\n"
-            "Agents A and B formed a mutual-follow pair.\n\n"
+            "### slot=industry — Core coalition emerged\n"
+            "Agents A and B formed a mutual-follow pair.\n"
+            "_Citation: agents A and B mutual-follow._\n\n"
             "## Conclusion\n"
             "High-confidence result.\n"
         ), tool_calls=[]),
@@ -54,14 +57,19 @@ async def test_happy_path_returns_markdown_and_findings():
     runner = ReportRunner(
         job_id=42,
         goal="Test goal",
+        forecast_days=30,
         client=_StubClient(script),
         fetcher=_canned_fetcher(),
     )
     result = await runner.run()
     assert "Executive Summary" in result.report_markdown
     assert "healthy engagement" in result.executive_brief
+    assert result.verdict == "Adoption proceeds with measured friction."
     assert len(result.findings) == 1
-    assert result.findings[0]["title"] == "Finding 1: Core coalition emerged"
+    assert result.findings[0]["slot"] == "industry"
+    assert result.findings[0]["title"] == "Core coalition emerged"
+    assert "mutual-follow pair" in result.findings[0]["body"]
+    assert result.findings[0]["citation"] == "agents A and B mutual-follow."
 
 
 @pytest.mark.asyncio
@@ -70,6 +78,7 @@ async def test_missing_required_artifact_raises():
     runner = ReportRunner(
         job_id=42,
         goal="Test",
+        forecast_days=30,
         client=_StubClient([]),
         fetcher=_canned_fetcher(missing={"chat_log.json"}),
     )
@@ -86,6 +95,7 @@ async def test_exhausted_loop_raises_without_final_markdown():
     runner = ReportRunner(
         job_id=42,
         goal="Test",
+        forecast_days=30,
         client=_StubClient([tool_only] * 10),
         fetcher=_canned_fetcher(),
     )
