@@ -6,6 +6,7 @@ is importable without carrying unused imports (ruff F401).
 from __future__ import annotations
 
 from simswarm import story_signals
+from tests.engine.story_signals_fixtures import make_chat_log
 
 
 class TestBuildStorySignals:
@@ -28,3 +29,39 @@ class TestClassifyStance:
 
     def test_case_insensitive(self):
         assert story_signals._classify_stance("WE OPPOSE THIS") == "opposed"
+
+
+class TestExtractStakeholderPositions:
+    def test_groups_opposed_agents(self):
+        positions = story_signals.extract_stakeholder_positions(make_chat_log())
+        opposed = next((p for p in positions if p["stance"] == "opposed"), None)
+        assert opposed is not None
+        assert "Morgan Stanley" in opposed["members"]
+        assert "Microsoft" in opposed["members"]
+
+    def test_groups_supportive_agents(self):
+        positions = story_signals.extract_stakeholder_positions(make_chat_log())
+        supportive = next((p for p in positions if p["stance"] == "supports"), None)
+        assert supportive is not None
+        assert "SEC" in supportive["members"]
+        assert "Investor Advisory Committee" in supportive["members"]
+
+    def test_position_has_required_keys(self):
+        positions = story_signals.extract_stakeholder_positions(make_chat_log())
+        assert positions
+        for p in positions:
+            assert set(p.keys()) >= {"name", "stance", "members", "member_count", "rationale_keywords"}
+
+    def test_member_count_matches_members(self):
+        positions = story_signals.extract_stakeholder_positions(make_chat_log())
+        for p in positions:
+            assert p["member_count"] == len(p["members"])
+
+    def test_empty_chat_log_returns_empty_list(self):
+        assert story_signals.extract_stakeholder_positions([]) == []
+
+    def test_position_name_reflects_stance(self):
+        positions = story_signals.extract_stakeholder_positions(make_chat_log())
+        names = {p["name"] for p in positions}
+        assert any("oppos" in n.lower() or "against" in n.lower() or "industry" in n.lower() for n in names) \
+            or any("support" in n.lower() or "regulator" in n.lower() or "transparency" in n.lower() for n in names)
