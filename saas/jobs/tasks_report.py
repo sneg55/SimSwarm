@@ -154,11 +154,13 @@ def _finalize_as_failed(job_id: int, user_id: str, reason: str) -> None:
 def _build_structured(job_id: int, result) -> str:
     """Produce the full structured_results JSON string consumed by the Vue
     SimulationResults Story view. Loads the chat log + graph the sim task
-    already wrote to the DB, then delegates to simswarm.adapter.adapt_structured
-    so `brief`, correctly-shaped `findings`, `confidence`, `coalitions`,
-    and `sentiment` are all present.
+    already wrote to the DB, then delegates to simswarm.adapter.adapt_structured,
+    which merges the LLM-authored `brief` + `verdict` + slotted `findings`
+    with the deterministic Path 3 signals (`stakeholder_positions`,
+    `named_coalitions`, `phase_boundaries`, `quotable_posts`,
+    `disagreement_axis`, `sim_scale`) from simswarm.story_signals.
 
-    Returns the full 5-key payload on the happy path. If the row's artifacts
+    Returns the full 9-key payload on the happy path. If the row's artifacts
     are absent (rare — a job id without persisted sim data), adapt_structured
     degrades gracefully on empty inputs. JSON decode errors propagate so the
     Celery task's failure path can mark the job failed and refund."""
