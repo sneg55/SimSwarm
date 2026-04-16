@@ -8,41 +8,9 @@ from saas.jobs import persistence, persistence_engine
 
 
 # ---------------------------------------------------------------------------
-# _extract_key_insight
+# _extract_key_insight — moved to tests/jobs/test_key_insight.py.
+# The function is now a back-compat alias for _derive_key_insight (Task 16).
 # ---------------------------------------------------------------------------
-
-def test_extract_key_insight_empty_string():
-    assert persistence._extract_key_insight("") is None
-
-
-def test_extract_key_insight_none_like():
-    assert persistence._extract_key_insight(None) is None  # type: ignore[arg-type]
-
-
-def test_extract_key_insight_only_headings():
-    """Returns None if no line has >30 chars of non-heading content."""
-    report = "# Big Heading\n## Subheading\nshort"
-    assert persistence._extract_key_insight(report) is None
-
-
-def test_extract_key_insight_finds_first_long_line():
-    report = (
-        "# Title\n"
-        "short line\n"
-        "This is a sufficiently long substantive line about outcomes.\n"
-        "## Section"
-    )
-    insight = persistence._extract_key_insight(report)
-    assert insight is not None
-    assert "sufficiently long" in insight
-
-
-def test_extract_key_insight_truncates_to_200():
-    long_line = "A" * 500
-    report = f"# Title\n{long_line}"
-    insight = persistence._extract_key_insight(report)
-    assert insight is not None
-    assert len(insight) == 200
 
 
 # ---------------------------------------------------------------------------

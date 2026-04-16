@@ -122,6 +122,12 @@ async def launch_draft(
             detail=f"Draft is incomplete, missing: {', '.join(missing)}",
         )
 
+    if job.forecast_days is None:
+        raise HTTPException(
+            status_code=422,
+            detail="forecast_days is required to launch a simulation",
+        )
+
     # 2. Validate routing
     route = await session.execute(
         select(ModelRouting).where(ModelRouting.sim_tier == job.tier)

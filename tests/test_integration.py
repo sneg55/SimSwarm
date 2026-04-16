@@ -26,6 +26,7 @@ async def test_full_job_lifecycle(client, auth_headers, funded_user, seeded_rout
                 "seed_text": "Breaking news: AI regulation passed in EU parliament.",
                 "goal": "Predict tech industry response over 14 days",
                 "tier": "small",
+                "forecast_days": 30,
             },
         )
     assert create_resp.status_code == 201
@@ -60,6 +61,7 @@ async def test_create_jobs_all_tiers(client, auth_headers, funded_user, seeded_r
                     "seed_text": f"Seed for {tier} simulation",
                     "goal": "Test goal",
                     "tier": tier,
+                    "forecast_days": 30,
                 },
             )
             assert resp.status_code == 201

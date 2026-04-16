@@ -21,11 +21,10 @@ vi.mock('../../src/composables/useResultsExport.js', () => ({
 vi.mock('../../src/api/jobs.js', () => ({
   getJob: vi.fn(),
   getJobGraph: vi.fn(),
-  getSimData: vi.fn(),
 }))
 
 import SimulationResults from '../../src/views/SimulationResults.vue'
-import { getJob, getJobGraph, getSimData } from '../../src/api/jobs.js'
+import { getJob, getJobGraph } from '../../src/api/jobs.js'
 
 const stubs = {
   ResultsToolbar: {
@@ -39,20 +38,28 @@ const stubs = {
   ReportViewer: { props: ['content'], template: '<div class="rv">{{ content }}</div>' },
   ChatReplay: { name: 'ChatReplay', template: '<div class="cr" />' },
   GraphVisualization: { name: 'GraphVisualization', template: '<div class="gv" />' },
-  FindingCard: true,
-  CoalitionCard: true,
-  ConfidenceGrid: true,
   DataDashboard: { props: ['jobId'], template: '<div class="dd">{{ jobId }}</div>' },
-  MarketCurveCompact: true,
-  EngagementCompact: true,
-  InfoTooltip: { template: '<span><slot /></span>' },
+  QuestionAnswerHero: {
+    name: 'QuestionAnswerHero',
+    props: ['question', 'verdict', 'stakeholderPositions'],
+    template: '<div class="qa-hero">{{ question }}|{{ verdict }}</div>',
+  },
+  FindingSlotCard: {
+    name: 'FindingSlotCard',
+    props: ['slotName', 'title', 'body', 'citation'],
+    template: '<div class="slot-card">{{ slotName }}|{{ title }}</div>',
+  },
+  SimScaleFooter: {
+    name: 'SimScaleFooter',
+    props: ['scale'],
+    template: '<div class="scale-footer" />',
+  },
 }
 
 describe('SimulationResults.vue', () => {
   beforeEach(() => {
     getJob.mockReset()
     getJobGraph.mockReset()
-    getSimData.mockReset()
     window.innerWidth = 1200
   })
 
@@ -71,20 +78,24 @@ describe('SimulationResults.vue', () => {
       completed_at: '2026-01-02T00:00:00Z',
       result_report: 'Body',
       result_structured: {
-        brief: 'Brief text',
-        confidence: [{ label: 'x', value: 80 }],
-        findings: [{ label: 'F', title: 'T', description: 'D' }],
-        coalitions: [{ name: 'C', description: 'Desc' }],
+        verdict: 'Yes, with caveats.',
+        stakeholder_positions: [{ name: 'Banks', stance: 'supports' }],
+        sim_scale: { participants: 12, horizon_days: 90, bloc_count: 3, market_stress: 'present' },
+        findings: [
+          { slot: 'industry', title: 'Banks aligned', body: 'Body text', citation: 'Cite' },
+        ],
       },
       sim_data_available: false,
-      enriched_seed: '## Background',
     })
     getJobGraph.mockResolvedValue({ nodes: [{ uuid: 'a', name: 'A' }], edges: [] })
     const wrapper = mount(SimulationResults, { global: { stubs } })
     await flushPromises()
     expect(wrapper.text()).toContain('Will X?')
-    expect(wrapper.text()).toContain('Executive Brief')
-    expect(wrapper.text()).toContain('Sources & Background')
+    expect(wrapper.findComponent({ name: 'QuestionAnswerHero' }).exists()).toBe(true)
+    expect(wrapper.text()).toContain('Yes, with caveats.')
+    expect(wrapper.findComponent({ name: 'FindingSlotCard' }).exists()).toBe(true)
+    expect(wrapper.text()).toContain('What the simulation surfaced')
+    expect(wrapper.findComponent({ name: 'SimScaleFooter' }).exists()).toBe(true)
   })
 
   it('renders plain report when no structured', async () => {
@@ -97,35 +108,16 @@ describe('SimulationResults.vue', () => {
     expect(wrapper.text()).toContain('G')
   })
 
-  it('fetches sim data when sim_data_available', async () => {
+  it('flags sim_data_available on the toolbar', async () => {
     getJob.mockResolvedValue({
       id: 'job1', goal: 'G', tier: 'medium', result_report: 'R',
       sim_data_available: true,
     })
     getJobGraph.mockResolvedValue({ nodes: [], edges: [] })
-    getSimData.mockResolvedValue({
-      files: {
-        'market_curves.json': 'https://x/m.json',
-        'engagement_summary.json': 'https://x/e.json',
-      },
-    })
-    global.fetch = vi.fn()
-      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ slug: 'm' }]) })
-      .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ metric: 'e' }]) })
     const wrapper = mount(SimulationResults, { global: { stubs } })
     await flushPromises()
-    expect(getSimData).toHaveBeenCalled()
-  })
-
-  it('disables sim data on getSimData failure', async () => {
-    getJob.mockResolvedValue({ id: 'job1', goal: 'G', tier: 'small', sim_data_available: true })
-    getJobGraph.mockResolvedValue({ nodes: [], edges: [] })
-    getSimData.mockRejectedValue(new Error('x'))
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    mount(SimulationResults, { global: { stubs } })
-    await flushPromises()
-    expect(warn).toHaveBeenCalled()
-    warn.mockRestore()
+    const toolbar = wrapper.findComponent({ name: 'ResultsToolbar' })
+    expect(toolbar.props('showData')).toBe(true)
   })
 
   it('handles graph error 404', async () => {

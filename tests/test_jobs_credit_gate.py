@@ -16,6 +16,7 @@ async def test_no_credits_returns_402(client, auth_headers, seeded_routing):
             "seed_text": "Test seed",
             "goal": "Test goal",
             "tier": "small",
+            "forecast_days": 30,
         },
     )
     assert response.status_code == 402
@@ -36,6 +37,7 @@ async def test_insufficient_credits_returns_402(client, auth_headers, db_session
             "seed_text": "Test seed",
             "goal": "Test goal",
             "tier": "small",  # costs 30
+            "forecast_days": 30,
         },
     )
     assert response.status_code == 402
@@ -57,6 +59,7 @@ async def test_job_creation_deducts_credits(client, auth_headers, db_session, se
                 "seed_text": "Test seed",
                 "goal": "Test goal",
                 "tier": "small",  # costs 30
+                "forecast_days": 30,
             },
         )
     assert response.status_code == 201
@@ -81,6 +84,7 @@ async def test_large_job_deducts_large_credits(client, auth_headers, db_session,
                 "seed_text": "Test seed for large simulation",
                 "goal": "Test goal",
                 "tier": "large",  # costs 300
+                "forecast_days": 30,
             },
         )
     assert response.status_code == 201

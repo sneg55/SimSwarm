@@ -19,7 +19,7 @@ from saas.constants.tiers import TIER_REPORT_TIMEOUT_S  # noqa: F401 — used in
 from saas.jobs.persistence import (
     _mark_job_failed,
     _save_report_result,
-    _extract_key_insight,
+    _derive_key_insight,
 )
 from saas.jobs.persistence_sync import _load_job_artifacts
 from saas.jobs.refund import _refund_credits
@@ -39,12 +39,12 @@ logger = logging.getLogger(__name__)
 _RETRY_BACKOFF_S = [30, 120, 300, 900, 1800]
 
 
-def _build_runner(job_id: int, goal: str) -> ReportRunner:
+def _build_runner(job_id: int, goal: str, forecast_days: int) -> ReportRunner:
     client = AnthropicClient(
         api_key=os.getenv("ANTHROPIC_API_KEY", ""),
         model=os.getenv("SMART_MODEL", "claude-opus-4-6"),
     )
-    return ReportRunner(job_id=job_id, goal=goal, client=client)
+    return ReportRunner(job_id=job_id, goal=goal, forecast_days=forecast_days, client=client)
 
 
 def _load_credits_charged(job_id: int) -> int:
@@ -68,20 +68,24 @@ def _load_credits_charged(job_id: int) -> int:
         engine.dispose()
 
 
-def _load_goal(job_id: int) -> str:
+def _load_goal_and_forecast(job_id: int) -> tuple[str, int]:
     from sqlalchemy import text
     from saas.jobs.persistence import _get_sync_engine
 
     engine = _get_sync_engine()
     if engine is None:
-        return ""
+        return "", 30
     try:
         with engine.connect() as conn:
             row = conn.execute(
-                text("SELECT goal FROM simulation_jobs WHERE id = :id"),
+                text("SELECT goal, forecast_days FROM simulation_jobs WHERE id = :id"),
                 {"id": job_id},
             ).first()
-            return row[0] if row and row[0] else ""
+            if not row:
+                return "", 30
+            goal = row[0] or ""
+            forecast_days = int(row[1] or 30)
+            return goal, forecast_days
     finally:
         engine.dispose()
 
@@ -97,8 +101,8 @@ def generate_report_task(self, job_id: int, user_id: str) -> dict:
     On transient errors: retries with escalating backoff, up to 5 attempts.
     On permanent errors or exhausted retries: marks job FAILED, refunds 100%.
     """
-    goal = _load_goal(job_id)
-    runner = _build_runner(job_id, goal)
+    goal, forecast_days = _load_goal_and_forecast(job_id)
+    runner = _build_runner(job_id, goal, forecast_days)
 
     try:
         result = _run_async(runner.run())
@@ -119,7 +123,10 @@ def generate_report_task(self, job_id: int, user_id: str) -> dict:
 
     try:
         structured = _build_structured(job_id=job_id, result=result)
-        key_insight = _extract_key_insight(result.report_markdown)
+        key_insight = _derive_key_insight(
+            verdict=result.verdict,
+            report_markdown=result.report_markdown,
+        )
         _save_report_result(
             job_id=job_id,
             report_markdown=result.report_markdown,
@@ -154,11 +161,13 @@ def _finalize_as_failed(job_id: int, user_id: str, reason: str) -> None:
 def _build_structured(job_id: int, result) -> str:
     """Produce the full structured_results JSON string consumed by the Vue
     SimulationResults Story view. Loads the chat log + graph the sim task
-    already wrote to the DB, then delegates to simswarm.adapter.adapt_structured
-    so `brief`, correctly-shaped `findings`, `confidence`, `coalitions`,
-    and `sentiment` are all present.
+    already wrote to the DB, then delegates to simswarm.adapter.adapt_structured,
+    which merges the LLM-authored `brief` + `verdict` + slotted `findings`
+    with the deterministic Path 3 signals (`stakeholder_positions`,
+    `named_coalitions`, `phase_boundaries`, `quotable_posts`,
+    `disagreement_axis`, `sim_scale`) from simswarm.story_signals.
 
-    Returns the full 5-key payload on the happy path. If the row's artifacts
+    Returns the full 9-key payload on the happy path. If the row's artifacts
     are absent (rare — a job id without persisted sim data), adapt_structured
     degrades gracefully on empty inputs. JSON decode errors propagate so the
     Celery task's failure path can mark the job failed and refund."""
@@ -166,10 +175,14 @@ def _build_structured(job_id: int, result) -> str:
     chat_log = json.loads(chat_log_json) if chat_log_json else []
     graph_data = json.loads(graph_json) if graph_json else {}
 
+    _, forecast_days = _load_goal_and_forecast(job_id)
+
     structured_dict = adapt_structured(
         brief=result.executive_brief,
         findings=result.findings,
         chat_log=chat_log,
         graph_data=graph_data,
+        forecast_days=forecast_days,
+        verdict=result.verdict,
     )
     return json.dumps(structured_dict)

@@ -20,6 +20,7 @@ async def _create_job(client, auth_headers, funded_user, seeded_routing):
                 "seed_text": "Some seed text for testing.",
                 "goal": "Test the export endpoint",
                 "tier": "small",
+                "forecast_days": 30,
             },
         )
     assert resp.status_code == 201

@@ -1,14 +1,12 @@
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import CoalitionCard from '../CoalitionCard.vue'
-import ConfidenceGrid from '../ConfidenceGrid.vue'
 import EngagementCompact from '../EngagementCompact.vue'
 import FindingCard from '../FindingCard.vue'
 import MarketCurveCompact from '../MarketCurveCompact.vue'
 import ReportToc from '../ReportToc.vue'
 import ResultsBottomBar from '../ResultsBottomBar.vue'
 import ResultsToolbar from '../ResultsToolbar.vue'
-import SentimentBars from '../SentimentBars.vue'
 import StoryTimeline from '../StoryTimeline.vue'
 
 const RouterLinkStub = { template: '<a><slot /></a>' }
@@ -37,21 +35,6 @@ describe('CoalitionCard', () => {
       props: { name: 'N', description: 'D', agents: 1, strength: 10, color: '#FF0000' },
     })
     expect(wrapper.html()).toContain('#FF0000')
-  })
-})
-
-describe('ConfidenceGrid', () => {
-  it('renders grid items', () => {
-    const wrapper = mount(ConfidenceGrid, {
-      props: { items: [
-        { label: 'Confidence', value: '82%', color: '#22D3EE' },
-        { label: 'Sentiment Shift', value: '+12', color: '#6EE7B7' },
-        { label: 'Risk Level', value: 'Low', color: '#FBBF24' },
-      ] },
-    })
-    expect(wrapper.text()).toContain('Confidence')
-    expect(wrapper.text()).toContain('Sentiment Shift')
-    expect(wrapper.text()).toContain('Risk Level')
   })
 })
 
@@ -225,20 +208,6 @@ describe('ResultsToolbar', () => {
       global: { stubs: { RouterLink: RouterLinkStub } },
     })
     expect(wrapper.text()).toContain('Home')
-  })
-})
-
-describe('SentimentBars', () => {
-  it('renders bars with labels and values', () => {
-    const wrapper = mount(SentimentBars, {
-      props: { bars: [
-        { label: 'Optimism', width: 60, value: '60%', gradient: 'x', valueColor: '#fff' },
-        { label: 'Risk', width: 40, value: '40%', gradient: 'y', valueColor: '#fff' },
-      ] },
-    })
-    expect(wrapper.text()).toContain('Optimism')
-    expect(wrapper.text()).toContain('Risk')
-    expect(wrapper.text()).toContain('60%')
   })
 })
 

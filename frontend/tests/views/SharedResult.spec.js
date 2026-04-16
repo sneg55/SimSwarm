@@ -19,15 +19,25 @@ const stubs = {
     emits: ['update:viewMode'],
     template: '<div class="toolbar">{{ title }}</div>',
   },
-  StoryTimeline: true,
   ReportToc: true,
   ReportViewer: { props: ['content'], template: '<div class="rv">{{ content }}</div>' },
   ChatReplay: true,
   GraphVisualization: { name: 'GraphVisualization', template: '<div class="gv" />' },
-  FindingCard: true,
-  SentimentBars: true,
-  CoalitionCard: true,
-  ConfidenceGrid: true,
+  QuestionAnswerHero: {
+    name: 'QuestionAnswerHero',
+    props: ['question', 'verdict', 'stakeholderPositions'],
+    template: '<div class="qa-hero">{{ question }}|{{ verdict }}</div>',
+  },
+  FindingSlotCard: {
+    name: 'FindingSlotCard',
+    props: ['slotName', 'title', 'body', 'citation'],
+    template: '<div class="slot-card">{{ slotName }}|{{ title }}</div>',
+  },
+  SimScaleFooter: {
+    name: 'SimScaleFooter',
+    props: ['scale'],
+    template: '<div class="scale-footer" />',
+  },
 }
 
 function mockFetchOnce(body, ok = true) {
@@ -79,19 +89,26 @@ describe('SharedResult.vue', () => {
       completed_at: '2026-01-02T00:00:00Z',
       report: '## Section A\nContent',
       result_structured: {
-        brief: 'Exec brief',
-        confidence: [{ label: 'x', value: 90 }],
-        findings: [{ label: 'F', title: 'T', description: 'D' }],
-        coalitions: [{ name: 'C', description: 'Desc' }],
-        sentiment: [{ label: 'pos', value: 60, direction: 'positive' }],
+        verdict: 'Industry will adapt within 18 months.',
+        stakeholder_positions: [{ name: 'Banks', stance: 'supports' }],
+        sim_scale: { participants: 12, horizon_days: 90, bloc_count: 3, market_stress: 'present' },
+        findings: [
+          { slot: 'industry', title: 'Banks aligned', body: 'Body text', citation: 'Cite' },
+        ],
       },
     })
     const wrapper = mount(SharedResult, { global: { stubs } })
     await flushPromises()
+    // Toolbar still shows the title
     expect(wrapper.text()).toContain('Shared sim')
-    expect(wrapper.text()).toContain('Executive Brief')
-    expect(wrapper.text()).toContain('Key Findings')
-    expect(wrapper.text()).toContain('Agent Coalitions')
+    // Q+A hero stub renders question + verdict
+    expect(wrapper.findComponent({ name: 'QuestionAnswerHero' }).exists()).toBe(true)
+    expect(wrapper.text()).toContain('Industry will adapt within 18 months.')
+    // Finding deck rendered
+    expect(wrapper.findComponent({ name: 'FindingSlotCard' }).exists()).toBe(true)
+    expect(wrapper.text()).toContain('What the simulation surfaced')
+    // Scale footer rendered
+    expect(wrapper.findComponent({ name: 'SimScaleFooter' }).exists()).toBe(true)
   })
 
   it('renders story view without structured (plain report)', async () => {

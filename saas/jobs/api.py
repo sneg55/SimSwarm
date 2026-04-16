@@ -197,7 +197,12 @@ async def retry_job(
         raise HTTPException(status_code=400, detail="Only failed jobs can be retried")
 
     from saas.jobs.schemas import TierEnum
-    body = JobCreate(seed_text=original.seed_text, goal=original.goal, tier=TierEnum(original.tier))
+    body = JobCreate(
+        seed_text=original.seed_text,
+        goal=original.goal,
+        tier=TierEnum(original.tier),
+        forecast_days=original.forecast_days if original.forecast_days is not None else 30,
+    )
     new_job = await create_job(request, body, current_user, session)
 
     # Link new job to original so dashboard hides the superseded failure

@@ -5,12 +5,50 @@ import json
 import logging
 from typing import Any
 
-from simswarm.adapter import _detect_coalitions
 from simswarm.extractor import extract_agent_trajectories, extract_posts
 from simswarm.extractor_common import post_text
 from simswarm.types import SimulationResult
 
 logger = logging.getLogger(__name__)
+
+_COALITION_COLORS = ["#22D3EE", "#A78BFA", "#F97316", "#6EE7B7", "#FF6B6B"]
+
+
+def _detect_mutual_follow_coalitions(chat_log: list[dict[str, Any]]) -> list[dict]:
+    """Detect mutual-follow coalitions from interaction patterns.
+
+    Kept local to report_tools since the adapter no longer exposes this
+    mutual-follow helper — story_signals.name_coalitions is a separate,
+    stance-based construct that should not be conflated with follow graphs.
+    """
+    follow_graph: dict[str, set[str]] = {}
+    for action in chat_log:
+        name = action.get("agent_name", "")
+        if action.get("action_type", "").lower() == "follow":
+            target = (action.get("action_args") or {}).get("target", "")
+            if name and target:
+                follow_graph.setdefault(name, set()).add(target)
+
+    visited: set[str] = set()
+    coalitions: list[dict] = []
+    for agent in follow_graph:
+        if agent in visited:
+            continue
+        group = {agent}
+        for target in follow_graph.get(agent, set()):
+            if agent in follow_graph.get(target, set()):
+                group.add(target)
+        if len(group) >= 2:
+            visited.update(group)
+            idx = len(coalitions)
+            coalitions.append({
+                "name": f"Coalition {idx + 1}",
+                "description": f"Mutual followers: {', '.join(sorted(group))}",
+                "agents": len(group),
+                "strength": min(100, len(group) * 20),
+                "color": _COALITION_COLORS[idx % len(_COALITION_COLORS)],
+            })
+    return coalitions
 
 
 def _adapt_log(chat_log: list) -> list[dict[str, Any]]:
@@ -47,7 +85,7 @@ class ReportTools:
 
     def get_coalitions(self) -> list[dict]:
         """Detect and return coalitions from mutual-follow patterns."""
-        return _detect_coalitions(self._adapted_log)
+        return _detect_mutual_follow_coalitions(self._adapted_log)
 
     def get_agent_summary(self, agent_id: str) -> dict:
         """Return a summary dict for *agent_id*.

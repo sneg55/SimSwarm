@@ -56,18 +56,27 @@ _update_job_retry = _update_job_retry_sync
 logger = logging.getLogger(__name__)
 
 
-def _extract_key_insight(report: str) -> str | None:
-    """Extract the first substantive non-heading line from a markdown report (max 200 chars)."""
-    if not report:
+def _derive_key_insight(verdict: str, report_markdown: str) -> str | None:
+    """Prefer the LLM-authored verdict; fall back to first non-heading line.
+
+    The fallback exists only for defensive reasons — a well-formed report
+    will always have a verdict (Task 14 prompt demands it).
+    """
+    if verdict and verdict.strip():
+        return verdict.strip()[:200]
+    if not report_markdown:
         return None
-    lines = [line.strip() for line in report.split('\n') if line.strip()]
+    lines = [line.strip() for line in report_markdown.split("\n") if line.strip()]
     insight_line = next(
-        (line for line in lines if not line.startswith('#') and len(line) > 30),
-        None
+        (line for line in lines if not line.startswith("#") and len(line) > 30),
+        None,
     )
-    if insight_line:
-        return insight_line[:200]
-    return None
+    return insight_line[:200] if insight_line else None
+
+
+# Keep the old name as a back-compat shim for one release cycle.
+# Delete inline callers in this PR.
+_extract_key_insight = _derive_key_insight
 
 
 def _claim_resume(job_id: int, task_id: str) -> bool:
@@ -124,6 +133,7 @@ def _release_resume(job_id: int) -> None:
 
 
 __all__ = [
+    "_derive_key_insight",
     "_extract_key_insight",
     "_get_sync_engine",
     "_get_worker_session_factory",

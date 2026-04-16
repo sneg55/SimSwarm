@@ -13,11 +13,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import ChainableUndefined, Environment, FileSystemLoader
 
 from saas.jobs.report_tools_minio import ReportArtifacts, ReportTools
 from saas.storage.minio_download import ArtifactMissingError, fetch_artifact
 from simswarm.llm import LLMResponse
+from simswarm.story_signals import SLOT_COLORS, build_story_signals
 
 logger = logging.getLogger(__name__)
 
@@ -27,9 +28,23 @@ _TEMPLATE_DIR = Path(__file__).resolve().parent.parent.parent / "simswarm" / "pr
 _jinja_env = Environment(
     loader=FileSystemLoader(str(_TEMPLATE_DIR)),
     keep_trailing_newline=False,
+    # ChainableUndefined lets `signals.foo` render empty when `signals` isn't
+    # passed — keeps Task 14 (template) and Task 15 (runner wiring) separable.
+    undefined=ChainableUndefined,
 )
 
 _REQUIRED_ARTIFACTS = ("chat_log.json", "posts.json", "trades.json", "agent_trajectories.json")
+
+
+def _graph_from_artifacts(artifacts: ReportArtifacts) -> dict:
+    """Interim: report runner doesn't fetch the graph today, so feed
+    story_signals an empty-but-valid graph. Populated role chips in
+    Story are a future pass."""
+    return {
+        "nodes": [],
+        "edges": [],
+        "metadata": {"entity_types": [], "total_nodes": 0, "total_edges": 0},
+    }
 
 
 class ReportExhaustedError(Exception):
@@ -54,6 +69,7 @@ class _ChatClient(Protocol):
 class ReportResult:
     report_markdown: str = ""
     executive_brief: str = ""
+    verdict: str = ""
     findings: list[dict[str, str]] = field(default_factory=list)
 
 
@@ -64,23 +80,30 @@ class ReportRunner:
         self,
         job_id: int,
         goal: str,
+        forecast_days: int,
         client: _ChatClient,
         fetcher: Callable[[int, str], bytes] = fetch_artifact,
     ) -> None:
         self.job_id = job_id
         self.goal = goal
+        self.forecast_days = forecast_days
         self._client = client
         self._fetcher = fetcher
 
     async def run(self) -> ReportResult:
         artifacts = self._load_artifacts()
+        signals = build_story_signals(
+            chat_log=artifacts.chat_log,
+            graph_data=_graph_from_artifacts(artifacts),
+            forecast_days=self.forecast_days,
+        )
         tools = ReportTools(artifacts)
 
         # Anthropic's Messages API requires at least one user turn — OpenAI-compat
         # servers accept system-only, but AnthropicClient targets Anthropic directly.
         # Seed the loop with an explicit request to produce the report.
         messages: list[dict[str, Any]] = [
-            {"role": "system", "content": self._render_system_prompt()},
+            {"role": "system", "content": self._render_system_prompt(signals)},
             {"role": "user", "content": "Please generate the report now."},
         ]
         markdown = ""
@@ -129,6 +152,7 @@ class ReportRunner:
         return ReportResult(
             report_markdown=markdown,
             executive_brief=_extract_brief(markdown),
+            verdict=_extract_verdict(markdown),
             findings=_extract_findings(markdown),
         )
 
@@ -147,8 +171,12 @@ class ReportRunner:
             trajectories=loaded["agent_trajectories.json"],
         )
 
-    def _render_system_prompt(self) -> str:
-        return _jinja_env.get_template("report.j2").render(goal=self.goal).strip()
+    def _render_system_prompt(self, signals: dict) -> str:
+        return _jinja_env.get_template("report.j2").render(
+            goal=self.goal,
+            forecast_days=self.forecast_days,
+            signals=signals,
+        ).strip()
 
 
 def _extract_brief(markdown: str) -> str:
@@ -160,7 +188,20 @@ def _extract_brief(markdown: str) -> str:
     return match.group(1).strip() if match else ""
 
 
+def _extract_verdict(markdown: str) -> str:
+    match = re.search(
+        r"##\s+Verdict\s*\n+(.*?)(?=\n##|\Z)",
+        markdown,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if not match:
+        return ""
+    # Verdict section should contain one sentence; collapse to a single line.
+    return " ".join(line.strip() for line in match.group(1).splitlines() if line.strip())[:400]
+
+
 def _extract_findings(markdown: str) -> list[dict[str, str]]:
+    """Extract up to 4 slotted findings from '### slot=X — Title' blocks."""
     section_match = re.search(
         r"##\s+Key Findings\s*\n+(.*?)(?=\n##|\Z)",
         markdown,
@@ -169,11 +210,33 @@ def _extract_findings(markdown: str) -> list[dict[str, str]]:
     if not section_match:
         return []
     findings: list[dict[str, str]] = []
-    for block in re.split(r"(?=###\s)", section_match.group(1)):
-        block = block.strip()
-        if not block:
-            continue
-        m = re.match(r"###\s+(.+?)\n+(.*)", block, re.DOTALL)
-        if m:
-            findings.append({"title": m.group(1).strip(), "content": m.group(2).strip()})
-    return findings
+    block_pattern = re.compile(
+        r"###\s+slot=(\w+)\s*[—–-]\s*(.+?)\n+(.*?)(?=\n###|\Z)",
+        re.DOTALL,
+    )
+    for m in block_pattern.finditer(section_match.group(1)):
+        slot = m.group(1).strip().lower()
+        title = m.group(2).strip()
+        body_raw = m.group(3).strip()
+        # Citation line begins with '_Citation:' (underscore-wrapped or plain).
+        citation = ""
+        body_lines = []
+        for line in body_raw.splitlines():
+            stripped = line.strip()
+            if stripped.lower().startswith("_citation:") or stripped.lower().startswith("citation:"):
+                citation = stripped.lstrip("_").split(":", 1)[-1].strip().rstrip("_").strip()
+            else:
+                body_lines.append(line)
+        body = " ".join(ln.strip() for ln in body_lines if ln.strip())
+        findings.append({
+            "slot": slot,
+            "title": title,
+            "body": body,
+            "citation": citation,
+            "accent_color": _slot_color(slot),
+        })
+    return findings[:4]
+
+
+def _slot_color(slot: str) -> str:
+    return SLOT_COLORS.get(slot, "#22D3EE")

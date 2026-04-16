@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from simswarm.stance import NEGATIVE_WORDS, POSITIVE_WORDS  # noqa: F401 — public re-export
+from simswarm.story_signals import build_story_signals
 from simswarm.types import ActionRecord, GraphSnapshot
 
 # ---------------------------------------------------------------------------
@@ -14,8 +14,6 @@ from simswarm.types import ActionRecord, GraphSnapshot
 # ---------------------------------------------------------------------------
 
 FINDING_COLORS = ["#22D3EE", "#A78BFA", "#F97316", "#6EE7B7", "#FF6B6B", "#FBBF24"]
-
-_COALITION_COLORS = ["#22D3EE", "#A78BFA", "#F97316", "#6EE7B7", "#FF6B6B"]
 
 
 # ---------------------------------------------------------------------------
@@ -59,115 +57,46 @@ def adapt_structured(
     findings: list[dict[str, Any]],
     chat_log: list[dict[str, Any]],
     graph_data: dict[str, Any],
+    forecast_days: int,
+    verdict: str = "",
 ) -> dict:
     """Build the structured results dict consumed by the SaaS frontend.
 
     Args:
-        brief: One-sentence summary of the simulation goal/outcome.
-        findings: List of dicts with keys 'title' and 'content'.
-        chat_log: Already-adapted chat log (list of dicts with int agent_id).
-        graph_data: Already-adapted graph dict with nodes/edges/metadata.
+        brief: One-paragraph executive summary from the LLM.
+        findings: List of {slot, title, body, citation, accent_color} from the LLM.
+            (Legacy shape {title, content} is also accepted and re-shaped.)
+        chat_log: Already-adapted chat log.
+        graph_data: Already-adapted graph dict.
+        forecast_days: Required timeline in days.
+        verdict: One-sentence answer from the LLM.
     """
-    adapted_findings = []
+    adapted_findings: list[dict] = []
     for i, finding in enumerate(findings):
-        content = finding.get("content", "")
-        adapted_findings.append({
-            "label": "FINDING",
-            "title": finding.get("title", f"Section {i + 1}"),
-            "description": content[:500],
-            "metric": "",
-            "accentColor": FINDING_COLORS[i % len(FINDING_COLORS)],
-        })
+        if "slot" in finding:
+            adapted_findings.append({
+                "slot": finding["slot"],
+                "title": finding.get("title", ""),
+                "body": finding.get("body", ""),
+                "citation": finding.get("citation", ""),
+                "accent_color": finding.get("accent_color", FINDING_COLORS[i % len(FINDING_COLORS)]),
+            })
+        else:
+            # Legacy path (during rollout): wrap the old {title, content} shape.
+            slot = "industry" if i == 0 else ("regulator" if i == 1 else "intermediary")
+            adapted_findings.append({
+                "slot": slot,
+                "title": finding.get("title", f"Finding {i + 1}"),
+                "body": finding.get("content", "")[:500],
+                "citation": "",
+                "accent_color": FINDING_COLORS[i % len(FINDING_COLORS)],
+            })
 
-    sentiment = _compute_platform_sentiment(chat_log)
-    coalitions = _detect_coalitions(chat_log)
-    confidence = _build_confidence(chat_log, graph_data)
+    signals = build_story_signals(chat_log, graph_data, forecast_days)
 
     return {
         "brief": brief,
+        "verdict": verdict,
         "findings": adapted_findings,
-        "sentiment": sentiment,
-        "coalitions": coalitions,
-        "confidence": confidence,
+        **signals,
     }
-
-
-# ---------------------------------------------------------------------------
-# Private helpers
-# ---------------------------------------------------------------------------
-
-
-def _compute_platform_sentiment(chat_log: list[dict[str, Any]]) -> list[dict]:
-    """Keyword-based sentiment score per platform."""
-    platform_stats: dict[str, dict[str, int]] = {}
-    for action in chat_log:
-        platform = action.get("platform", "unknown")
-        action_type = action.get("action_type", "")
-        stats = platform_stats.setdefault(platform, {"positive": 0, "total": 0})
-        stats["total"] += 1
-        if action_type in ("CREATE_POST", "LIKE_POST", "REPOST", "COMMENT", "CREATE_COMMENT"):
-            stats["positive"] += 1
-
-    result = []
-    for platform, counts in platform_stats.items():
-        total = counts["total"]
-        positive = counts["positive"]
-        value = int((positive / total) * 100) if total > 0 else 0
-        result.append({
-            "label": platform.capitalize(),
-            "value": value,
-            "direction": "positive" if value >= 50 else "negative",
-        })
-    return result
-
-
-def _detect_coalitions(chat_log: list[dict[str, Any]]) -> list[dict]:
-    """Detect mutual-follow coalitions from interaction patterns."""
-    follow_graph: dict[str, set[str]] = {}
-    for action in chat_log:
-        name = action.get("agent_name", "")
-        if action.get("action_type") == "FOLLOW":
-            target = (action.get("action_args") or {}).get("target", "")
-            if name and target:
-                follow_graph.setdefault(name, set()).add(target)
-
-    visited: set[str] = set()
-    coalitions = []
-    for agent in follow_graph:
-        if agent in visited:
-            continue
-        group = {agent}
-        for target in follow_graph.get(agent, set()):
-            if agent in follow_graph.get(target, set()):
-                group.add(target)
-        if len(group) >= 2:
-            visited.update(group)
-            idx = len(coalitions)
-            coalitions.append({
-                "name": f"Coalition {idx + 1}",
-                "description": f"Mutual followers: {', '.join(sorted(group))}",
-                "agents": len(group),
-                "strength": min(100, len(group) * 20),
-                "color": _COALITION_COLORS[idx % len(_COALITION_COLORS)],
-            })
-    return coalitions
-
-
-def _build_confidence(
-    chat_log: list[dict[str, Any]],
-    graph_data: dict[str, Any],
-) -> list[dict]:
-    """Build confidence grid from agent count, rounds, entities, and trades."""
-    agent_names = {action.get("agent_name") for action in chat_log if action.get("agent_name")}
-    max_round = max((a.get("round_num", 0) for a in chat_log), default=0)
-    trade_count = sum(
-        1 for a in chat_log
-        if a.get("platform") == "polymarket" and a.get("action_type") in ("BUY", "SELL")
-    )
-    meta = graph_data.get("metadata", {})
-    return [
-        {"label": "Agents", "value": str(len(agent_names)), "color": "#22D3EE"},
-        {"label": "Rounds", "value": str(max_round), "color": "#A78BFA"},
-        {"label": "Graph Entities", "value": str(meta.get("total_nodes", 0)), "color": "#6EE7B7"},
-        {"label": "Trades", "value": str(trade_count), "color": "#F97316"},
-    ]

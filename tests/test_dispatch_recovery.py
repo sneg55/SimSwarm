@@ -18,7 +18,12 @@ async def test_failed_job_gets_refund(client, auth_headers, funded_user, seeded_
         resp = await client.post(
             "/api/jobs",
             headers=auth_headers,
-            json={"seed_text": "Test content for simulation.", "goal": "Test", "tier": "small"},
+            json={
+                "seed_text": "Test content for simulation.",
+                "goal": "Test",
+                "tier": "small",
+                "forecast_days": 30,
+            },
         )
     assert resp.status_code == 201
     job_id = resp.json()["id"]
@@ -68,7 +73,12 @@ async def test_job_status_transitions(client, auth_headers, funded_user, seeded_
         resp = await client.post(
             "/api/jobs",
             headers=auth_headers,
-            json={"seed_text": "Test content.", "goal": "Test", "tier": "small"},
+            json={
+                "seed_text": "Test content.",
+                "goal": "Test",
+                "tier": "small",
+                "forecast_days": 30,
+            },
         )
     job_id = resp.json()["id"]
 

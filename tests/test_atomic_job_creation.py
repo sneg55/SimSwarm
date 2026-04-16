@@ -6,7 +6,12 @@ async def test_missing_routing_does_not_charge_credits(client, auth_headers, fun
     resp = await client.post(
         "/api/jobs",
         headers=auth_headers,
-        json={"seed_text": "Test seed text.", "goal": "Test", "tier": "small"},
+        json={
+            "seed_text": "Test seed text.",
+            "goal": "Test",
+            "tier": "small",
+            "forecast_days": 30,
+        },
     )
     assert resp.status_code == 500
     assert "routing" in resp.json()["detail"].lower()
@@ -21,7 +26,12 @@ async def test_dispatch_failure_does_not_charge_credits(client, auth_headers, fu
         resp = await client.post(
             "/api/jobs",
             headers=auth_headers,
-            json={"seed_text": "Test seed text.", "goal": "Test", "tier": "small"},
+            json={
+                "seed_text": "Test seed text.",
+                "goal": "Test",
+                "tier": "small",
+                "forecast_days": 30,
+            },
         )
     assert resp.status_code == 500
 

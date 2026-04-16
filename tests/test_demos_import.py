@@ -1,6 +1,7 @@
 """Verify the demo importer writes structured dicts compatible with the
-post-cutover SimulationResults template (brief/findings/confidence/coalitions/
-sentiment). Prevents regression where imported demos rendered old-shape cards."""
+post-cutover SimulationResults Story template (Path-3 shape: brief/verdict/
+findings + deterministic signals). Prevents regression where imported demos
+rendered old-shape cards."""
 from __future__ import annotations
 
 import json
@@ -19,6 +20,12 @@ def test_build_structured_payload_has_required_keys():
                     "metadata": {"total_nodes": 0, "total_edges": 0, "entity_types": []}},
     )
     data = json.loads(payload) if isinstance(payload, str) else payload
-    assert {"brief", "findings", "confidence", "coalitions", "sentiment"} <= set(data)
+    expected_keys = {
+        "brief", "verdict", "findings",
+        "stakeholder_positions", "named_coalitions", "phase_boundaries",
+        "quotable_posts", "disagreement_axis", "sim_scale",
+    }
+    assert expected_keys <= set(data)
     assert data["brief"] == "demo brief"
-    assert all("accentColor" in f for f in data["findings"])
+    # Path-3 findings shape (legacy {title, content} wrapper path)
+    assert all("accent_color" in f for f in data["findings"])
