@@ -139,7 +139,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import ReportViewer from '../components/ReportViewer.vue'
 import ChatReplay from '../components/ChatReplay.vue'
@@ -172,8 +172,6 @@ const graphError = ref(null)
 const hasGraph = ref(false)
 
 const simDataAvailable = ref(false)
-
-const isSmallScreen = ref(window.innerWidth < 768)
 
 // ── Computed ──────────────────────────────────────────────────────────────────
 
@@ -242,12 +240,7 @@ function onNodeSelected(_entityName) {
 
 // ── Lifecycle ─────────────────────────────────────────────────────────────────
 
-function onResize() {
-  isSmallScreen.value = window.innerWidth < 768
-}
-
 onMounted(async () => {
-  window.addEventListener('resize', onResize)
   try {
     job.value = await getJob(jobId)
     await fetchGraphData()
@@ -258,10 +251,6 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('resize', onResize)
 })
 
 function formatDate(dateStr) {

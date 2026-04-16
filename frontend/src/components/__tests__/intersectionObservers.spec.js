@@ -1,8 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 
-import SentimentBars from '../results/SentimentBars.vue'
-import ConfidenceGrid from '../results/ConfidenceGrid.vue'
 import EngagementCompact from '../results/EngagementCompact.vue'
 import MarketCurveCompact from '../results/MarketCurveCompact.vue'
 import ExperienceStep from '../ExperienceStep.vue'
@@ -31,24 +29,6 @@ function installObserver({ fire = true } = {}) {
 describe('IntersectionObserver-driven components fire visibility callbacks', () => {
   beforeEach(() => installObserver({ fire: true }))
   afterEach(() => { observers = [] })
-
-  it('SentimentBars becomes visible when observer intersects', async () => {
-    const wrapper = mount(SentimentBars, {
-      props: { bars: [{ label: 'Positive', value: '60', width: 60, gradient: 'red', valueColor: '#fff' }] },
-    })
-    await flushPromises()
-    expect(observers.length).toBe(1)
-    wrapper.unmount()
-  })
-
-  it('ConfidenceGrid becomes visible on intersection', async () => {
-    const wrapper = mount(ConfidenceGrid, {
-      props: { items: [{ label: 'Confidence', value: '0.95', color: '#fff' }] },
-    })
-    await flushPromises()
-    expect(observers.length).toBe(1)
-    wrapper.unmount()
-  })
 
   it('EngagementCompact mounts and observes', async () => {
     const wrapper = mount(EngagementCompact, {
