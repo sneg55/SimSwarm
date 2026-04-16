@@ -146,7 +146,7 @@ def make_chat_log() -> list[dict]:
          "timestamp": None, "success": True},
         {"round_num": 5, "agent_id": "msft", "agent_name": "Microsoft",
          "action_type": "CREATE_POST", "platform": "twitter",
-         "action_args": {"text": "Overly strict data transparency requirements would be a compliance cost burden."},
+         "action_args": {"text": "Overly strict data disclosure requirements would be a compliance cost burden we oppose."},
          "timestamp": None, "success": True},
         {"round_num": 8, "agent_id": "ms", "agent_name": "Morgan Stanley",
          "action_type": "CREATE_POST", "platform": "twitter",
