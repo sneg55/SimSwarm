@@ -71,7 +71,7 @@
                 <div>
                   <div class="font-mono text-lg font-bold"
                     :style="{ color: node.sentiment > 0.2 ? '#6EE7B7' : node.sentiment < -0.2 ? '#FF6B6B' : '#94A3B8' }"
-                  >{{ node.sentiment > 0 ? '+' : '' }}{{ node.sentiment.toFixed(1) }}</div>
+                  >{{ node.sentiment > 0 ? '+' : '' }}{{ node.sentiment.toFixed(2) }}</div>
                   <div class="text-[10px] text-mist-slate uppercase">Sentiment</div>
                 </div>
               </InfoTooltip>
@@ -141,7 +141,7 @@
               </div>
 
               <!-- Engagement bar (visual only) -->
-              <div v-if="action.action_type === 'CREATE_POST' || action.action_type === 'CREATE_COMMENT'"
+              <div v-if="isPostLike(action.action_type)"
                 class="flex items-center gap-6 px-4 py-2 border-t border-mist-depth/20 text-[10px] text-mist-slate/40">
                 <span class="flex items-center gap-1">
                   <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -175,11 +175,19 @@ const props = defineProps({
 
 defineEmits(['close', 'navigate-to'])
 
+function normalizeType(type) {
+  return (type || '').toUpperCase()
+}
+
+function postBody(action) {
+  const args = action.action_args || {}
+  return args.text || args.content || ''
+}
+
 const dedupedActions = computed(() => {
   const seen = new Map()
   for (const a of props.agentActions) {
-    const content = a.action_args?.content || ''
-    const key = `${a.action_type}:${a.round_num}:${content}`
+    const key = `${normalizeType(a.action_type)}:${a.round_num}:${postBody(a)}`
     if (seen.has(key)) {
       const existing = seen.get(key)
       if (a.platform && !existing.platforms.includes(a.platform)) {
@@ -240,23 +248,29 @@ function actionLabel(type) {
     DISLIKE_COMMENT: 'Dislike',
     DO_NOTHING: 'Idle',
   }
-  return map[type] || type
+  return map[normalizeType(type)] || type
 }
 
 function actionBadgeClass(type) {
-  if (['CREATE_POST', 'CREATE_COMMENT', 'QUOTE_POST'].includes(type))
+  const t = normalizeType(type)
+  if (['CREATE_POST', 'CREATE_COMMENT', 'QUOTE_POST'].includes(t))
     return 'bg-ocean-cyan/15 text-ocean-glow'
-  if (['LIKE_POST', 'LIKE_COMMENT', 'REPOST'].includes(type))
+  if (['LIKE_POST', 'LIKE_COMMENT', 'REPOST'].includes(t))
     return 'bg-emerald-500/15 text-emerald-400'
-  if (['DISLIKE_POST', 'DISLIKE_COMMENT'].includes(type))
+  if (['DISLIKE_POST', 'DISLIKE_COMMENT'].includes(t))
     return 'bg-coral/15 text-coral'
-  if (type === 'FOLLOW')
+  if (t === 'FOLLOW')
     return 'bg-organic-violet/15 text-organic-violet'
   return 'bg-mist-depth/30 text-mist-slate'
 }
 
 function actionContent(action) {
-  return action.action_args?.content || ''
+  return postBody(action)
+}
+
+function isPostLike(type) {
+  const t = normalizeType(type)
+  return t === 'CREATE_POST' || t === 'CREATE_COMMENT'
 }
 </script>
 

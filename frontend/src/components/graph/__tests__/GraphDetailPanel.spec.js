@@ -65,6 +65,33 @@ describe('GraphDetailPanel', () => {
     expect(wrapper.text()).toContain('Activity')
   })
 
+  it('renders new-engine schema: lowercase action_type and action_args.text', () => {
+    const node = { name: 'SEC', entityType: 'Organization' }
+    const agentActions = [
+      {
+        action_type: 'create_post',
+        round_num: 1,
+        platform: 'social',
+        action_args: { text: 'New AI disclosure rules require public companies to report material risks.' },
+      },
+    ]
+    const wrapper = mount(GraphDetailPanel, { props: { node, agentActions } })
+    expect(wrapper.text()).toContain('New AI disclosure rules require public companies to report material risks.')
+    expect(wrapper.text()).toContain('Post')
+    expect(wrapper.text()).not.toContain('create_post')
+  })
+
+  it('dedupes new-engine actions by text across platforms', () => {
+    const node = { name: 'SEC', entityType: 'Organization' }
+    const agentActions = [
+      { action_type: 'create_post', round_num: 1, platform: 'twitter', action_args: { text: 'same body' } },
+      { action_type: 'create_post', round_num: 1, platform: 'reddit', action_args: { text: 'same body' } },
+    ]
+    const wrapper = mount(GraphDetailPanel, { props: { node, agentActions } })
+    const cards = wrapper.findAll('[class*="rounded-xl"]').filter(w => w.text().includes('same body'))
+    expect(cards.length).toBe(1)
+  })
+
   it('shows sentiment with correct color for positive/negative/neutral', () => {
     const neg = mount(GraphDetailPanel, { props: { node: { name: 'A', entityType: 'Person', sentiment: -0.7 } } })
     // jsdom converts hex colors to rgb() strings when set via style
