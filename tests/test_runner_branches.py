@@ -112,7 +112,7 @@ async def test_resume_idle_resubmits():
     from types import SimpleNamespace
     fake_cfg = SimpleNamespace(
         seed_text="s", goal="g", max_rounds=5,
-        forecast_days=None, target_agents=5, upload_urls=None,
+        forecast_days=None, target_agents=5, upload_urls=None, markets_config=None,
     )
 
     with patch("saas.jobs.runner.httpx.AsyncClient", side_effect=lambda *a, **k: next(clients)), \

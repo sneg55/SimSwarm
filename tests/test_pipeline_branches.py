@@ -76,6 +76,7 @@ async def test_submit_job_success():
         forecast_days = None
         target_agents = 5
         upload_urls = None
+        markets_config = None
 
     ok = MagicMock()
     ok.status_code = 200
@@ -93,6 +94,7 @@ async def test_submit_job_rejected_json_body():
         forecast_days = None
         target_agents = 5
         upload_urls = None
+        markets_config = None
 
     resp = MagicMock()
     resp.status_code = 400
@@ -117,6 +119,7 @@ async def test_submit_job_tolerates_already_running():
         forecast_days = None
         target_agents = 5
         upload_urls = None
+        markets_config = None
 
     resp = MagicMock()
     resp.status_code = 409
@@ -138,6 +141,7 @@ async def test_submit_job_rejected_text_body():
         forecast_days = None
         target_agents = 5
         upload_urls = None
+        markets_config = None
 
     resp = MagicMock()
     resp.status_code = 500

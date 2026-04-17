@@ -14,6 +14,7 @@ from saas.jobs.persistence import (
     _mark_job_failed,
     _save_job_results,
     _update_enrichment,
+    _update_markets_config,
     _update_job_metadata,
     _update_job_retry,
     _update_sim_data_available,
@@ -82,6 +83,20 @@ def run_simulation_task(
             logger.warning("job.enrichment_empty job_id=%d", job_id)
             send_enrichment_alert(job_id=job_id, goal=goal)
 
+    # --- Market derivation -------------------------------------------------
+    # Derive 3–5 prediction markets from the (possibly enriched) seed + goal.
+    # Fails soft: always returns at least one market.
+    from saas.jobs.market_derivation import derive_markets
+    derivation = derive_markets(
+        goal=goal, enriched_seed=enriched_seed_text, tier=tier,
+    )
+    markets_config = derivation["markets"]
+    logger.info(
+        "job.markets_derived job_id=%d source=%s count=%d",
+        job_id, derivation["source"], len(markets_config),
+    )
+    _update_markets_config(job_id, markets_config)
+
     config = JobConfig(
         job_id=job_id,
         user_id=user_id,
@@ -101,6 +116,7 @@ def run_simulation_task(
         forecast_days=forecast_days,
         target_agents=target_agents,
         upload_urls=upload_urls,
+        markets_config=markets_config,
     )
 
     gpu_provider = _get_gpu_provider()
