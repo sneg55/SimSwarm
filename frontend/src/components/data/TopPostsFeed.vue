@@ -1,6 +1,8 @@
 <template>
   <div class="bg-ocean-deep border border-mist-depth rounded-2xl p-5">
-    <div class="text-xs font-semibold uppercase tracking-wider text-mist-slate mb-3">Top Posts</div>
+    <div class="text-xs font-semibold uppercase tracking-wider text-mist-slate mb-3">
+      <InfoTooltip copyKey="topPostsFeed.header">Top Posts</InfoTooltip>
+    </div>
     <div class="space-y-1 max-h-[400px] overflow-y-auto">
       <div v-for="post in posts" :key="post.post_id + post.platform"
         class="flex gap-3 p-3 rounded-xl hover:bg-ocean-abyss/50 transition-colors">

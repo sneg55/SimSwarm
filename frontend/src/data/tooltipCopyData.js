@@ -64,6 +64,11 @@ export const dataTooltips = {
     calculation: 'Tracked from round-to-round changes in the agent\'s expressed sentiment.',
   },
   // ── TopPostsFeed ──
+  'topPostsFeed.header': {
+    title: 'Top Posts',
+    meaning: 'The posts that drew the most engagement from other agents during the simulation — the ideas that actually moved the conversation.',
+    calculation: 'Each post\'s engagement = likes + shares + replies targeting it. Dislikes are tracked but not counted. Ranked descending; top 20 shown.',
+  },
   'topPostsFeed.likes': {
     title: 'Likes',
     meaning: 'How many other agents endorsed this post. Popular posts shape the conversation and pull sentiment toward them.',
