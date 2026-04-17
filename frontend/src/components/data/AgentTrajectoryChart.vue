@@ -7,9 +7,9 @@
     <div v-else class="relative" @mousemove="onHover" @mouseleave="hovered = null">
       <svg :viewBox="`0 0 ${W} ${H}`" class="w-full" style="overflow:visible;">
         <line :x1="PAD" :x2="W-PAD" :y1="yScale(0)" :y2="yScale(0)" stroke="#1E293B" stroke-dasharray="4" />
-        <text :x="PAD-4" :y="yScale(1)+3" text-anchor="end" fill="#64748B" font-size="10">+1</text>
+        <text :x="PAD-4" :y="yScale(yRange)+3" text-anchor="end" fill="#64748B" font-size="10">{{ axisLabel(yRange) }}</text>
         <text :x="PAD-4" :y="yScale(0)+3" text-anchor="end" fill="#64748B" font-size="10">0</text>
-        <text :x="PAD-4" :y="yScale(-1)+3" text-anchor="end" fill="#64748B" font-size="10">-1</text>
+        <text :x="PAD-4" :y="yScale(-yRange)+3" text-anchor="end" fill="#64748B" font-size="10">{{ axisLabel(-yRange) }}</text>
         <template v-for="agent in agents" :key="agent.agent_id">
           <path v-if="(agent.rounds || []).length > 1"
             :d="agentPath(agent)" fill="none" :stroke="agentColor(agent)" stroke-width="1.5" opacity="0.7" />
@@ -64,7 +64,34 @@ const hasData = computed(() => {
   return false
 })
 
-function yScale(val) { return PAD + (1 - (val + 1) / 2) * (H - PAD * 2) }
+const yRange = computed(() => {
+  let max = 0
+  for (const a of props.agents) {
+    for (const r of (a.rounds || [])) {
+      const v = Math.abs(Number(r.sentiment) || 0)
+      if (v > max) max = v
+    }
+  }
+  if (max === 0) return 1
+  // Pad by 20% so lines don't touch the frame, round up to a nice step.
+  const padded = max * 1.2
+  const steps = [0.1, 0.2, 0.25, 0.5, 0.75, 1]
+  for (const s of steps) if (padded <= s) return s
+  return 1
+})
+
+function axisLabel(v) {
+  const sign = v > 0 ? '+' : v < 0 ? '-' : ''
+  const abs = Math.abs(v)
+  const str = abs >= 1 ? abs.toFixed(0) : abs.toFixed(2).replace(/0+$/, '').replace(/\.$/, '')
+  return `${sign}${str}`
+}
+
+function yScale(val) {
+  const r = yRange.value
+  const clamped = Math.max(-r, Math.min(r, val))
+  return PAD + (1 - (clamped + r) / (2 * r)) * (H - PAD * 2)
+}
 function xScale(idx, total) {
   if (total <= 1) return PAD + (W - PAD * 2) / 2
   return PAD + (idx / (total - 1)) * (W - PAD * 2)
