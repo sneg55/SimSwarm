@@ -67,11 +67,15 @@ class SocialEnvironment:
         lines = []
         for post in ranked[:20]:
             score = post.likes - post.dislikes
-            lines.append(f"[{post.author_name}] {post.text} (score: {score})")
+            lines.append(
+                f"post_id={post.id} [{post.author_name}] {post.text} (score: {score})"
+            )
             if self.config.threading:
                 replies = [p for p in self.posts.values() if p.parent_id == post.id]
                 for reply in replies[:3]:
-                    lines.append(f"  -> [{reply.author_name}] {reply.text}")
+                    lines.append(
+                        f"  -> post_id={reply.id} [{reply.author_name}] {reply.text}"
+                    )
         content = "\n".join(lines) if lines else "(no posts yet)"
         return Observation(environment=self.name, content=content)
 
@@ -81,18 +85,19 @@ class SocialEnvironment:
                  parameters={"type": "object", "properties": {
                      "text": {"type": "string", "description": "Post content"},
                  }, "required": ["text"]}),
-            Tool(name="reply", description="Reply to an existing post",
+            Tool(name="reply", description="Reply to an existing post. Use the post_id shown in the feed.",
                  parameters={"type": "object", "properties": {
-                     "post_id": {"type": "string"}, "text": {"type": "string"},
+                     "post_id": {"type": "string", "description": "The post_id from the feed (UUID)"},
+                     "text": {"type": "string"},
                  }, "required": ["post_id", "text"]}),
-            Tool(name="vote", description="Vote on a post (value: 1 for like, -1 for dislike)",
+            Tool(name="vote", description="Vote on a post (value: 1 for like, -1 for dislike). Use the post_id shown in the feed.",
                  parameters={"type": "object", "properties": {
-                     "post_id": {"type": "string"},
+                     "post_id": {"type": "string", "description": "The post_id from the feed (UUID)"},
                      "value": {"type": "integer", "enum": [1, -1]},
                  }, "required": ["post_id", "value"]}),
-            Tool(name="repost", description="Repost someone's post",
+            Tool(name="repost", description="Repost someone's post. Use the post_id shown in the feed.",
                  parameters={"type": "object", "properties": {
-                     "post_id": {"type": "string"},
+                     "post_id": {"type": "string", "description": "The post_id from the feed (UUID)"},
                  }, "required": ["post_id"]}),
             Tool(name="follow", description="Follow another agent",
                  parameters={"type": "object", "properties": {

@@ -34,6 +34,26 @@ class TestPostCreation:
         obs = env.get_observations(bob)
         assert "Test post" in obs.content
 
+    def test_feed_exposes_post_id_for_engagement(self):
+        """Without post_id in the feed, agents can't vote/reply/repost."""
+        env = SocialEnvironment(SocialConfig(threading=True))
+        alice = _make_agent("a1", "Alice")
+        bob = _make_agent("a2", "Bob")
+        post = env.execute_action(alice, Action(
+            agent_id="a1", environment="social",
+            action_type="create_post", args={"text": "Top-level"},
+        ))
+        top_id = post.data["post_id"]
+        reply = env.execute_action(bob, Action(
+            agent_id="a2", environment="social",
+            action_type="reply", args={"post_id": top_id, "text": "Threaded"},
+        ))
+        reply_id = reply.data["post_id"]
+        reader = _make_agent("reader")
+        obs = env.get_observations(reader)
+        assert top_id in obs.content
+        assert reply_id in obs.content
+
 
 class TestReplies:
     def test_reply_creates_threaded_response(self):
