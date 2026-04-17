@@ -159,6 +159,7 @@ class ActionRecord:
     action_args: dict[str, Any]
     timestamp: str | None = None
     success: bool = True
+    action_result: dict[str, Any] | None = None
 
 
 @dataclass
