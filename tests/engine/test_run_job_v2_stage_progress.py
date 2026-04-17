@@ -12,7 +12,7 @@ def test_run_pipeline_emits_stage_markers(capsys, tmp_path):
     from simswarm.types import GraphSnapshot, SimulationResult, SimulationState
 
     # Stub run_simulation so we don't need GPUs / LLMs.
-    def _fake_run_simulation(seed_text, goal, max_rounds, entities, target_agents):
+    def _fake_run_simulation(seed_text, goal, max_rounds, entities, target_agents, **kw):
         return SimulationResult(
             chat_log=[],
             graph_data=GraphSnapshot(

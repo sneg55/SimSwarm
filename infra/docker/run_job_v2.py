@@ -54,6 +54,7 @@ def run_pipeline(
     max_rounds: int,
     output_dir: str,
     target_agents: int = 5,
+    markets_config: list[dict] | None = None,
 ) -> dict:
     """Sim-only pipeline: entities → simulation → write non-report artifacts.
 
@@ -66,7 +67,10 @@ def run_pipeline(
 
     print("[stage] Running simulation", flush=True)
     result = asyncio.run(
-        run_simulation(seed_text, goal, max_rounds, entities, target_agents)
+        run_simulation(
+            seed_text, goal, max_rounds, entities, target_agents,
+            markets_config=markets_config,
+        )
     )
     print(
         f"[run_job_v2] Simulation complete: {len(result.chat_log)} actions",
@@ -93,15 +97,24 @@ def main() -> None:
     parser.add_argument("--max-rounds", type=int, default=200)
     parser.add_argument("--output-dir", default="/tmp/results")
     parser.add_argument("--target-agents", type=int, default=5)
+    parser.add_argument("--markets-config-file",
+                        help="JSON file with a list of {question, initial_price_yes, rationale}")
     parser.add_argument("--skip-vllm-wait", action="store_true")
     args = parser.parse_args()
 
     seed_text = Path(args.seed_file).read_text(encoding="utf-8")
 
+    markets_config = None
+    if args.markets_config_file:
+        markets_config = json.loads(Path(args.markets_config_file).read_text(encoding="utf-8"))
+
     if not args.skip_vllm_wait and _SERVICE_INIT_AVAILABLE:
         wait_for_neo4j()
 
-    run_pipeline(seed_text, args.goal, args.max_rounds, args.output_dir, args.target_agents)
+    run_pipeline(
+        seed_text, args.goal, args.max_rounds, args.output_dir,
+        args.target_agents, markets_config=markets_config,
+    )
 
 
 if __name__ == "__main__":

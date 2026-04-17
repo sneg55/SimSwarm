@@ -83,11 +83,18 @@ def _upload_sim_data(results_dir, upload_urls):
     return successes == produced and produced > 0
 
 
-def _run_pipeline(seed_text, goal, max_rounds, forecast_days=None, upload_urls=None, target_agents=5):
+def _run_pipeline(seed_text, goal, max_rounds, forecast_days=None, upload_urls=None,
+                  target_agents=5, markets_config=None):
     """Run SimSwarm pipeline in background, stream output to log file."""
     try:
         seed_file = Path("/tmp/seed.txt")
         seed_file.write_text(seed_text)
+
+        extra_args = []
+        if markets_config is not None:
+            markets_file = Path("/tmp/markets.json")
+            markets_file.write_text(json.dumps(markets_config))
+            extra_args = ["--markets-config-file", str(markets_file)]
 
         # Clear previous log
         LOG_FILE.write_text("")
@@ -101,6 +108,7 @@ def _run_pipeline(seed_text, goal, max_rounds, forecast_days=None, upload_urls=N
                     "--max-rounds", str(max_rounds),
                     "--target-agents", str(target_agents),
                     "--output-dir", "/tmp/results",
+                    *extra_args,
                     # Do NOT skip vLLM wait — verify localhost:8000 is actually serving
                 ],
                 stdout=log_fh,
@@ -185,6 +193,7 @@ def submit_job():
     forecast_days = data.get("forecast_days")
     upload_urls = data.get("upload_urls")
     target_agents = data.get("target_agents", 5)
+    markets_config = data.get("markets_config")  # NEW
 
     with _lock:
         if _job["status"] == "running":
@@ -197,7 +206,7 @@ def submit_job():
 
     thread = threading.Thread(
         target=_run_pipeline,
-        args=(seed_text, goal, max_rounds, forecast_days, upload_urls, target_agents),
+        args=(seed_text, goal, max_rounds, forecast_days, upload_urls, target_agents, markets_config),
         daemon=True,
     )
     thread.start()

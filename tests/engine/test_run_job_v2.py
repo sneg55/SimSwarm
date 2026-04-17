@@ -6,10 +6,15 @@ Covers:
   - summary.json pipeline metadata
   - posts.json / trades.json / social_graph.json shapes
   - output directory is created if missing
+  - run_simulation() threads markets_config into EnvironmentConfig(type='market')
 """
 from __future__ import annotations
 
+import asyncio
 import json
+from unittest.mock import AsyncMock
+
+import pytest
 
 
 from tests.engine.run_job_v2_fixtures import (
@@ -101,3 +106,46 @@ class TestRichDataFiles:
         data = json.loads((tmp_path / "social_graph.json").read_text(encoding="utf-8"))
         assert "edges" in data
         assert "mutual_follows" in data
+
+
+class TestMarketsConfigPlumbing:
+    @pytest.mark.asyncio
+    async def test_run_simulation_passes_markets_to_env(self, monkeypatch):
+        """run_simulation must pass markets_config into EnvironmentConfig(type='market')."""
+        from infra.docker.run_job_v2_runner import run_simulation
+        from simswarm.types import Entity
+
+        captured = {}
+
+        class FakeEngine:
+            def __init__(self, **kw): pass
+            async def run(self, config, on_progress=None):
+                # Pull out the market env config
+                market_ec = next(ec for ec in config.environments if ec.type == "market")
+                captured["market_params"] = market_ec.params
+                class Result:
+                    chat_log = []
+                    graph_data = type("G", (), {"nodes": [], "edges": [], "metadata": {}})()
+                    trajectories = {}
+                return Result()
+
+        monkeypatch.setattr("infra.docker.run_job_v2_runner.Engine", FakeEngine)
+
+        # close() is async in the real LLMClient
+        fake_llm = type("X", (), {"close": AsyncMock()})()
+        monkeypatch.setattr("infra.docker.run_job_v2_runner.LLMClient",
+                            lambda *a, **k: fake_llm)
+        monkeypatch.setattr("infra.docker.run_job_v2_runner.extract_relations",
+                            AsyncMock(return_value=[]))
+        monkeypatch.setattr("infra.docker.run_job_v2_runner.enrich_profiles_with_personas",
+                            AsyncMock(side_effect=lambda profiles, *a, **k: profiles))
+
+        entity = Entity(id="a", name="A", type="person", summary="x")
+        markets = [{"question": "Will X?", "initial_price_yes": 0.55}]
+
+        await run_simulation(
+            seed_text="", goal="", max_rounds=1, entities=[entity], target_agents=1,
+            markets_config=markets,
+        )
+
+        assert captured["market_params"]["markets"] == markets
