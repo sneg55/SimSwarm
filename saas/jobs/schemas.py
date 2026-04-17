@@ -73,6 +73,7 @@ class JobResponse(BaseModel):
     enrich_web: bool = True
     sim_data_available: bool = False
     live_status: dict | None = None
+    markets_config: list[dict] | None = None
     created_at: datetime
     completed_at: datetime | None
 
