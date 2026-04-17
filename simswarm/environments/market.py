@@ -203,18 +203,21 @@ class MarketEnvironment:
         market = self.markets[market_id]
         if outcome == "yes":
             shares = market.buy_yes(amount)
+            executed_price = market.price_yes
         else:
             shares = market.buy_no(amount)
+            executed_price = market.price_no
         portfolio.balance -= amount
         if market_id not in portfolio.shares:
             portfolio.shares[market_id] = {"yes": 0.0, "no": 0.0}
         portfolio.shares[market_id][outcome] += shares
-        self._trades.append({
-            "agent_id": agent.id, "market_id": market_id,
-            "side": "buy", "outcome": outcome, "shares": shares,
-            "cost": amount, "round": self.current_round,
-        })
-        return ActionResult(success=True, data={"shares": shares, "cost": amount})
+        trade = {
+            "market_id": market_id, "outcome": outcome,
+            "shares": shares, "cost": amount, "price": executed_price,
+            "round": self.current_round,
+        }
+        self._trades.append({"agent_id": agent.id, "side": "buy", **trade})
+        return ActionResult(success=True, data={"side": "buy", **trade})
 
     def _handle_sell(self, agent: Agent, args: dict) -> ActionResult:
         market_id = args.get("market_id", "")
@@ -228,17 +231,20 @@ class MarketEnvironment:
             return ActionResult(success=False, data={"error": "Insufficient shares"})
         market = self.markets[market_id]
         if outcome == "yes":
-            usd = market.sell_yes(shares)
+            proceeds = market.sell_yes(shares)
+            executed_price = market.price_yes
         else:
-            usd = market.sell_no(shares)
+            proceeds = market.sell_no(shares)
+            executed_price = market.price_no
         portfolio.shares[market_id][outcome] -= shares
-        portfolio.balance += usd
-        self._trades.append({
-            "agent_id": agent.id, "market_id": market_id,
-            "side": "sell", "outcome": outcome, "shares": shares,
-            "usd": usd, "round": self.current_round,
-        })
-        return ActionResult(success=True, data={"usd": usd})
+        portfolio.balance += proceeds
+        trade = {
+            "market_id": market_id, "outcome": outcome,
+            "shares": shares, "proceeds": proceeds, "price": executed_price,
+            "round": self.current_round,
+        }
+        self._trades.append({"agent_id": agent.id, "side": "sell", **trade})
+        return ActionResult(success=True, data={"side": "sell", **trade})
 
     def _handle_browse(self, agent: Agent, args: dict) -> ActionResult:
         data = []

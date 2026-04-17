@@ -120,3 +120,67 @@ class TestMarketTools:
         assert "buy_shares" in tool_names
         assert "sell_shares" in tool_names
         assert "browse_markets" in tool_names
+
+
+class TestActionResultShape:
+    """Buy and sell return a consistent ActionResult.data schema."""
+
+    def _env(self):
+        env = MarketEnvironment(MarketConfig(
+            markets=[{"question": "Will X?", "initial_price_yes": 0.5}],
+            initial_balance=1000.0,
+        ))
+        trader = _make_agent("t1")
+        env.register_agent(trader)
+        return env, trader, list(env.markets.keys())[0]
+
+    def test_buy_data_shape(self):
+        env, trader, mid = self._env()
+        result = env.execute_action(trader, Action(
+            agent_id="t1", environment="market",
+            action_type="buy_shares",
+            args={"market_id": mid, "outcome": "yes", "amount": 50.0},
+        ))
+        assert result.success
+        data = result.data
+        assert data["side"] == "buy"
+        assert data["market_id"] == mid
+        assert data["outcome"] == "yes"
+        assert data["cost"] == pytest.approx(50.0)
+        assert data["shares"] > 0
+        assert 0 < data["price"] < 1
+
+    def test_sell_data_shape(self):
+        env, trader, mid = self._env()
+        env.execute_action(trader, Action(
+            agent_id="t1", environment="market",
+            action_type="buy_shares",
+            args={"market_id": mid, "outcome": "yes", "amount": 50.0},
+        ))
+        held = env.portfolios["t1"].shares[mid]["yes"]
+        result = env.execute_action(trader, Action(
+            agent_id="t1", environment="market",
+            action_type="sell_shares",
+            args={"market_id": mid, "outcome": "yes", "shares": held / 2},
+        ))
+        assert result.success
+        data = result.data
+        assert data["side"] == "sell"
+        assert data["market_id"] == mid
+        assert data["outcome"] == "yes"
+        assert data["proceeds"] > 0
+        assert data["shares"] == pytest.approx(held / 2)
+        assert 0 < data["price"] < 1
+
+    def test_internal_trades_list_also_normalized(self):
+        env, trader, mid = self._env()
+        env.execute_action(trader, Action(
+            agent_id="t1", environment="market",
+            action_type="buy_shares",
+            args={"market_id": mid, "outcome": "yes", "amount": 50.0},
+        ))
+        assert len(env._trades) == 1
+        t = env._trades[0]
+        assert t["side"] == "buy"
+        assert t["cost"] == pytest.approx(50.0)
+        assert "price" in t
