@@ -151,3 +151,32 @@ def _update_enrichment_sync(job_id: int, enriched_text: str, citations_json: str
         logger.warning("Could not save enrichment for job %d: %s", job_id, exc)
     finally:
         engine.dispose()
+
+
+def _update_markets_config_sync(job_id: int, markets: list[dict] | None) -> None:
+    """Persist derived markets_config to the SimulationJob row (sync, for Celery).
+
+    markets=None clears the column. Matches the silent-fail pattern used by the
+    other persistence helpers: any DB error logs a warning and returns.
+    """
+    import json as _json
+    from sqlalchemy import text
+
+    engine = _get_sync_engine()
+    if engine is None:
+        logger.warning("DATABASE_URL not set; skipping markets_config save for job %d", job_id)
+        return
+    try:
+        payload = _json.dumps(markets) if markets is not None else None
+        with engine.connect() as conn:
+            conn.execute(
+                text("UPDATE simulation_jobs SET markets_config = :markets WHERE id = :job_id"),
+                {"markets": payload, "job_id": job_id},
+            )
+            conn.commit()
+            count = len(markets) if markets else 0
+            logger.info("Saved markets_config for job %d (%d markets)", job_id, count)
+    except Exception as exc:
+        logger.warning("Could not save markets_config for job %d: %s", job_id, exc)
+    finally:
+        engine.dispose()

@@ -36,6 +36,7 @@ from saas.jobs.persistence_sync_progress import (
     _update_pod_id,
     _update_sim_data_available,
     _update_enrichment_sync,
+    _update_markets_config_sync,
 )
 
 # Async helpers
@@ -50,6 +51,7 @@ from saas.jobs.persistence_async import (
 
 # Aliases: tasks.py imports these names — route to the sync versions
 _update_enrichment = _update_enrichment_sync
+_update_markets_config = _update_markets_config_sync
 _mark_job_failed = _mark_job_failed_sync
 _update_job_retry = _update_job_retry_sync
 
@@ -146,6 +148,8 @@ __all__ = [
     "_update_pod_id",
     "_update_sim_data_available",
     "_update_enrichment_sync",
+    "_update_markets_config_sync",
+    "_update_markets_config",
     "_get_job_status",
     "_get_job_config_for_resume",
     "_transition_to_reporting",

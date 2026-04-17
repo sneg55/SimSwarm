@@ -58,6 +58,7 @@ class SimulationJob(Base):
     sim_data_available: Mapped[bool] = mapped_column(default=False)
     live_status: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     resume_task_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    markets_config: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
 
 
 class ModelRouting(Base):
