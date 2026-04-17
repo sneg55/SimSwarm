@@ -52,7 +52,9 @@ def extract_market_data(chat_log: list[ActionRecord]) -> list[dict]:
     """Extract trade records from buy_shares / sell_shares actions.
 
     Emits the schema consumed by frontend/src/components/data/TradeFeed.vue:
-      - trade_id: stable synthetic id (agent_id + round + index)
+      - trade_id: synthetic id unique within the emitted list (agent_id +
+        round + chat_log index); not stable across log edits
+
       - side: "buy" | "sell" (derived from action_type)
       - agent_id, agent_name, round_num, platform
       - market_id, outcome
