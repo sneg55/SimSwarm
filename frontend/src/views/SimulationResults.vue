@@ -96,7 +96,7 @@
 
       <!-- ── Data View ── -->
       <div v-else-if="viewMode === 'data'" class="pt-[120px] overflow-hidden" style="min-height: calc(100vh - 140px)">
-        <DataDashboard :jobId="jobId" />
+        <DataDashboard :jobId="jobId" :markets="job?.markets_config || []" />
       </div>
 
       <!-- ── Report View ── -->

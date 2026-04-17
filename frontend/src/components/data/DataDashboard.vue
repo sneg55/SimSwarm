@@ -17,6 +17,9 @@
           <TopPostsFeed :posts="topPosts" />
           <SocialGraphView :graph="socialGraph" />
           <div class="md:col-span-2">
+            <MarketsList :markets="markets" />
+          </div>
+          <div class="md:col-span-2">
             <TradeFeed :trades="trades" />
           </div>
           <div class="md:col-span-2">
@@ -38,9 +41,11 @@ import TopPostsFeed from './TopPostsFeed.vue'
 import SocialGraphView from './SocialGraphView.vue'
 import TradeFeed from './TradeFeed.vue'
 import AgentProfileCards from './AgentProfileCards.vue'
+import MarketsList from './MarketsList.vue'
 
 const props = defineProps({
   jobId: { type: [String, Number], required: true },
+  markets: { type: Array, default: () => [] },
 })
 
 const loading = ref(true)
