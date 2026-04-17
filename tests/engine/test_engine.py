@@ -1,7 +1,7 @@
 """Test the core simulation loop: round orchestration, progress, termination."""
 from __future__ import annotations
 
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -124,3 +124,58 @@ class TestSweepExecution:
         )
         results = await engine.run_sweep(sweep)
         assert len(results) == 2
+
+
+class TestActionResultPropagation:
+    """Engine must copy ActionResult.data onto ActionRecord.action_result."""
+
+    @pytest.mark.asyncio
+    async def test_buy_shares_result_data_reaches_chat_log(self):
+        fixed_market_id = "test-market-uuid"
+        mock_llm = AsyncMock(spec=LLMClient)
+        mock_llm.chat.return_value = _mock_llm_response(
+            "buy_shares",
+            {"market_id": fixed_market_id, "outcome": "yes", "amount": 50.0},
+        )
+        engine = Engine(
+            fast_llm=mock_llm, smart_llm=mock_llm,
+            engine_config=EngineConfig(concurrency=1),
+        )
+        config = SimulationConfig(
+            seed_text="", goal="",
+            entities=[Entity(id="t1", name="Trader", type="person", summary="trader")],
+            environments=[EnvironmentConfig(
+                type="market",
+                params={"markets": [{"question": "Will X?", "initial_price_yes": 0.5}],
+                        "initial_balance": 1000.0},
+            )],
+            rounds=1,
+            concurrency=1,
+        )
+        with patch("simswarm.environments.market.uuid.uuid4", return_value=fixed_market_id):
+            result = await engine.run(config)
+        buys = [r for r in result.chat_log if r.action_type == "buy_shares"]
+        assert buys, "expected a buy_shares record"
+        rec = buys[0]
+        assert rec.action_result is not None
+        assert rec.action_result.get("cost") == pytest.approx(50.0)
+
+    @pytest.mark.asyncio
+    async def test_do_nothing_action_result_is_none_or_empty(self):
+        """Actions whose env returns empty data should not set a spurious dict."""
+        mock_llm = AsyncMock(spec=LLMClient)
+        mock_llm.chat.return_value = _mock_llm_response("do_nothing")
+        engine = Engine(
+            fast_llm=mock_llm, smart_llm=mock_llm,
+            engine_config=EngineConfig(concurrency=1),
+        )
+        config = SimulationConfig(
+            seed_text="", goal="",
+            entities=[Entity(id="a", name="A", type="person", summary="agent")],
+            environments=[EnvironmentConfig(type="social", params={})],
+            rounds=1, concurrency=1,
+        )
+        result = await engine.run(config)
+        for r in result.chat_log:
+            if r.action_result is not None:
+                assert isinstance(r.action_result, dict)

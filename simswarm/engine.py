@@ -109,6 +109,7 @@ class Engine:
                             agent_name=agent.name, action_type=action_name,
                             platform=target_env, action_args=action_args,
                             success=result.success if result else False,
+                            action_result=dict(result.data) if result and result.data else None,
                         ))
                         agent.memory.append(f"Round {round_num}: {action_name}({action_args})")
                         if len(agent.memory) > self.config.max_memory_rounds:
