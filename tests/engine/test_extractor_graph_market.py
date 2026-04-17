@@ -66,31 +66,37 @@ class TestExtractMarketData:
 
     def test_only_trade_actions_returned(self):
         for trade in extract_market_data(SAMPLE_LOG):
-            assert trade["action_type"].lower() in ("buy_shares", "sell_shares")
+            assert trade["side"] in ("buy", "sell")
 
     def test_correct_trade_count(self):
-        # buy_shares (Bob r2) + sell_shares (Alice r3) = 2
         assert len(extract_market_data(SAMPLE_LOG)) == 2
 
-    def test_required_fields_present(self):
+    def test_frontend_schema_fields_present(self):
+        # TradeFeed.vue reads: trade_id, side, agent_name, outcome, price, cost
         for trade in extract_market_data(SAMPLE_LOG):
-            for field in ("agent_id", "agent_name", "round_num", "action_type", "market", "amount"):
-                assert field in trade
+            for field in ("trade_id", "side", "agent_name", "outcome", "price", "cost"):
+                assert field in trade, f"missing {field} in {trade}"
 
-    def test_market_field_extracted(self):
-        trades = {t["market"]: t for t in extract_market_data(SAMPLE_LOG)}
-        assert "gdp_rise_q4" in trades
-        assert "inflation_below_3pct" in trades
+    def test_side_derived_from_action_type(self):
+        sides = {t["side"] for t in extract_market_data(SAMPLE_LOG)}
+        assert sides == {"buy", "sell"}
 
-    def test_amount_extracted_correctly(self):
-        trades = {t["market"]: t for t in extract_market_data(SAMPLE_LOG)}
-        assert trades["gdp_rise_q4"]["amount"] == 250
-        assert trades["inflation_below_3pct"]["amount"] == 100
+    def test_buy_cost_from_action_result(self):
+        buys = [t for t in extract_market_data(SAMPLE_LOG) if t["side"] == "buy"]
+        assert buys[0]["cost"] == pytest.approx(250.0)
+        assert buys[0]["price"] == pytest.approx(0.62)
+        assert buys[0]["outcome"] == "yes"
 
-    def test_price_included_when_present(self):
-        trades = {t["market"]: t for t in extract_market_data(SAMPLE_LOG)}
-        assert trades["gdp_rise_q4"]["price"] == pytest.approx(0.62)
-        assert trades["inflation_below_3pct"]["price"] == pytest.approx(0.45)
+    def test_sell_cost_is_proceeds(self):
+        sells = [t for t in extract_market_data(SAMPLE_LOG) if t["side"] == "sell"]
+        assert sells[0]["cost"] == pytest.approx(45.0)
+        assert sells[0]["price"] == pytest.approx(0.45)
+        assert sells[0]["outcome"] == "no"
+
+    def test_trade_id_is_stable_and_unique(self):
+        trades = extract_market_data(SAMPLE_LOG)
+        ids = [t["trade_id"] for t in trades]
+        assert len(ids) == len(set(ids))
 
     def test_empty_log_returns_empty_list(self):
         assert extract_market_data([]) == []

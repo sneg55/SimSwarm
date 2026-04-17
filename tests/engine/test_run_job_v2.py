@@ -94,7 +94,7 @@ class TestRichDataFiles:
         data = json.loads((tmp_path / "trades.json").read_text(encoding="utf-8"))
         assert isinstance(data, list)
         assert len(data) == 1
-        assert data[0]["action_type"] == "buy_shares"
+        assert data[0]["side"] == "buy"
 
     def test_social_graph_has_edges_and_mutual_follows(self, rjv2, tmp_path):  # noqa: F811
         rjv2.write_results(make_simulation_result(), str(tmp_path))

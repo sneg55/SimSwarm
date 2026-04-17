@@ -51,26 +51,52 @@ def extract_social_graph(chat_log: list[ActionRecord]) -> dict:
 def extract_market_data(chat_log: list[ActionRecord]) -> list[dict]:
     """Extract trade records from buy_shares / sell_shares actions.
 
-    Each entry: agent_id, agent_name, round_num, action_type, market, amount,
-    and optionally price.
+    Emits the schema consumed by frontend/src/components/data/TradeFeed.vue:
+      - trade_id: stable synthetic id (agent_id + round + index)
+      - side: "buy" | "sell" (derived from action_type)
+      - agent_id, agent_name, round_num, platform
+      - market_id, outcome
+      - price: executed price at fill time
+      - cost: USD spent (buys) or proceeds received (sells) — dollar magnitude
+      - shares: shares bought or sold
+      - amount_requested: original USD the agent asked to spend (buys only)
+      - timestamp, success
+
+    Reads executed values from record.action_result (populated by the engine
+    from the env's ActionResult.data). Falls back to action_args for backward
+    compatibility with pre-T1 chat logs.
     """
-    result = []
-    for record in chat_log:
+    result: list[dict] = []
+    for idx, record in enumerate(chat_log):
         if not is_trade(record.action_type):
             continue
         args = record.action_args or {}
+        res = record.action_result or {}
+        side = "buy" if record.action_type.lower() == "buy_shares" else "sell"
+
+        if side == "buy":
+            cost = res.get("cost", args.get("amount"))
+            shares = res.get("shares")
+        else:
+            # Sell: expose proceeds under `cost` so the UI column stays non-negative.
+            cost = res.get("proceeds")
+            shares = res.get("shares", args.get("shares"))
+
         entry: dict[str, Any] = {
+            "trade_id": f"{record.agent_id}-r{record.round_num}-{idx}",
+            "side": side,
             "agent_id": record.agent_id,
             "agent_name": record.agent_name,
             "round_num": record.round_num,
-            "action_type": record.action_type,
             "platform": record.platform,
-            "market": args.get("market", ""),
-            "amount": args.get("amount"),
+            "market_id": res.get("market_id", args.get("market_id", args.get("market", ""))),
+            "outcome": res.get("outcome", args.get("outcome", "")),
+            "price": res.get("price"),
+            "cost": cost,
+            "shares": shares,
+            "amount_requested": args.get("amount"),
             "timestamp": record.timestamp,
             "success": record.success,
         }
-        if "price" in args:
-            entry["price"] = args["price"]
         result.append(entry)
     return result
