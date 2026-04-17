@@ -138,7 +138,7 @@ def _get_job_config_for_resume(job_id: int):
             row = conn.execute(
                 text(
                     "SELECT j.seed_text, j.goal, j.tier, j.enriched_seed, j.forecast_days, "
-                    "       m.max_rounds, m.target_agents "
+                    "       j.markets_config, m.max_rounds, m.target_agents "
                     "FROM simulation_jobs j "
                     "LEFT JOIN model_routing m ON m.sim_tier = j.tier "
                     "WHERE j.id = :job_id"
@@ -148,7 +148,8 @@ def _get_job_config_for_resume(job_id: int):
             if not row:
                 return None
 
-            seed_text, goal, tier, enriched_seed, forecast_days, max_rounds, target_agents = row
+            (seed_text, goal, tier, enriched_seed, forecast_days,
+             markets_config, max_rounds, target_agents) = row
             # Use enriched seed if available (enrichment already ran before provision)
             effective_seed = enriched_seed or seed_text or ""
 
@@ -172,6 +173,7 @@ def _get_job_config_for_resume(job_id: int):
                 forecast_days=forecast_days,
                 target_agents=target_agents or 5,
                 upload_urls=upload_urls,
+                markets_config=markets_config,
             )
     except Exception as exc:
         logger.warning("Could not load job config for resume job %d: %s", job_id, exc)

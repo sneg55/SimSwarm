@@ -174,6 +174,7 @@ def test_get_job_config_for_resume_happy_path():
         "small",
         None,  # enriched_seed
         7,     # forecast_days
+        [{"question": "Q?", "initial_price_yes": 0.5}],  # markets_config
         15,    # max_rounds
         10,    # target_agents
     )
@@ -205,11 +206,12 @@ def test_get_job_config_for_resume_happy_path():
     assert config.target_agents == 10
     assert config.forecast_days == 7
     assert config.upload_urls == {"posts": "http://x"}
+    assert config.markets_config == [{"question": "Q?", "initial_price_yes": 0.5}]
     mock_engine.dispose.assert_called_once()
 
 
 def test_get_job_config_for_resume_uses_enriched_seed_when_set():
-    row = ("raw seed", "g", "small", "enriched!", None, None, None)
+    row = ("raw seed", "g", "small", "enriched!", None, None, None, None)
     result = MagicMock()
     result.first.return_value = row
     mock_engine, mock_conn = _make_mock_engine()
