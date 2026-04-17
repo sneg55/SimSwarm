@@ -39,6 +39,7 @@ class JobConfig:
     forecast_days: int | None = None
     target_agents: int = 5
     upload_urls: dict | None = None
+    markets_config: list[dict] | None = None
 
     @property
     def timeout_seconds(self) -> int:
