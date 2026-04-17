@@ -4,7 +4,6 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock
 
-import pytest
 
 from saas.jobs.market_derivation import (
     DERIVATION_SOURCE_FALLBACK,
