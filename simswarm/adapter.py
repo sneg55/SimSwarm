@@ -37,6 +37,7 @@ def adapt_chat_log(chat_log: list[ActionRecord]) -> list[dict]:
             "action_type": record.action_type,
             "platform": record.platform,
             "action_args": record.action_args,
+            "action_result": record.action_result,
             "timestamp": record.timestamp,
             "success": record.success,
         })

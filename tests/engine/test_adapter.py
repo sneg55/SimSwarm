@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from simswarm.adapter import adapt_chat_log, adapt_graph_data
-from simswarm.types import GraphSnapshot
+from simswarm.types import ActionRecord, GraphSnapshot
 from tests.contracts.schemas import ChatLogEntry, GraphData
 from tests.engine.adapter_fixtures import make_graph, make_records
 
@@ -40,6 +40,29 @@ class TestAdaptChatLog:
 
     def test_empty_list_returns_empty_list(self):
         assert adapt_chat_log([]) == []
+
+
+class TestAdaptChatLogActionResult:
+    def test_action_result_preserved_when_present(self):
+        record = ActionRecord(
+            round_num=1, agent_id="a", agent_name="A",
+            action_type="buy_shares", platform="market",
+            action_args={"market_id": "m0", "amount": 100},
+            action_result={"side": "buy", "cost": 100.0, "price": 0.52, "shares": 192.3},
+        )
+        out = adapt_chat_log([record])
+        assert out[0]["action_result"] == {
+            "side": "buy", "cost": 100.0, "price": 0.52, "shares": 192.3,
+        }
+
+    def test_action_result_omitted_is_none_in_output(self):
+        record = ActionRecord(
+            round_num=1, agent_id="a", agent_name="A",
+            action_type="create_post", platform="social",
+            action_args={"text": "hi"},
+        )
+        out = adapt_chat_log([record])
+        assert out[0]["action_result"] is None
 
 
 class TestAdaptGraphData:
