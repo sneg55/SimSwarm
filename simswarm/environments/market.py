@@ -4,11 +4,30 @@ Ported from MiroShark's Polymarket logic. Supports multiple markets.
 """
 from __future__ import annotations
 
-import uuid
+import re
 from dataclasses import dataclass, field
 from typing import Any
 
 from simswarm.types import Action, ActionResult, Agent, Event, Observation, Tool
+
+
+_SLUG_MAX_LEN = 40
+
+
+def _question_to_slug(question: str, existing: set[str]) -> str:
+    """Derive a short deterministic market_id from the question.
+
+    Lowercase; non-alphanumerics become underscores; collapse repeats; trim; cap.
+    Collides → numeric suffix. Exposed in observations so the LLM can reference
+    markets by id in buy_shares/sell_shares calls.
+    """
+    base = re.sub(r"[^a-z0-9]+", "_", question.lower()).strip("_")[:_SLUG_MAX_LEN] or "market"
+    slug = base
+    n = 2
+    while slug in existing:
+        slug = f"{base}_{n}"
+        n += 1
+    return slug
 
 
 @dataclass
@@ -102,7 +121,7 @@ class MarketEnvironment:
         self._trades: list[dict] = []
 
         for m in config.markets:
-            market_id = str(uuid.uuid4())
+            market_id = _question_to_slug(m["question"], set(self.markets))
             price_yes = m.get("initial_price_yes", 0.5)
             liq = config.initial_liquidity
             reserve_yes = liq * 2 * (1 - price_yes)
@@ -134,7 +153,10 @@ class MarketEnvironment:
         self.register_agent(agent)
         lines = []
         for market in self.markets.values():
-            lines.append(f"Market: {market.question} | YES: {market.price_yes:.1%} | NO: {market.price_no:.1%}")
+            lines.append(
+                f"Market [{market.id}]: {market.question} "
+                f"| YES: {market.price_yes:.1%} | NO: {market.price_no:.1%}"
+            )
         portfolio = self.portfolios.get(agent.id)
         if portfolio:
             lines.append(f"\nYour balance: ${portfolio.balance:.2f}")

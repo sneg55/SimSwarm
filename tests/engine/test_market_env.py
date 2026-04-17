@@ -184,3 +184,36 @@ class TestActionResultShape:
         assert t["side"] == "buy"
         assert t["cost"] == pytest.approx(50.0)
         assert "price" in t
+
+
+class TestMarketIdSlug:
+    """Market IDs must be deterministic slugs derived from the question,
+    and observations must expose them so the LLM can reference them."""
+
+    def test_slug_from_question(self):
+        env = MarketEnvironment(MarketConfig(
+            markets=[{"question": "Will the Fed cut by 50bp?"}],
+        ))
+        mid = list(env.markets.keys())[0]
+        assert mid == "will_the_fed_cut_by_50bp"
+
+    def test_slug_truncated_and_collision_suffixed(self):
+        env = MarketEnvironment(MarketConfig(markets=[
+            {"question": "Will the Fed cut rates by exactly 50bp at May 7, 2026 FOMC meeting?"},
+            {"question": "Will the Fed cut rates by exactly 25bp at May 7, 2026 FOMC meeting?"},
+        ]))
+        ids = list(env.markets.keys())
+        assert len(ids) == 2
+        assert len(set(ids)) == 2  # unique
+        for mid in ids:
+            assert len(mid) <= 45  # slug max + collision suffix slack
+
+    def test_observation_includes_market_id(self):
+        env = MarketEnvironment(MarketConfig(
+            markets=[{"question": "Will X?"}],
+        ))
+        trader = _make_agent("t1")
+        obs = env.get_observations(trader)
+        mid = list(env.markets.keys())[0]
+        assert mid in obs.content
+        assert "Will X?" in obs.content

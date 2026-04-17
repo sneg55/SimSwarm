@@ -1,7 +1,7 @@
 """Test the core simulation loop: round orchestration, progress, termination."""
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -131,11 +131,13 @@ class TestActionResultPropagation:
 
     @pytest.mark.asyncio
     async def test_buy_shares_result_data_reaches_chat_log(self):
-        fixed_market_id = "test-market-uuid"
+        # Market IDs are deterministic slugs of the question — see
+        # simswarm.environments.market._question_to_slug.
+        market_id = "will_x"
         mock_llm = AsyncMock(spec=LLMClient)
         mock_llm.chat.return_value = _mock_llm_response(
             "buy_shares",
-            {"market_id": fixed_market_id, "outcome": "yes", "amount": 50.0},
+            {"market_id": market_id, "outcome": "yes", "amount": 50.0},
         )
         engine = Engine(
             fast_llm=mock_llm, smart_llm=mock_llm,
@@ -152,8 +154,7 @@ class TestActionResultPropagation:
             rounds=1,
             concurrency=1,
         )
-        with patch("simswarm.environments.market.uuid.uuid4", return_value=fixed_market_id):
-            result = await engine.run(config)
+        result = await engine.run(config)
         buys = [r for r in result.chat_log if r.action_type == "buy_shares"]
         assert buys, "expected a buy_shares record"
         rec = buys[0]
