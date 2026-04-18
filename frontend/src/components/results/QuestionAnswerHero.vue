@@ -26,6 +26,8 @@
           :key="p.name"
           :name="p.name"
           :stance="p.stance"
+          :member-count="p.member_count"
+          :rationale-keywords="p.rationale_keywords"
         />
       </div>
     </div>
