@@ -4,7 +4,7 @@ These tests exercise the full job lifecycle (create -> status transitions -> ref
 against a real test SQLite database, verifying that credits are correctly debited,
 refunded on failure, and that status transitions are properly persisted.
 """
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 from saas.jobs.models import SimulationJob, JobStatus
 
@@ -12,9 +12,12 @@ from saas.jobs.models import SimulationJob, JobStatus
 async def test_failed_job_gets_refund(client, auth_headers, funded_user, seeded_routing, db_session):
     """When a job fails, credits should be refunded."""
     # Create job
-    mock_task = MagicMock()
-    mock_task.id = "mock-task-1"
-    with patch("saas.jobs.api.run_simulation_task.delay", return_value=mock_task):
+    fake_handle = MagicMock()
+    fake_handle.id = "sim-mock-id"
+    fake_handle.result_run_id = "run-mock"
+    fake_client = AsyncMock()
+    fake_client.start_workflow = AsyncMock(return_value=fake_handle)
+    with patch("saas.jobs.api.get_temporal_client", new=AsyncMock(return_value=fake_client)):
         resp = await client.post(
             "/api/jobs",
             headers=auth_headers,
@@ -67,9 +70,12 @@ async def test_duplicate_refund_creates_extra_credit(client, auth_headers, funde
 
 async def test_job_status_transitions(client, auth_headers, funded_user, seeded_routing, db_session):
     """Job goes through valid status transitions."""
-    mock_task = MagicMock()
-    mock_task.id = "mock-task-2"
-    with patch("saas.jobs.api.run_simulation_task.delay", return_value=mock_task):
+    fake_handle2 = MagicMock()
+    fake_handle2.id = "sim-mock-id-2"
+    fake_handle2.result_run_id = "run-mock-2"
+    fake_client2 = AsyncMock()
+    fake_client2.start_workflow = AsyncMock(return_value=fake_handle2)
+    with patch("saas.jobs.api.get_temporal_client", new=AsyncMock(return_value=fake_client2)):
         resp = await client.post(
             "/api/jobs",
             headers=auth_headers,

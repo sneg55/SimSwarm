@@ -1,4 +1,4 @@
-from unittest.mock import patch
+from unittest.mock import patch, AsyncMock
 
 
 async def test_missing_routing_does_not_charge_credits(client, auth_headers, funded_user):
@@ -21,8 +21,8 @@ async def test_missing_routing_does_not_charge_credits(client, auth_headers, fun
 
 
 async def test_dispatch_failure_does_not_charge_credits(client, auth_headers, funded_user, seeded_routing):
-    """If Celery dispatch fails, credits must not be deducted."""
-    with patch("saas.jobs.api.run_simulation_task.delay", side_effect=Exception("broker down")):
+    """If Temporal dispatch fails, credits must not be deducted."""
+    with patch("saas.jobs.api.get_temporal_client", new=AsyncMock(side_effect=Exception("temporal down"))):
         resp = await client.post(
             "/api/jobs",
             headers=auth_headers,

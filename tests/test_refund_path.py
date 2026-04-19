@@ -1,6 +1,6 @@
 """Test that refund path is correct."""
 import inspect
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 
 def test_refund_credits_uses_credit_entries_table():
@@ -11,9 +11,13 @@ def test_refund_credits_uses_credit_entries_table():
 
 
 async def test_job_dispatch_passes_credits_charged(client, auth_headers, funded_user, seeded_routing):
-    mock_task = MagicMock()
-    mock_task.id = "celery-mock"
-    with patch("saas.jobs.api.run_simulation_task.delay", return_value=mock_task) as mock_delay:
+    fake_handle = MagicMock()
+    fake_handle.id = "sim-mock-id"
+    fake_handle.result_run_id = "run-mock"
+    fake_client = AsyncMock()
+    mock_start = AsyncMock(return_value=fake_handle)
+    fake_client.start_workflow = mock_start
+    with patch("saas.jobs.api.get_temporal_client", new=AsyncMock(return_value=fake_client)):
         resp = await client.post(
             "/api/jobs",
             headers=auth_headers,
@@ -25,5 +29,7 @@ async def test_job_dispatch_passes_credits_charged(client, auth_headers, funded_
             },
         )
     assert resp.status_code == 201
-    kwargs = mock_delay.call_args.kwargs
-    assert kwargs.get("credits_charged") == 30
+    # Verify SimParams passed to start_workflow carries credits_charged=30
+    call_args = mock_start.call_args
+    sim_params = call_args.args[1]  # second positional arg is SimParams
+    assert sim_params.credits_charged == 30

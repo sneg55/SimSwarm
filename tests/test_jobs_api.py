@@ -1,10 +1,18 @@
-from unittest.mock import patch, MagicMock
+import pytest
+from unittest.mock import patch, MagicMock, AsyncMock
 
 
-def _mock_delay():
-    mock_task = MagicMock()
-    mock_task.id = "celery-mock-id"
-    return patch("saas.jobs.api.run_simulation_task.delay", return_value=mock_task)
+def _mock_temporal():
+    fake_handle = MagicMock()
+    fake_handle.id = "sim-mock-id"
+    fake_handle.result_run_id = "run-mock"
+    fake_client = AsyncMock()
+    fake_client.start_workflow = AsyncMock(return_value=fake_handle)
+    return patch("saas.jobs.api.get_temporal_client", new=AsyncMock(return_value=fake_client))
+
+
+# Keep alias so callers don't need updating
+_mock_delay = _mock_temporal
 
 
 async def test_create_job(client, auth_headers, funded_user, seeded_routing):
@@ -141,3 +149,36 @@ async def test_create_job_with_forecast_days(client, auth_headers, funded_user, 
     data = response.json()
     assert data["tier"] == "small"
     assert data["credits_charged"] == 30
+
+
+@pytest.mark.asyncio
+async def test_create_job_starts_temporal_workflow(
+    client, auth_headers, funded_user, seeded_routing,
+):
+    """POST /jobs must start a Temporal workflow (not a Celery task)."""
+    from unittest.mock import AsyncMock, patch
+
+    fake_handle = AsyncMock()
+    fake_handle.id = "sim-42"
+    fake_handle.result_run_id = "run-abc"
+    fake_client = AsyncMock()
+    fake_client.start_workflow = AsyncMock(return_value=fake_handle)
+
+    with patch(
+        "saas.jobs.api.get_temporal_client",
+        new=AsyncMock(return_value=fake_client),
+    ):
+        resp = await client.post(
+            "/api/jobs",
+            json={
+                "seed_text": "x", "goal": "y",
+                "tier": "small", "enrich_web": False,
+                "forecast_days": 30,
+            },
+            headers=auth_headers,
+        )
+    assert resp.status_code == 201
+    fake_client.start_workflow.assert_called_once()
+    kwargs = fake_client.start_workflow.call_args.kwargs
+    assert kwargs["id"].startswith("sim-")
+    assert kwargs["task_queue"] == "sim-queue"

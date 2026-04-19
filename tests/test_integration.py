@@ -2,13 +2,16 @@
 End-to-end integration test: create a job via API, verify it's persisted,
 query it back, and verify the full flow works.
 """
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 
 def _mock_delay():
-    mock_task = MagicMock()
-    mock_task.id = "celery-mock-id"
-    return patch("saas.jobs.api.run_simulation_task.delay", return_value=mock_task)
+    fake_handle = MagicMock()
+    fake_handle.id = "sim-mock-id"
+    fake_handle.result_run_id = "run-mock"
+    fake_client = AsyncMock()
+    fake_client.start_workflow = AsyncMock(return_value=fake_handle)
+    return patch("saas.jobs.api.get_temporal_client", new=AsyncMock(return_value=fake_client))
 
 
 async def test_full_job_lifecycle(client, auth_headers, funded_user, seeded_routing):

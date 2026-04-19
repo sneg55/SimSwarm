@@ -16,7 +16,9 @@ from saas.jobs.api_share import router as _share_router
 from saas.jobs.api_draft import router as _draft_router
 import os
 
-from saas.jobs.tasks import run_simulation_task
+from saas.workflows.client import get_temporal_client, SIM_TASK_QUEUE
+from saas.workflows.sim_workflow import SimulationWorkflow
+from saas.workflows.types import SimParams
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 router.include_router(_share_router)
@@ -95,32 +97,36 @@ async def create_job(
     storage = _get_sim_data_storage(request)
     upload_urls = storage.generate_upload_urls(job_id=job.id)
 
-    # 4. Dispatch to Celery — if this fails, the whole transaction rolls back
+    # 4. Dispatch to Temporal
+    sim_params = SimParams(
+        job_id=job.id, user_id=user_id,
+        seed_text=body.seed_text, goal=body.goal, tier=body.tier.value,
+        model_id=routing.model_id, gpu_type=routing.gpu_type,
+        max_rounds=routing.max_rounds, vllm_args=routing.vllm_args or "",
+        llm_api_key=os.getenv("LLM_API_KEY", "not-needed"),
+        openai_api_key=os.getenv("OPENAI_API_KEY", ""),
+        credits_charged=credits,
+        enrich_web=body.enrich_web,
+        forecast_days=body.forecast_days,
+        target_agents=routing.target_agents,
+        upload_urls=upload_urls,
+    )
+
     try:
-        task_result = run_simulation_task.delay(
-            job_id=job.id,
-            user_id=user_id,
-            seed_text=body.seed_text,
-            goal=body.goal,
-            tier=body.tier.value,
-            model_id=routing.model_id,
-            gpu_type=routing.gpu_type,
-            max_rounds=routing.max_rounds,
-            vllm_args=routing.vllm_args or "",
-            llm_api_key=os.getenv("LLM_API_KEY", "not-needed"),
-            openai_api_key=os.getenv("OPENAI_API_KEY", ""),
-            credits_charged=credits,
-            enrich_web=body.enrich_web,
-            forecast_days=body.forecast_days,
-            target_agents=routing.target_agents,
-            upload_urls=upload_urls,
+        temporal_client = await get_temporal_client()
+        handle = await temporal_client.start_workflow(
+            SimulationWorkflow.run,
+            sim_params,
+            id=f"sim-{job.id}",
+            task_queue=SIM_TASK_QUEUE,
         )
     except Exception:
         await session.rollback()
         raise HTTPException(status_code=500, detail="Failed to queue simulation job")
 
-    # 5. Store task ID and commit everything atomically
-    job.celery_task_id = task_result.id
+    # 5. Store workflow identity and commit
+    job.workflow_id = handle.id
+    job.workflow_run_id = handle.result_run_id
     await session.commit()
     await session.refresh(job)
 

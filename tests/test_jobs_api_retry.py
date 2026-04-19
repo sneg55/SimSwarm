@@ -1,13 +1,19 @@
 """Tests for retry / enrich-retry / graph endpoints."""
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 from saas.jobs.models import SimulationJob, JobStatus
 
 
-def _mock_delay():
-    mock_task = MagicMock()
-    mock_task.id = "celery-mock-id"
-    return patch("saas.jobs.api.run_simulation_task.delay", return_value=mock_task)
+def _mock_temporal():
+    fake_handle = MagicMock()
+    fake_handle.id = "sim-mock-id"
+    fake_handle.result_run_id = "run-mock"
+    fake_client = AsyncMock()
+    fake_client.start_workflow = AsyncMock(return_value=fake_handle)
+    return patch("saas.jobs.api.get_temporal_client", new=AsyncMock(return_value=fake_client))
+
+
+_mock_delay = _mock_temporal
 
 
 async def test_retry_job_not_found(client, auth_headers):
