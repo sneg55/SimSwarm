@@ -113,3 +113,90 @@ def test_cleanup_runpod_not_installed():
         with patch.dict("sys.modules", {"runpod": None}):
             with pytest.raises(RuntimeError, match="runpod package"):
                 cleanup_orphaned_pods()
+
+
+# ---------------------------------------------------------------------------
+# Job-tag defense-in-depth (2026-04-19 task-redelivery hardening PR 2)
+# ---------------------------------------------------------------------------
+
+def test_extract_job_tag_parses_tagged_name():
+    from saas.jobs.cleanup import _extract_job_tag
+    assert _extract_job_tag({"name": "fishcloud-sim-j119"}) == 119
+
+
+def test_extract_job_tag_parses_simswarm_prefix():
+    from saas.jobs.cleanup import _extract_job_tag
+    assert _extract_job_tag({"name": "simswarm-sim-j42"}) == 42
+
+
+def test_extract_job_tag_untagged_legacy_name():
+    from saas.jobs.cleanup import _extract_job_tag
+    assert _extract_job_tag({"name": "fishcloud-sim"}) is None
+    assert _extract_job_tag({"name": "simswarm-sim"}) is None
+
+
+def test_extract_job_tag_garbage_name():
+    from saas.jobs.cleanup import _extract_job_tag
+    assert _extract_job_tag({"name": ""}) is None
+    assert _extract_job_tag({"name": "fishcloud-sim-jABC"}) is None
+    assert _extract_job_tag({}) is None
+
+
+@patch("saas.jobs.cleanup._get_active_job_pod_ids")
+@patch("saas.jobs.persistence._get_job_status")
+def test_cleanup_skips_pod_tagged_to_live_job(mock_status, mock_ids):
+    """Pod whose name tag references a still-live job must NOT be terminated,
+    even if the DB's simulation_jobs.pod_id no longer points at this pod."""
+    mock_ids.return_value = set()  # DB pod_id has drifted; this pod is "orphan"
+    mock_status.return_value = "RUNNING"
+
+    mock_runpod = MagicMock()
+    mock_runpod.get_pods.return_value = [
+        {"id": "live-pod", "name": "fishcloud-sim-j119",
+         "runtime": {"uptimeInSeconds": 9999},
+         "machine": {"gpuDisplayName": "L40S"}},
+    ]
+    with patch.dict("os.environ", {"RUNPOD_API_KEY": "x", "ALERT_WEBHOOK_URL": ""}):
+        with patch.dict("sys.modules", {"runpod": mock_runpod}):
+            result = cleanup_orphaned_pods()
+    mock_runpod.terminate_pod.assert_not_called()
+    assert result["terminated"] == 0
+    mock_status.assert_called_once_with(119)
+
+
+@patch("saas.jobs.cleanup._get_active_job_pod_ids")
+@patch("saas.jobs.persistence._get_job_status")
+def test_cleanup_terminates_pod_tagged_to_completed_job(mock_status, mock_ids):
+    """Pod tagged with a job that's already COMPLETED is genuinely orphan."""
+    mock_ids.return_value = set()
+    mock_status.return_value = "COMPLETED"
+
+    mock_runpod = MagicMock()
+    mock_runpod.get_pods.return_value = [
+        {"id": "done-pod", "name": "fishcloud-sim-j200",
+         "runtime": {"uptimeInSeconds": 9999},
+         "machine": {"gpuDisplayName": "L40S"}},
+    ]
+    with patch.dict("os.environ", {"RUNPOD_API_KEY": "x", "ALERT_WEBHOOK_URL": ""}):
+        with patch.dict("sys.modules", {"runpod": mock_runpod}):
+            result = cleanup_orphaned_pods()
+    mock_runpod.terminate_pod.assert_called_once_with("done-pod")
+    assert result["terminated"] == 1
+
+
+@patch("saas.jobs.cleanup._get_active_job_pod_ids")
+def test_cleanup_untagged_legacy_pod_still_terminates(mock_ids):
+    """Legacy pods without a job-tag follow the old name+active-jobs path."""
+    mock_ids.return_value = set()
+
+    mock_runpod = MagicMock()
+    mock_runpod.get_pods.return_value = [
+        {"id": "legacy-orphan", "name": "fishcloud-sim",
+         "runtime": {"uptimeInSeconds": 9999},
+         "machine": {"gpuDisplayName": "L40S"}},
+    ]
+    with patch.dict("os.environ", {"RUNPOD_API_KEY": "x", "ALERT_WEBHOOK_URL": ""}):
+        with patch.dict("sys.modules", {"runpod": mock_runpod}):
+            result = cleanup_orphaned_pods()
+    mock_runpod.terminate_pod.assert_called_once_with("legacy-orphan")
+    assert result["terminated"] == 1

@@ -44,6 +44,12 @@ class RunPodProvider(GPUProvider):
         seen = set()
         gpu_types = [g for g in gpu_types if not (g in seen or seen.add(g))]
 
+        # Pod name encodes the job_id so cleanup_orphaned_pods can recover
+        # the job binding from RunPod metadata alone, even if the DB's
+        # simulation_jobs.pod_id has drifted to a different pod. Prefix
+        # stays "fishcloud-sim" so the legacy name filter still matches.
+        pod_name = f"fishcloud-sim-j{config.job_id}" if config.job_id else "fishcloud-sim"
+
         # Create without a network volume — the baked image carries the model,
         # so we can schedule on any DC (including the many non-storage ones
         # that carry most of RunPod's L40/A40/A6000 stock).
@@ -52,7 +58,7 @@ class RunPodProvider(GPUProvider):
         for gpu in gpu_types:
             try:
                 pod = runpod.create_pod(
-                    name="fishcloud-sim",
+                    name=pod_name,
                     image_name=config.docker_image,
                     gpu_type_id=gpu,
                     cloud_type="ALL",

@@ -11,6 +11,9 @@ class GPUProviderConfig:
     max_cost_per_hour_usd: float
     timeout_seconds: int
     env_vars: dict[str, str] | None = None
+    # When set, the provider tags the pod with the job_id so cleanup can
+    # confirm the binding even if the DB's simulation_jobs.pod_id drifts.
+    job_id: int | None = None
 
 
 @dataclass

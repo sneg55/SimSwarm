@@ -48,6 +48,7 @@ class JobRunner:
             max_cost_per_hour_usd=TIER_MAX_COST_USD.get(config.tier, 4.00),
             timeout_seconds=config.timeout_seconds,
             env_vars=config.to_worker_env(),
+            job_id=config.job_id,
         )
 
         if self._stage_callback is not None:
