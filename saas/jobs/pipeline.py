@@ -120,6 +120,7 @@ async def poll_until_complete(
     worker_url: str, instance_id: str, config,
     client: httpx.AsyncClient | None = None,
     stage_callback=None, heartbeat_callback=None,
+    status_callback=None,
 ) -> dict:
     """Poll /status until completed or failed (up to tier timeout).
 
@@ -147,6 +148,7 @@ async def poll_until_complete(
         _last_round: int | None = None
         _last_log_lines: list[str] = []
         _last_chat_count: int = 0
+        _running_fired = False
         consecutive_failures = 0
         for poll in range(max_polls):
             await asyncio.sleep(poll_interval)
@@ -174,6 +176,15 @@ async def poll_until_complete(
                     pass
 
             job_status = status_data.get("status", "unknown")
+
+            # First time the worker reports it's running, flip PROVISIONING→RUNNING.
+            if (not _running_fired and job_status == "running"
+                    and status_callback is not None):
+                _running_fired = True
+                try:
+                    await status_callback(config.job_id, "RUNNING")
+                except Exception as cb_exc:
+                    logger.warning(f"Status callback failed: {cb_exc}")
 
             if poll % 2 == 0:  # Poll logs every ~20s
                 elapsed = int(time.monotonic() - poll_start)

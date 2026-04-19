@@ -14,6 +14,7 @@ from saas.jobs.persistence import (
     _save_job_results,
     _update_sim_data_available,
     _transition_to_reporting,
+    _transition_to_running,
     _claim_resume,
     _release_resume,
 )
@@ -59,10 +60,14 @@ def resume_simulation_task(
     async def _heartbeat_cb(j_id: int) -> None:
         _update_heartbeat_sync(j_id)
 
+    async def _status_cb(j_id: int, _status: str) -> None:
+        _transition_to_running(j_id)
+
     runner = JobRunner(
         gpu_provider=gpu_provider,
         stage_callback=_stage_cb,
         heartbeat_callback=_heartbeat_cb,
+        status_callback=_status_cb,
     )
 
     try:

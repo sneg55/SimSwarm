@@ -19,6 +19,8 @@ from saas.jobs.persistence import (
     _update_job_retry,
     _update_sim_data_available,
     _transition_to_reporting,
+    _load_job_snapshot,
+    _transition_to_running,
 )
 from saas.jobs.refund import _refund_credits
 from saas.jobs.cleanup import cleanup_orphaned_pods as _cleanup_orphaned_pods_impl
@@ -69,6 +71,38 @@ def run_simulation_task(
       VASTAI_API_KEY   — Vast.ai API key (fallback provider)
       DATABASE_URL     — Async SQLAlchemy URL for result persistence
     """
+    # Idempotency preamble — a redelivered task (broker timeout, explicit
+    # apply_async, worker restart mid-ack) must not re-enrich or provision
+    # a second pod. Hand off to the resume path if a live pod already exists.
+    snapshot = _load_job_snapshot(job_id)
+    if snapshot is not None:
+        current_status, existing_pod_id, _retry_count = snapshot
+        if current_status in ("COMPLETED", "FAILED", "REFUNDED"):
+            logger.info(
+                "run.skipping_terminal job_id=%d status=%s",
+                job_id, current_status,
+            )
+            return {"job_id": job_id, "status": "skipped_terminal"}
+        # Only hand off when this is a genuine redelivery (retries==0).
+        # Celery's own self.retry() path intentionally re-provisions.
+        is_redelivery = (
+            existing_pod_id
+            and current_status in ("PROVISIONING", "RUNNING")
+            and self.request.retries == 0
+        )
+        if is_redelivery:
+            from saas.jobs.tasks_resume import resume_simulation_task
+            logger.info(
+                "run.redelivery_detected job_id=%d pod_id=%s status=%s — "
+                "handing to resume",
+                job_id, existing_pod_id, current_status,
+            )
+            resume_simulation_task.delay(
+                job_id=job_id, user_id=user_id,
+                pod_id=existing_pod_id, credits_charged=credits_charged,
+            )
+            return {"job_id": job_id, "status": "handed_off", "pod_id": existing_pod_id}
+
     # Enrich seed text if enabled
     enriched_seed_text = seed_text
     if enrich_web:
@@ -130,11 +164,15 @@ def run_simulation_task(
     async def _heartbeat_cb(j_id: int) -> None:
         _update_heartbeat_sync(j_id)
 
+    async def _status_cb(j_id: int, _status: str) -> None:
+        _transition_to_running(j_id)
+
     runner = JobRunner(
         gpu_provider=gpu_provider,
         stage_callback=_stage_cb,
         pod_id_callback=_pod_id_cb,
         heartbeat_callback=_heartbeat_cb,
+        status_callback=_status_cb,
     )
 
     try:

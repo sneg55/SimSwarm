@@ -38,6 +38,10 @@ from saas.jobs.persistence_sync_progress import (
     _update_enrichment_sync,
     _update_markets_config_sync,
 )
+from saas.jobs.persistence_sync_idempotency import (
+    _load_job_snapshot,
+    _transition_to_running,
+)
 
 # Async helpers
 from saas.jobs.persistence_async import (
@@ -165,4 +169,6 @@ __all__ = [
     "_async_update_heartbeat",
     "_update_enrichment",
     "_update_job_retry",
+    "_load_job_snapshot",
+    "_transition_to_running",
 ]

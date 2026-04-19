@@ -23,7 +23,8 @@ class JobRunner:
     """Manages the full lifecycle of a simulation job on a GPU instance."""
 
     def __init__(self, gpu_provider: GPUProvider, stage_callback=None,
-                 pod_id_callback=None, heartbeat_callback=None):
+                 pod_id_callback=None, heartbeat_callback=None,
+                 status_callback=None):
         self.gpu_provider = gpu_provider
         # Optional async callable(job_id, stage) invoked when pipeline_stage changes
         self._stage_callback = stage_callback
@@ -31,6 +32,8 @@ class JobRunner:
         self._pod_id_callback = pod_id_callback
         # Optional async callable(job_id) invoked periodically during polling
         self._heartbeat_callback = heartbeat_callback
+        # Optional async callable(job_id, status) invoked once on PROVISIONING→RUNNING
+        self._status_callback = status_callback
 
     async def run(self, config: JobConfig) -> dict:
         """Provision a GPU, run the pipeline, then terminate the instance.
@@ -143,6 +146,7 @@ class JobRunner:
                 worker_url, instance_id, config, client=client,
                 stage_callback=self._stage_callback,
                 heartbeat_callback=self._heartbeat_callback,
+                status_callback=self._status_callback,
             )
 
     async def resume(self, pod_id: str, job_id: int) -> dict:
@@ -212,6 +216,7 @@ class JobRunner:
                 worker_url, pod_id, minimal_config,
                 stage_callback=self._stage_callback,
                 heartbeat_callback=self._heartbeat_callback,
+                status_callback=self._status_callback,
             )
             return result
         finally:
