@@ -13,6 +13,11 @@ celery_app = Celery("fishcloud", broker=REDIS_URL, backend=REDIS_URL)
 
 celery_app.autodiscover_tasks(["saas.jobs"])
 
+# Must exceed max TIER_TIMEOUTS (large=43200s=12h) + provision/report headroom.
+# Default (3600s) caused duplicate delivery of long-running sims, which in turn
+# let cleanup_orphaned_pods terminate the still-running pod.
+_BROKER_VISIBILITY_TIMEOUT_S = 86400  # 24h
+
 celery_app.conf.update(
     task_serializer="json",
     accept_content=["json"],
@@ -22,6 +27,8 @@ celery_app.conf.update(
     task_track_started=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
+    broker_transport_options={"visibility_timeout": _BROKER_VISIBILITY_TIMEOUT_S},
+    result_backend_transport_options={"visibility_timeout": _BROKER_VISIBILITY_TIMEOUT_S},
     # Graceful shutdown: wait up to 5 min for running tasks before SIGKILL
     worker_max_tasks_per_child=None,
     beat_schedule={
