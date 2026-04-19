@@ -123,14 +123,6 @@ async def test_job_runner_result_includes_pod_id():
     assert "pipeline_seconds" in result
 
 
-# ── Task 5: Celery Task — Retry Logic + Persist Metadata ──
-
-
-def test_task_has_max_retries_1():
-    from saas.jobs.tasks import run_simulation_task
-    assert run_simulation_task.max_retries == 1
-
-
 # ── Task 6: Rewrite Orphan Pod Cleanup ──
 
 

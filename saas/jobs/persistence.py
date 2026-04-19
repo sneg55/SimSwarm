@@ -4,10 +4,6 @@ This module is a re-export shim. Implementation lives in:
   - persistence_engine.py  — engine/session factory helpers
   - persistence_sync.py    — sync (psycopg2) helpers for Celery tasks
   - persistence_async.py   — async helpers for async contexts
-
-_claim_resume and _release_resume are defined here so that
-patch("saas.jobs.persistence._get_sync_engine") correctly intercepts them
-in tests.
 """
 from __future__ import annotations
 
@@ -85,59 +81,6 @@ def _derive_key_insight(verdict: str, report_markdown: str) -> str | None:
 _extract_key_insight = _derive_key_insight
 
 
-def _claim_resume(job_id: int, task_id: str) -> bool:
-    """Atomically claim a job for resume. Returns True if claimed, False if already taken."""
-    from sqlalchemy import text
-
-    engine = _get_sync_engine()
-    if engine is None:
-        return False
-    try:
-        with engine.connect() as conn:
-            row = conn.execute(
-                text(
-                    "UPDATE simulation_jobs "
-                    "SET resume_task_id = :task_id "
-                    "WHERE id = :job_id "
-                    "  AND status NOT IN ('COMPLETED', 'FAILED', 'REFUNDED') "
-                    "  AND resume_task_id IS NULL "
-                    "RETURNING id"
-                ),
-                {"task_id": task_id, "job_id": job_id},
-            ).first()
-            conn.commit()
-            if row:
-                logger.info("resume.claimed job_id=%d task_id=%s", job_id, task_id)
-                return True
-            logger.info("resume.claim_rejected job_id=%d task_id=%s", job_id, task_id)
-            return False
-    except Exception as exc:
-        logger.warning("resume.claim_error job_id=%d: %s", job_id, exc)
-        return False
-    finally:
-        engine.dispose()
-
-
-def _release_resume(job_id: int) -> None:
-    """Clear resume_task_id after resume completes (success or failure)."""
-    from sqlalchemy import text
-
-    engine = _get_sync_engine()
-    if engine is None:
-        return
-    try:
-        with engine.connect() as conn:
-            conn.execute(
-                text("UPDATE simulation_jobs SET resume_task_id = NULL WHERE id = :job_id"),
-                {"job_id": job_id},
-            )
-            conn.commit()
-    except Exception as exc:
-        logger.warning("resume.release_error job_id=%d: %s", job_id, exc)
-    finally:
-        engine.dispose()
-
-
 __all__ = [
     "_derive_key_insight",
     "_extract_key_insight",
@@ -158,8 +101,6 @@ __all__ = [
     "_get_job_config_for_resume",
     "_transition_to_reporting",
     "_save_report_result",
-    "_claim_resume",
-    "_release_resume",
     "_mark_job_failed",
     "_update_pipeline_stage",
     "_async_update_pipeline_stage",

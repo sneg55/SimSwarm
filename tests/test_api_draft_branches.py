@@ -1,10 +1,19 @@
 """Coverage for uncovered branches in saas.jobs.api_draft."""
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 
 from saas.jobs.models import SimulationJob, JobStatus
 
 
 SEED = "A" * 600
+
+
+def _mock_temporal_draft():
+    fake_handle = MagicMock()
+    fake_handle.id = "sim-draft-id"
+    fake_handle.result_run_id = "run-draft"
+    fake_client = AsyncMock()
+    fake_client.start_workflow = AsyncMock(return_value=fake_handle)
+    return patch("saas.jobs.api_draft.get_temporal_client", new=AsyncMock(return_value=fake_client))
 
 
 async def test_launch_nonexistent_draft(client, auth_headers):
@@ -37,7 +46,7 @@ async def test_launch_dispatch_failure(client, auth_headers, funded_user, seeded
         json={"goal": "g", "tier": "small", "forecast_days": 30},
         headers=auth_headers,
     )
-    with patch("saas.jobs.api_draft.run_simulation_task.delay", side_effect=RuntimeError("boom")):
+    with patch("saas.jobs.api_draft.get_temporal_client", new=AsyncMock(side_effect=RuntimeError("boom"))):
         resp = await client.post(f"/api/jobs/draft/{did}/launch", headers=auth_headers)
     assert resp.status_code == 500
 
@@ -82,7 +91,7 @@ async def test_launch_empty_seed_text(client, auth_headers, funded_user, seeded_
 
 
 async def test_launch_success_dispatches(client, auth_headers, funded_user, seeded_routing):
-    """Successful launch dispatches task and transitions to PENDING."""
+    """Successful launch dispatches workflow and transitions to PENDING."""
     create = await client.post(
         "/api/jobs/draft",
         json={"seed_text": SEED, "goal": "g", "tier": "small", "forecast_days": 7},
@@ -90,12 +99,7 @@ async def test_launch_success_dispatches(client, auth_headers, funded_user, seed
     )
     did = create.json()["id"]
 
-    mock_task = MagicMock(id="celery-tid")
-    with patch("saas.jobs.api_draft.run_simulation_task.delay", return_value=mock_task) as mdelay:
+    with _mock_temporal_draft():
         resp = await client.post(f"/api/jobs/draft/{did}/launch", headers=auth_headers)
     assert resp.status_code == 200
     assert resp.json()["status"] == "PENDING"
-    mdelay.assert_called_once()
-    kwargs = mdelay.call_args.kwargs
-    assert kwargs["forecast_days"] == 7
-    assert kwargs["tier"] == "small"

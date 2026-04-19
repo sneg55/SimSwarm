@@ -1,46 +1,10 @@
-"""Tests for saas.jobs.persistence (shim helpers) and saas.jobs.persistence_engine."""
+"""Tests for saas.jobs.persistence_engine."""
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
 
-from saas.jobs import persistence, persistence_engine
-
-
-# ---------------------------------------------------------------------------
-# _extract_key_insight — moved to tests/jobs/test_key_insight.py.
-# The function is now a back-compat alias for _derive_key_insight (Task 16).
-# ---------------------------------------------------------------------------
-
-
-# ---------------------------------------------------------------------------
-# _claim_resume / _release_resume — engine=None branches
-# ---------------------------------------------------------------------------
-
-def test_claim_resume_returns_false_when_engine_none():
-    with patch("saas.jobs.persistence._get_sync_engine", return_value=None):
-        assert persistence._claim_resume(1, "tid") is False
-
-
-def test_claim_resume_exception_returns_false():
-    mock_engine = MagicMock()
-    mock_engine.connect.side_effect = RuntimeError("boom")
-    with patch("saas.jobs.persistence._get_sync_engine", return_value=mock_engine):
-        assert persistence._claim_resume(1, "tid") is False
-    mock_engine.dispose.assert_called_once()
-
-
-def test_release_resume_noop_when_engine_none():
-    with patch("saas.jobs.persistence._get_sync_engine", return_value=None):
-        persistence._release_resume(1)  # no raise
-
-
-def test_release_resume_exception_swallowed():
-    mock_engine = MagicMock()
-    mock_engine.connect.side_effect = RuntimeError("boom")
-    with patch("saas.jobs.persistence._get_sync_engine", return_value=mock_engine):
-        persistence._release_resume(1)
-    mock_engine.dispose.assert_called_once()
+from saas.jobs import persistence_engine
 
 
 # ---------------------------------------------------------------------------

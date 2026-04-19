@@ -10,7 +10,9 @@ from saas.constants.tiers import TIER_CREDITS
 from saas.billing.ledger import CreditLedger, InsufficientCreditsError
 from saas.auth.dependencies import get_current_user
 from saas.storage.minio_client import SimDataStorage
-from saas.jobs.tasks import run_simulation_task
+from saas.workflows.client import get_temporal_client, SIM_TASK_QUEUE
+from saas.workflows.sim_workflow import SimulationWorkflow
+from saas.workflows.types import SimParams
 
 import os
 
@@ -104,7 +106,7 @@ async def launch_draft(
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
-    """Launch a complete draft: validate, debit credits, dispatch to Celery."""
+    """Launch a complete draft: validate, debit credits, dispatch to Temporal."""
     user_id = current_user["user_id"]
     job = await _get_user_draft(job_id, user_id, session)
 
@@ -159,32 +161,36 @@ async def launch_draft(
     storage = _get_sim_data_storage(request)
     upload_urls = storage.generate_upload_urls(job_id=job.id)
 
-    # 5. Dispatch to Celery
+    # 5. Dispatch to Temporal
+    sim_params = SimParams(
+        job_id=job.id, user_id=user_id,
+        seed_text=job.seed_text, goal=job.goal, tier=job.tier,
+        model_id=routing.model_id, gpu_type=routing.gpu_type,
+        max_rounds=routing.max_rounds, vllm_args=routing.vllm_args or "",
+        llm_api_key=os.getenv("LLM_API_KEY", "not-needed"),
+        openai_api_key=os.getenv("OPENAI_API_KEY", ""),
+        credits_charged=credits,
+        enrich_web=job.enrich_web,
+        forecast_days=job.forecast_days,
+        target_agents=routing.target_agents,
+        upload_urls=upload_urls,
+    )
+
     try:
-        task_result = run_simulation_task.delay(
-            job_id=job.id,
-            user_id=user_id,
-            seed_text=job.seed_text,
-            goal=job.goal,
-            tier=job.tier,
-            model_id=routing.model_id,
-            gpu_type=routing.gpu_type,
-            max_rounds=routing.max_rounds,
-            vllm_args=routing.vllm_args or "",
-            llm_api_key=os.getenv("LLM_API_KEY", "not-needed"),
-            openai_api_key=os.getenv("OPENAI_API_KEY", ""),
-            credits_charged=credits,
-            enrich_web=job.enrich_web,
-            forecast_days=job.forecast_days,
-            target_agents=routing.target_agents,
-            upload_urls=upload_urls,
+        temporal_client = await get_temporal_client()
+        handle = await temporal_client.start_workflow(
+            SimulationWorkflow.run,
+            sim_params,
+            id=f"sim-{job.id}",
+            task_queue=SIM_TASK_QUEUE,
         )
     except Exception:
         await session.rollback()
         raise HTTPException(status_code=500, detail="Failed to queue simulation job")
 
-    # 6. Transition to PENDING
-    job.celery_task_id = task_result.id
+    # 6. Store workflow identity, transition to PENDING, and commit
+    job.workflow_id = handle.id
+    job.workflow_run_id = handle.result_run_id
     job.status = JobStatus.PENDING
     await session.commit()
     await session.refresh(job)

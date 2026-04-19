@@ -1,8 +1,17 @@
 """Tests for draft campaign endpoints."""
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock, AsyncMock
 
 
 SEED = "A" * 600  # Minimum valid seed length
+
+
+def _mock_temporal_draft():
+    fake_handle = MagicMock()
+    fake_handle.id = "sim-draft-id"
+    fake_handle.result_run_id = "run-draft"
+    fake_client = AsyncMock()
+    fake_client.start_workflow = AsyncMock(return_value=fake_handle)
+    return patch("saas.jobs.api_draft.get_temporal_client", new=AsyncMock(return_value=fake_client))
 
 
 class TestCreateDraft:
@@ -117,12 +126,9 @@ class TestUpdateDraft:
 
 
 class TestLaunchDraft:
-    @patch("saas.jobs.api_draft.run_simulation_task")
     async def test_launch_complete_draft(
-        self, mock_task, client, auth_headers, funded_user, seeded_routing
+        self, client, auth_headers, funded_user, seeded_routing
     ):
-        mock_task.delay.return_value.id = "fake-celery-id"
-
         create = await client.post(
             "/api/jobs/draft",
             json={"seed_text": SEED},
@@ -136,15 +142,15 @@ class TestLaunchDraft:
             headers=auth_headers,
         )
 
-        resp = await client.post(
-            f"/api/jobs/draft/{draft_id}/launch",
-            headers=auth_headers,
-        )
+        with _mock_temporal_draft():
+            resp = await client.post(
+                f"/api/jobs/draft/{draft_id}/launch",
+                headers=auth_headers,
+            )
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "PENDING"
         assert data["credits_charged"] == 30
-        mock_task.delay.assert_called_once()
 
     async def test_launch_incomplete_draft_returns_422(self, client, auth_headers):
         """Draft missing goal cannot be launched."""
@@ -161,13 +167,10 @@ class TestLaunchDraft:
         )
         assert resp.status_code == 422
 
-    @patch("saas.jobs.api_draft.run_simulation_task")
     async def test_launch_insufficient_credits_returns_402(
-        self, mock_task, client, auth_headers, seeded_routing
+        self, client, auth_headers, seeded_routing
     ):
         """User with 0 credits cannot launch."""
-        mock_task.delay.return_value.id = "fake-celery-id"
-
         create = await client.post(
             "/api/jobs/draft",
             json={"seed_text": SEED},

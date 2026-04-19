@@ -4,7 +4,7 @@ from unittest.mock import patch, MagicMock, AsyncMock
 
 
 def test_refund_credits_uses_credit_entries_table():
-    from saas.jobs.tasks import _refund_credits
+    from saas.jobs.refund import _refund_credits
     source = inspect.getsource(_refund_credits)
     assert "credit_entries" in source
     assert "credit_ledger" not in source
