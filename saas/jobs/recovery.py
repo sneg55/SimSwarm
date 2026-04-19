@@ -7,7 +7,11 @@ from datetime import datetime, timezone
 
 from saas.jobs.alerts import send_orphan_alert
 from saas.jobs.recovery_reporting import _recover_reporting_jobs
-from saas.jobs.recovery_utils import _check_pod_status, _is_stale
+from saas.jobs.recovery_utils import (
+    _check_pod_status,
+    _heartbeat_is_fresh,
+    _is_stale,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -102,18 +106,27 @@ def recover_stale_jobs() -> dict:
                                     job_id, job_status,
                                 )
                                 continue
-                            # Don't race the main task: while the job is still
-                            # PROVISIONING and no heartbeat has been written,
-                            # the main task is running wait_for_worker_health
-                            # and will submit /job itself once vLLM is ready.
-                            # Resuming here would POST /job twice — the second
-                            # one gets 409 "A job is already running" and the
-                            # main task fails its own sim.
+                            # Don't race the main task. Two signals mean
+                            # "main task is alive, stay out of its way":
+                            #   1. PROVISIONING + no heartbeat — wait_for_worker_health
+                            #      is still looping; resuming would POST /job twice
+                            #      and the main task would fail with 409.
+                            #   2. Any non-terminal status with a fresh heartbeat —
+                            #      the main poll loop wrote it within the last few
+                            #      minutes, so it owns the pod.
                             if job_status == "PROVISIONING" and last_heartbeat is None:
                                 logger.info(
                                     "recover.skipping_provisioning job_id=%d pod_id=%s "
                                     "(main task still in wait_for_worker_health)",
                                     job_id, pod_id,
+                                )
+                                continue
+                            if (job_status in ("PROVISIONING", "RUNNING")
+                                    and _heartbeat_is_fresh(last_heartbeat)):
+                                logger.info(
+                                    "recover.skipping_live job_id=%d status=%s pod_id=%s "
+                                    "(main task heartbeat is fresh)",
+                                    job_id, job_status, pod_id,
                                 )
                                 continue
                             logger.info(

@@ -8,6 +8,11 @@ logger = logging.getLogger(__name__)
 
 HEARTBEAT_STALE_POD_DEAD_S = 300    # 5 minutes
 HEARTBEAT_STALE_NO_PROGRESS_S = 900  # 15 minutes
+# Heartbeat fresher than this means the main task is actively polling and
+# recovery must not enqueue a resume task on top of it.
+# 3× HEARTBEAT_INTERVAL_S (60s in pipeline.py) — catches real failures
+# within one 10-minute beat cycle.
+HEARTBEAT_FRESH_S = 180
 
 
 def _check_pod_status(pod_id: str) -> str:
@@ -25,6 +30,20 @@ def _check_pod_status(pod_id: str) -> str:
         return "unreachable"
     except Exception:
         return "unreachable"
+
+
+def _heartbeat_is_fresh(last_heartbeat: datetime | None) -> bool:
+    """Return True when last_heartbeat is within HEARTBEAT_FRESH_S of now.
+
+    A fresh heartbeat means the main task is actively polling this pod —
+    recovery must not race it with a parallel resume task.
+    """
+    if last_heartbeat is None:
+        return False
+    if last_heartbeat.tzinfo is None:
+        last_heartbeat = last_heartbeat.replace(tzinfo=timezone.utc)
+    age = (datetime.now(timezone.utc) - last_heartbeat).total_seconds()
+    return age < HEARTBEAT_FRESH_S
 
 
 def _is_stale(

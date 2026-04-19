@@ -69,3 +69,28 @@ def test_is_stale_no_heartbeat_naive_created_at():
         pod_alive=True,
         tier_timeout=2700,
     ) is True
+
+
+def test_heartbeat_is_fresh_none_is_not_fresh():
+    from saas.jobs.recovery_utils import _heartbeat_is_fresh
+    assert _heartbeat_is_fresh(None) is False
+
+
+def test_heartbeat_is_fresh_recent_heartbeat():
+    from saas.jobs.recovery_utils import _heartbeat_is_fresh
+    assert _heartbeat_is_fresh(
+        datetime.now(timezone.utc) - timedelta(seconds=10)
+    ) is True
+
+
+def test_heartbeat_is_fresh_old_heartbeat():
+    from saas.jobs.recovery_utils import _heartbeat_is_fresh
+    assert _heartbeat_is_fresh(
+        datetime.now(timezone.utc) - timedelta(seconds=600)
+    ) is False
+
+
+def test_heartbeat_is_fresh_accepts_naive_datetime():
+    """Naive datetimes are assumed UTC — legacy rows that lost tzinfo."""
+    from saas.jobs.recovery_utils import _heartbeat_is_fresh
+    assert _heartbeat_is_fresh(datetime.utcnow() - timedelta(seconds=10)) is True
