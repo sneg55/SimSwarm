@@ -37,3 +37,25 @@ async def test_enrich_seed_returns_original_on_miss():
 
     mock_update.assert_not_called()
     assert result == "seed text"
+
+
+@pytest.mark.asyncio
+async def test_derive_markets_persists_and_returns_list():
+    from saas.workflows.activities.pre_gpu import derive_markets
+
+    fake_derivation = {
+        "source": "llm",
+        "markets": [
+            {"name": "M1", "stance": "yes", "question": "q1"},
+            {"name": "M2", "stance": "no", "question": "q2"},
+        ],
+    }
+
+    with patch("saas.jobs.market_derivation.derive_markets", return_value=fake_derivation) as mock_derive, \
+         patch("saas.jobs.persistence._update_markets_config") as mock_update:
+        result = await derive_markets(goal="g", enriched_seed="s", tier="medium", job_id=77)
+
+    mock_derive.assert_called_once_with(goal="g", enriched_seed="s", tier="medium")
+    mock_update.assert_called_once_with(77, fake_derivation["markets"])
+    assert len(result) == 2
+    assert result[0]["name"] == "M1"
