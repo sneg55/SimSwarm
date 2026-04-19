@@ -106,3 +106,35 @@ async def provision_pod(params: SimParams, markets: list[dict]) -> PodInfo:
         return PodInfo(id=instance.instance_id)
     finally:
         heartbeat_task.cancel()
+
+
+@activity.defn(name="fishcloud.wait_for_worker_health")
+async def wait_for_worker_health(pod_id: str) -> None:
+    """Poll /health until 200 OK. Heartbeats on each attempt.
+
+    The activity's start_to_close timeout (15 min) bounds the total wait.
+    Heartbeats let Temporal kill hung activities faster than that.
+    """
+    worker_url = f"https://{pod_id}-5000.proxy.runpod.net"
+    async with httpx.AsyncClient(timeout=15) as client:
+        while True:
+            if activity.in_activity():
+                activity.heartbeat()
+            try:
+                resp = await client.get(f"{worker_url}/health", timeout=10)
+                if resp.status_code == 200:
+                    body = resp.json() if resp.headers.get(
+                        "content-type", "").startswith("application/json") else {}
+                    logger.info(
+                        "activity.wait_for_worker_health.ready pod_id=%s vllm_ready=%s",
+                        pod_id, body.get("vllm_ready", "?"),
+                    )
+                    return
+            except httpx.ConnectError:
+                pass
+            except Exception as e:
+                logger.info(
+                    "activity.wait_for_worker_health.retry pod_id=%s error=%s",
+                    pod_id, type(e).__name__,
+                )
+            await asyncio.sleep(5)

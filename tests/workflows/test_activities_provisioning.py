@@ -58,3 +58,28 @@ async def test_provision_pod_creates_new_when_no_existing():
     import asyncio
     await call_kwargs["on_created"]("pod-new")
     mock_update_pod.assert_called_with(5, "pod-new")
+
+
+@pytest.mark.asyncio
+async def test_wait_for_worker_health_returns_on_200():
+    from saas.workflows.activities.provisioning import wait_for_worker_health
+
+    ok_resp = MagicMock(
+        status_code=200,
+        headers={"content-type": "application/json"},
+    )
+    ok_resp.json = MagicMock(return_value={"vllm_ready": True, "status": "ok"})
+
+    fake_client = AsyncMock()
+    fake_client.get = AsyncMock(return_value=ok_resp)
+    fake_client.__aenter__ = AsyncMock(return_value=fake_client)
+    fake_client.__aexit__ = AsyncMock(return_value=None)
+
+    with patch("httpx.AsyncClient", return_value=fake_client):
+        # Should return without raising
+        await wait_for_worker_health("pod-xyz")
+
+    fake_client.get.assert_called()
+    # Verify it hit /health not /status
+    call_url = fake_client.get.call_args[0][0]
+    assert call_url.endswith("/health")
