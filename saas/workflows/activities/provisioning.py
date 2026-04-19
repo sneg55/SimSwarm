@@ -138,3 +138,22 @@ async def wait_for_worker_health(pod_id: str) -> None:
                     pod_id, type(e).__name__,
                 )
             await asyncio.sleep(5)
+
+
+@activity.defn(name="fishcloud.terminate_pod")
+async def terminate_pod(pod_id: str) -> None:
+    """Terminate the pod. Idempotent — swallows 'not found' errors."""
+    from saas.workers.utils import _get_gpu_provider
+
+    gpu_provider = _get_gpu_provider()
+    try:
+        await gpu_provider.terminate(pod_id)
+        logger.info("activity.terminate_pod.ok pod_id=%s", pod_id)
+    except Exception as e:
+        msg = str(e).lower()
+        if "not found" in msg or "does not exist" in msg:
+            logger.info("activity.terminate_pod.already_gone pod_id=%s", pod_id)
+            return
+        # Other errors (auth, network) — re-raise so Temporal retry policy triggers
+        logger.warning("activity.terminate_pod.error pod_id=%s error=%s", pod_id, e)
+        raise

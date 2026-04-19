@@ -83,3 +83,30 @@ async def test_wait_for_worker_health_returns_on_200():
     # Verify it hit /health not /status
     call_url = fake_client.get.call_args[0][0]
     assert call_url.endswith("/health")
+
+
+@pytest.mark.asyncio
+async def test_terminate_pod_swallows_not_found():
+    from saas.workflows.activities.provisioning import terminate_pod
+
+    fake_provider = MagicMock()
+    fake_provider.terminate = AsyncMock(side_effect=Exception("pod not found to terminate"))
+
+    with patch("saas.workers.utils._get_gpu_provider", return_value=fake_provider):
+        # Must not raise
+        await terminate_pod("pod-gone")
+
+    fake_provider.terminate.assert_called_once_with("pod-gone")
+
+
+@pytest.mark.asyncio
+async def test_terminate_pod_calls_provider():
+    from saas.workflows.activities.provisioning import terminate_pod
+
+    fake_provider = MagicMock()
+    fake_provider.terminate = AsyncMock(return_value=None)
+
+    with patch("saas.workers.utils._get_gpu_provider", return_value=fake_provider):
+        await terminate_pod("pod-alive")
+
+    fake_provider.terminate.assert_called_once_with("pod-alive")
