@@ -96,11 +96,30 @@ def _load_goal_and_forecast(job_id: int) -> tuple[str, int]:
     max_retries=len(_RETRY_BACKOFF_S),
 )
 def generate_report_task(self, job_id: int, user_id: str) -> dict:
-    """Run the external-LLM report generation loop for a completed sim.
+    """Generate the external report for a completed sim.
+
+    Idempotency guard: if the job is already in a terminal state, skip —
+    this prevents double-generation when upload_and_finalize is retried
+    after a transient failure mid-way through its work.
 
     On transient errors: retries with escalating backoff, up to 5 attempts.
     On permanent errors or exhausted retries: marks job FAILED, refunds 100%.
     """
+    from saas.jobs.persistence import _get_job_status
+
+    current_status = _get_job_status(job_id)
+    if current_status in ("COMPLETED", "FAILED", "REFUNDED"):
+        logger.info(
+            "report.skipping_terminal job_id=%d status=%s",
+            job_id, current_status,
+        )
+        return {"job_id": job_id, "status": "skipped_terminal"}
+
+    return _run_report_generation(self, job_id, user_id)
+
+
+def _run_report_generation(self, job_id: int, user_id: str) -> dict:
+    """(Verbatim relocation of the previous ``generate_report_task`` body.)"""
     goal, forecast_days = _load_goal_and_forecast(job_id)
     runner = _build_runner(job_id, goal, forecast_days)
 
