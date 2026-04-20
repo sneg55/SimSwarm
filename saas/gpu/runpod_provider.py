@@ -87,26 +87,41 @@ class RunPodProvider(GPUProvider):
             except Exception as e:
                 logger.warning(f"on_created callback failed: {e}")
 
-        # Poll until running — log every 30s with elapsed time
+        # Poll until running — log every 30s with elapsed time.
+        # The try/except around the polling loop catches both the internal
+        # timeout path AND outer cancellation (e.g. Temporal activity
+        # start_to_close_timeout). Without this, CancelledError raised from
+        # asyncio.sleep() would skip pod termination and leak GPU billing,
+        # while the j121 tag on the orphan would veto orphan cleanup.
         import time
         start = time.monotonic()
-        for attempt in range(MAX_POLL_ATTEMPTS):
+        try:
+            for attempt in range(MAX_POLL_ATTEMPTS):
+                try:
+                    status = await self.get_status(pod_id)
+                    if status.is_ready:
+                        elapsed = int(time.monotonic() - start)
+                        logger.info(f"RunPod: pod {pod_id} ready in {elapsed}s at {status.ip_address}")
+                        return status
+                    if attempt % 6 == 0:  # every 30s
+                        elapsed = int(time.monotonic() - start)
+                        logger.info(f"RunPod: pod {pod_id} provisioning... ({elapsed}s elapsed, attempt {attempt + 1}/{MAX_POLL_ATTEMPTS})")
+                except Exception as e:
+                    logger.warning(f"RunPod: poll error (attempt {attempt + 1}): {e}")
+                await asyncio.sleep(5)
+        except BaseException:
+            elapsed = int(time.monotonic() - start)
             try:
-                status = await self.get_status(pod_id)
-                if status.is_ready:
-                    elapsed = int(time.monotonic() - start)
-                    logger.info(f"RunPod: pod {pod_id} ready in {elapsed}s at {status.ip_address}")
-                    return status
-                if attempt % 6 == 0:  # every 30s
-                    elapsed = int(time.monotonic() - start)
-                    logger.info(f"RunPod: pod {pod_id} provisioning... ({elapsed}s elapsed, attempt {attempt + 1}/{MAX_POLL_ATTEMPTS})")
-            except Exception as e:
-                logger.warning(f"RunPod: poll error (attempt {attempt + 1}): {e}")
-            await asyncio.sleep(5)
+                runpod.terminate_pod(pod_id)
+                logger.warning(
+                    f"RunPod: terminated pod {pod_id} after {elapsed}s "
+                    f"(provision cancelled before ready)"
+                )
+            except Exception as term_exc:
+                logger.warning(f"RunPod: failed to terminate cancelled pod {pod_id}: {term_exc}")
+            raise
 
         elapsed = int(time.monotonic() - start)
-        # Pod exists on RunPod but never became ready — terminate it so we
-        # don't leak GPU billing until orphan cleanup catches it.
         try:
             runpod.terminate_pod(pod_id)
             logger.info(f"RunPod: terminated unready pod {pod_id} after {elapsed}s")

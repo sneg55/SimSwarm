@@ -38,11 +38,15 @@ class SimulationWorkflow:
         )
 
         # Phase 2: GPU lifecycle
+        # Keep start_to_close_timeout strictly greater than the provider's
+        # internal poll budget (MAX_POLL_ATTEMPTS * 5s = 600s) so Temporal
+        # doesn't cancel mid-poll and race the provider's own terminate path.
+        # Heartbeat timeout still catches true hangs faster.
         pod: PodInfo = await workflow.execute_activity(
             "fishcloud.provision_pod",
             args=[params, markets],
             result_type=PodInfo,
-            start_to_close_timeout=timedelta(minutes=10),
+            start_to_close_timeout=timedelta(minutes=13),
             heartbeat_timeout=timedelta(seconds=60),
             retry_policy=RetryPolicy(
                 initial_interval=timedelta(seconds=30),

@@ -41,21 +41,42 @@ async def provision_pod(params: SimParams, markets: list[dict]) -> PodInfo:
     if snapshot is not None:
         _status, existing_pod_id, _retry = snapshot
         if existing_pod_id:
+            existing_is_healthy = False
             try:
                 async with httpx.AsyncClient(timeout=5) as client:
                     url = f"https://{existing_pod_id}-5000.proxy.runpod.net/health"
                     resp = await client.get(url)
                     if resp.status_code == 200:
-                        logger.info(
-                            "activity.provision_pod.reuse job_id=%d pod_id=%s",
-                            params.job_id, existing_pod_id,
-                        )
-                        return PodInfo(id=existing_pod_id)
+                        existing_is_healthy = True
             except Exception as e:
                 logger.info(
                     "activity.provision_pod.existing_unhealthy "
-                    "job_id=%d pod_id=%s error=%s — creating fresh",
+                    "job_id=%d pod_id=%s error=%s",
                     params.job_id, existing_pod_id, e,
+                )
+
+            if existing_is_healthy:
+                logger.info(
+                    "activity.provision_pod.reuse job_id=%d pod_id=%s",
+                    params.job_id, existing_pod_id,
+                )
+                return PodInfo(id=existing_pod_id)
+
+            # Unhealthy pod on re-entry: terminate before creating fresh.
+            # Otherwise the old pod keeps running (cleanup vetoes it because
+            # its job_id tag still matches a live job) and we leak GPU cost.
+            try:
+                await _get_gpu_provider().terminate(existing_pod_id)
+                logger.warning(
+                    "activity.provision_pod.terminated_stale "
+                    "job_id=%d pod_id=%s",
+                    params.job_id, existing_pod_id,
+                )
+            except Exception as term_exc:
+                logger.warning(
+                    "activity.provision_pod.terminate_stale_failed "
+                    "job_id=%d pod_id=%s error=%s",
+                    params.job_id, existing_pod_id, term_exc,
                 )
 
     _update_pipeline_stage_sync(params.job_id, 0)
