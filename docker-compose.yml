@@ -99,6 +99,10 @@ services:
       - POSTGRES_PWD=${TEMPORAL_DB_PASSWORD}
       - POSTGRES_SEEDS=temporal-db
       - DEFAULT_NAMESPACE=fishcloud
+      # Bind internal services to all interfaces so the membership ring can
+      # reach them via 127.0.0.1. Without this, frontend can't dial matching
+      # and workers see "Not enough hosts to serve the request" forever.
+      - BIND_ON_IP=0.0.0.0
     depends_on:
       temporal-db:
         condition: service_healthy
