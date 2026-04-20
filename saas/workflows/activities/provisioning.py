@@ -7,10 +7,21 @@ import os
 
 import httpx
 from temporalio import activity
+from temporalio.exceptions import ApplicationError
 
 from saas.workflows.types import PodInfo, SimParams
 
 logger = logging.getLogger(__name__)
+
+# Strings in the worker's /logs output that mean vLLM will never come up on
+# this pod. Seeing one of these is a terminal signal: we should abort the
+# sim immediately rather than keep polling /health for the full timeout.
+_VLLM_TERMINAL_ERRORS = (
+    "CUDA driver initialization failed",
+    "Engine core initialization failed",
+    "no CUDA-capable device",
+    "Failed to initialize NCCL",
+)
 
 
 async def _heartbeat_every(interval_s: float) -> None:
@@ -129,14 +140,44 @@ async def provision_pod(params: SimParams, markets: list[dict]) -> PodInfo:
         heartbeat_task.cancel()
 
 
+async def _check_vllm_terminal_failure(
+    client: httpx.AsyncClient, worker_url: str, pod_id: str,
+) -> str | None:
+    """Fetch the worker's /logs and scan for terminal vLLM errors.
+
+    Returns the matching error string if found, None otherwise. The worker
+    exposes its stdout/stderr tail at /logs, so this lets us detect a dead
+    GPU driver or failed engine start without waiting out the whole timeout.
+    """
+    try:
+        resp = await client.get(f"{worker_url}/logs", timeout=10)
+        if resp.status_code != 200:
+            return None
+        body = resp.json() if resp.headers.get(
+            "content-type", "").startswith("application/json") else {}
+        for line in body.get("lines", []):
+            for marker in _VLLM_TERMINAL_ERRORS:
+                if marker in line:
+                    return marker
+    except Exception as e:
+        logger.debug(
+            "wait_for_worker_health.logs_probe_failed pod_id=%s error=%s",
+            pod_id, type(e).__name__,
+        )
+    return None
+
+
 @activity.defn(name="fishcloud.wait_for_worker_health")
 async def wait_for_worker_health(pod_id: str) -> None:
     """Poll /health until 200 OK. Heartbeats on each attempt.
 
-    The activity's start_to_close timeout (15 min) bounds the total wait.
-    Heartbeats let Temporal kill hung activities faster than that.
+    Every ~30s we also scan /logs for terminal vLLM errors (bad GPU driver,
+    failed NCCL init, engine core failure). Seeing one of those aborts the
+    wait with a non-retryable error, so the workflow can move on to refund
+    and teardown instead of burning the full 15-min timeout window.
     """
     worker_url = f"https://{pod_id}-5000.proxy.runpod.net"
+    poll_count = 0
     async with httpx.AsyncClient(timeout=15) as client:
         while True:
             if activity.in_activity():
@@ -158,6 +199,24 @@ async def wait_for_worker_health(pod_id: str) -> None:
                     "activity.wait_for_worker_health.retry pod_id=%s error=%s",
                     pod_id, type(e).__name__,
                 )
+
+            poll_count += 1
+            # Probe /logs every ~30s (every 6 polls at 5s spacing). Earlier
+            # polls are wasted because the worker hasn't written its stdout
+            # tail yet; later polls are cheap compared to the 15-min budget.
+            if poll_count >= 6 and poll_count % 6 == 0:
+                marker = await _check_vllm_terminal_failure(client, worker_url, pod_id)
+                if marker is not None:
+                    logger.warning(
+                        "activity.wait_for_worker_health.vllm_terminal "
+                        "pod_id=%s marker=%r",
+                        pod_id, marker,
+                    )
+                    raise ApplicationError(
+                        f"vLLM failed to start on pod {pod_id}: {marker}",
+                        non_retryable=True,
+                    )
+
             await asyncio.sleep(5)
 
 
