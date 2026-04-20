@@ -95,12 +95,14 @@ async def test_get_job_not_found(client, auth_headers):
 
 async def test_list_user_jobs(client, auth_headers, funded_user, seeded_routing):
     with _mock_delay():
-        for _ in range(2):
+        # Distinct seeds so the dedup window (identical-payload guard in
+        # create_job) doesn't reject the second submission.
+        for i in range(2):
             await client.post(
                 "/api/jobs",
                 headers=auth_headers,
                 json={
-                    "seed_text": "Test",
+                    "seed_text": f"Test {i}",
                     "goal": "Test",
                     "tier": "small",
                     "forecast_days": 30,
@@ -118,6 +120,26 @@ async def test_list_user_jobs(client, auth_headers, funded_user, seeded_routing)
     # JobSummary does not include user_id; verify other fields are present
     assert all("goal" in j for j in jobs)
     assert all("status" in j for j in jobs)
+
+
+async def test_create_job_rejects_duplicate_within_window(
+    client, auth_headers, funded_user, seeded_routing,
+):
+    """Identical seed+goal+tier submitted twice in quick succession should
+    fail the second submission with 409 — prevents UI double-click from
+    burning credits on duplicate work."""
+    payload = {
+        "seed_text": "Identical seed text for dedup test",
+        "goal": "Identical goal for dedup test",
+        "tier": "small",
+        "forecast_days": 30,
+    }
+    with _mock_delay():
+        first = await client.post("/api/jobs", headers=auth_headers, json=payload)
+        second = await client.post("/api/jobs", headers=auth_headers, json=payload)
+    assert first.status_code == 201
+    assert second.status_code == 409
+    assert "Duplicate" in second.json()["detail"]
 
 
 async def test_unauthenticated_request_returns_401(client):

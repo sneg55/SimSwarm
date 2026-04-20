@@ -1,28 +1,38 @@
+import os
+from datetime import datetime, timedelta, timezone
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, func, text
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from saas.database import get_session
-from saas.jobs.graph_adapter import adapt_graph_payload
-from saas.jobs.models import SimulationJob, JobStatus
-from saas.jobs.models import ModelRouting
-from saas.jobs.schemas import JobCreate, JobResponse, JobListResponse
-from saas.constants.tiers import TIER_CREDITS
-from saas.billing.ledger import CreditLedger, InsufficientCreditsError
 from saas.auth.dependencies import get_current_user
-from saas.storage.minio_client import SimDataStorage
-from saas.jobs.api_share import router as _share_router
+from saas.billing.ledger import CreditLedger, InsufficientCreditsError
+from saas.constants.tiers import TIER_CREDITS
+from saas.database import get_session
 from saas.jobs.api_draft import router as _draft_router
-import os
-
-from saas.workflows.client import get_temporal_client, SIM_TASK_QUEUE
+from saas.jobs.api_retry import router as _retry_router
+from saas.jobs.api_share import router as _share_router
+from saas.jobs.graph_adapter import adapt_graph_payload
+from saas.jobs.models import JobStatus, ModelRouting, SimulationJob
+from saas.jobs.schemas import JobCreate, JobListResponse, JobResponse
+from saas.storage.minio_client import SimDataStorage
+from saas.workflows.client import SIM_TASK_QUEUE, get_temporal_client
 from saas.workflows.sim_workflow import SimulationWorkflow
 from saas.workflows.types import SimParams
+
+# Reject identical-payload resubmits inside this window to prevent UI
+# double-click from burning credits twice on the same job.
+_DUP_JOB_WINDOW_SECONDS = 60
+_LIVE_JOB_STATUSES = (
+    JobStatus.PENDING, JobStatus.PROVISIONING,
+    JobStatus.RUNNING, JobStatus.REPORTING,
+)
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])
 router.include_router(_share_router)
 router.include_router(_draft_router)
+router.include_router(_retry_router)
 
 
 def _get_sim_data_storage(request: Request) -> SimDataStorage:
@@ -53,6 +63,25 @@ async def create_job(
 
     user_id = current_user["user_id"]
     credits = TIER_CREDITS[body.tier]
+
+    # Dedup: reject if the same user has an in-flight job with an identical
+    # seed+goal+tier created within the dedup window. Catches UI double-click
+    # and accidental client retries without consuming credits twice.
+    dup_cutoff = datetime.now(timezone.utc) - timedelta(seconds=_DUP_JOB_WINDOW_SECONDS)
+    dup_q = select(SimulationJob.id).where(
+        SimulationJob.user_id == user_id,
+        SimulationJob.seed_text == body.seed_text,
+        SimulationJob.goal == body.goal,
+        SimulationJob.tier == body.tier.value,
+        SimulationJob.status.in_(_LIVE_JOB_STATUSES),
+        SimulationJob.created_at > dup_cutoff,
+    )
+    existing_dup = (await session.execute(dup_q)).scalar_one_or_none()
+    if existing_dup is not None:
+        raise HTTPException(
+            status_code=409,
+            detail=f"Duplicate job — identical in-flight sim already running (job {existing_dup})",
+        )
 
     # 1. Validate routing exists BEFORE touching credits
     route = await session.execute(
@@ -184,58 +213,6 @@ async def delete_job(
         raise HTTPException(status_code=403, detail="Not authorized to delete this job")
     await session.delete(job)
     await session.commit()
-
-
-@router.post("/{job_id}/retry", response_model=JobResponse, status_code=201)
-async def retry_job(
-    job_id: int,
-    request: Request,
-    current_user: dict = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-):
-    """Retry a failed job with the same seed_text, goal, and tier."""
-    original = await session.get(SimulationJob, job_id)
-    if not original:
-        raise HTTPException(status_code=404, detail="Job not found")
-    if original.user_id != current_user["user_id"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
-    if original.status not in (JobStatus.FAILED, JobStatus.REFUNDED):
-        raise HTTPException(status_code=400, detail="Only failed jobs can be retried")
-
-    from saas.jobs.schemas import TierEnum
-    body = JobCreate(
-        seed_text=original.seed_text,
-        goal=original.goal,
-        tier=TierEnum(original.tier),
-        forecast_days=original.forecast_days if original.forecast_days is not None else 30,
-    )
-    new_job = await create_job(request, body, current_user, session)
-
-    # Link new job to original so dashboard hides the superseded failure
-    await session.execute(
-        text("UPDATE simulation_jobs SET retry_of = :original_id WHERE id = :new_id"),
-        {"original_id": original.id, "new_id": new_job.id},
-    )
-    await session.commit()
-    return new_job
-
-
-@router.post("/{job_id}/enrich-retry", status_code=202)
-async def retry_enrichment(
-    job_id: int,
-    current_user: dict = Depends(get_current_user),
-    session: AsyncSession = Depends(get_session),
-):
-    """Re-run seed enrichment for a job that failed enrichment."""
-    job = await session.get(SimulationJob, job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-    if job.user_id != current_user["user_id"]:
-        raise HTTPException(status_code=403, detail="Not authorized")
-
-    from saas.jobs.tasks import enrich_retry_task
-    enrich_retry_task.delay(job_id=job.id, seed_text=job.seed_text, goal=job.goal)
-    return {"status": "retrying"}
 
 
 @router.get("/{job_id}/graph")

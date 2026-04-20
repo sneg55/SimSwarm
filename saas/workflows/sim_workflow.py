@@ -20,22 +20,38 @@ with workflow.unsafe.imports_passed_through():
 class SimulationWorkflow:
     @workflow.run
     async def run(self, params: SimParams) -> None:
-        # Phase 1: pre-GPU, fail-soft
-        enriched_seed = params.seed_text
-        if params.enrich_web:
-            enriched_seed = await workflow.execute_activity(
-                "fishcloud.enrich_seed",
-                args=[params.seed_text, params.goal, params.job_id],
+        # Phase 1: pre-GPU. Both activities are fail-soft on LLM misses but
+        # DB/network exceptions can still exhaust their 2-attempt retry. No
+        # pod exists yet, so a failure here bypasses the Phase 2 saga — we
+        # need an explicit refund path before the workflow raises.
+        try:
+            enriched_seed = params.seed_text
+            if params.enrich_web:
+                enriched_seed = await workflow.execute_activity(
+                    "fishcloud.enrich_seed",
+                    args=[params.seed_text, params.goal, params.job_id],
+                    start_to_close_timeout=timedelta(seconds=60),
+                    retry_policy=RetryPolicy(maximum_attempts=2),
+                )
+
+            markets = await workflow.execute_activity(
+                "fishcloud.derive_markets",
+                args=[params.goal, enriched_seed, params.tier, params.job_id],
                 start_to_close_timeout=timedelta(seconds=60),
                 retry_policy=RetryPolicy(maximum_attempts=2),
             )
-
-        markets = await workflow.execute_activity(
-            "fishcloud.derive_markets",
-            args=[params.goal, enriched_seed, params.tier, params.job_id],
-            start_to_close_timeout=timedelta(seconds=60),
-            retry_policy=RetryPolicy(maximum_attempts=2),
-        )
+        except Exception as e:
+            await workflow.execute_activity(
+                "fishcloud.refund_credits",
+                args=[
+                    params.job_id, params.user_id,
+                    params.credits_charged,
+                    f"pre_gpu_failed: {str(e)[:4000]}",
+                ],
+                start_to_close_timeout=timedelta(seconds=30),
+                retry_policy=RetryPolicy(maximum_attempts=5),
+            )
+            raise
 
         # Phase 2: GPU lifecycle
         # Keep provision_pod's start_to_close_timeout strictly greater than
@@ -107,11 +123,16 @@ class SimulationWorkflow:
                 retry_policy=RetryPolicy(maximum_attempts=1),
             )
 
+            # Cap retries so a permanent PG/MinIO outage can't strand a job
+            # in RUNNING forever. 3 attempts covers transient blips; beyond
+            # that the saga (refund + terminate) fires and the stale-job
+            # detector will pick up anything truly unreachable.
             await workflow.execute_activity(
                 "fishcloud.upload_and_finalize",
                 args=[params.job_id, params.user_id, result],
                 start_to_close_timeout=timedelta(minutes=10),
                 heartbeat_timeout=timedelta(seconds=60),
+                retry_policy=RetryPolicy(maximum_attempts=3),
             )
         except Exception as e:
             # Saga compensation: refund the user before propagating failure

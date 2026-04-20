@@ -144,16 +144,19 @@ def test_extract_job_tag_garbage_name():
 
 @patch("saas.jobs.cleanup._get_active_job_pod_ids")
 @patch("saas.jobs.persistence._get_job_status")
-def test_cleanup_skips_pod_tagged_to_live_job(mock_status, mock_ids):
-    """Pod whose name tag references a still-live job must NOT be terminated,
-    even if the DB's simulation_jobs.pod_id no longer points at this pod."""
-    mock_ids.return_value = set()  # DB pod_id has drifted; this pod is "orphan"
+def test_cleanup_skips_young_tagged_pod_for_drift_safety(mock_status, mock_ids):
+    """A young pod (< TAG_MISMATCH_GRACE_SECONDS) whose tag matches a live
+    job is protected as a defensive window against DB pod_id drift, even
+    when the DB says some other pod is the canonical one. Ensures we don't
+    regress the j118 incident."""
+    mock_ids.return_value = set()  # DB says no pod is live for this job
     mock_status.return_value = "RUNNING"
 
     mock_runpod = MagicMock()
     mock_runpod.get_pods.return_value = [
         {"id": "live-pod", "name": "fishcloud-sim-j119",
-         "runtime": {"uptimeInSeconds": 9999},
+         # 10 min uptime — well inside the 30-min drift grace
+         "runtime": {"uptimeInSeconds": 600},
          "machine": {"gpuDisplayName": "L40S"}},
     ]
     with patch.dict("os.environ", {"RUNPOD_API_KEY": "x", "ALERT_WEBHOOK_URL": ""}):
@@ -162,6 +165,33 @@ def test_cleanup_skips_pod_tagged_to_live_job(mock_status, mock_ids):
     mock_runpod.terminate_pod.assert_not_called()
     assert result["terminated"] == 0
     mock_status.assert_called_once_with(119)
+
+
+@patch("saas.jobs.cleanup._get_job_pod_id")
+@patch("saas.jobs.cleanup._get_active_job_pod_ids")
+@patch("saas.jobs.persistence._get_job_status")
+def test_cleanup_terminates_old_tagged_orphan(
+    mock_status, mock_ids, mock_canonical,
+):
+    """An old pod (> TAG_MISMATCH_GRACE_SECONDS) whose tag matches a live
+    job but whose pod_id isn't in active_pod_ids is an orphan from a
+    crashed provision retry (sim 121 scenario). Must be terminated."""
+    mock_ids.return_value = set()  # DB pod_id points elsewhere
+    mock_status.return_value = "PROVISIONING"
+    mock_canonical.return_value = "canonical-pod-abc"
+
+    mock_runpod = MagicMock()
+    mock_runpod.get_pods.return_value = [
+        {"id": "stale-pod", "name": "fishcloud-sim-j121",
+         # 40 min uptime — beyond the 30-min drift grace
+         "runtime": {"uptimeInSeconds": 2400},
+         "machine": {"gpuDisplayName": "L40S"}},
+    ]
+    with patch.dict("os.environ", {"RUNPOD_API_KEY": "x", "ALERT_WEBHOOK_URL": ""}):
+        with patch.dict("sys.modules", {"runpod": mock_runpod}):
+            result = cleanup_orphaned_pods()
+    mock_runpod.terminate_pod.assert_called_once_with("stale-pod")
+    assert result["terminated"] == 1
 
 
 @patch("saas.jobs.cleanup._get_active_job_pod_ids")

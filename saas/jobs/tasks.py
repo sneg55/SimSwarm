@@ -9,6 +9,7 @@ from saas.jobs.persistence import (
 )
 from saas.jobs.cleanup import cleanup_orphaned_pods as _cleanup_orphaned_pods_impl
 from saas.jobs.cleanup import _get_active_job_pod_ids  # noqa: F401 — re-export
+from saas.jobs.stale_detector import detect_stale_jobs as _detect_stale_jobs_impl
 # Import maintenance + report tasks so Celery autodiscovers them via this module
 from saas.jobs.tasks_maintenance import prune_error_events  # noqa: F401 — re-export
 from saas.jobs.tasks_report import generate_report_task  # noqa: F401 — re-export
@@ -33,3 +34,9 @@ def enrich_retry_task(job_id: int, seed_text: str, goal: str) -> dict:
 def cleanup_orphaned_pods() -> dict:
     """Terminate RunPod pods that have no matching RUNNING/PENDING job."""
     return _cleanup_orphaned_pods_impl()
+
+
+@celery_app.task(name="fishcloud.detect_stale_jobs")
+def detect_stale_jobs() -> dict:
+    """Reap jobs stuck in live status past their phase budget."""
+    return _detect_stale_jobs_impl()

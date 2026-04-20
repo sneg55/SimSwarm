@@ -12,6 +12,16 @@ logger = logging.getLogger(__name__)
 
 GRACE_PERIOD_SECONDS = 600  # 10 minutes — pods can take 5+ min to provision on spot
 
+# Extended grace for tag-mismatched pods: when a pod's job_id tag matches a
+# live job but its pod_id is *not* the one the DB currently points at, we
+# most commonly have an orphan from a crashed provision attempt or a
+# bad-host retry (see sim 121 post-mortem, 2026-04-20). Still, we need a
+# defensive window for the j118-style pod_id drift scenario where the DB
+# is wrong and the tagged pod is actually doing the work. 30 min covers
+# all normal provisioning (≤13 min) + vLLM warmup (≤30 min with retries)
+# so a young tag-mismatched pod is almost certainly legitimate.
+TAG_MISMATCH_GRACE_SECONDS = 1800  # 30 minutes
+
 # Pods provisioned by runpod_provider encode the job_id in the name as
 # "fishcloud-sim-j<job_id>". Legacy pods use the plain "fishcloud-sim" /
 # "simswarm-sim" forms without a job suffix.
@@ -80,7 +90,7 @@ def _get_active_job_pod_ids() -> set[str] | None:
             result = conn.execute(
                 text(
                     "SELECT pod_id FROM simulation_jobs "
-                    "WHERE status IN ('PENDING', 'RUNNING', 'PROVISIONING') "
+                    "WHERE status IN ('PENDING', 'RUNNING', 'PROVISIONING', 'REPORTING') "
                     "AND pod_id IS NOT NULL"
                 )
             )
@@ -91,6 +101,30 @@ def _get_active_job_pod_ids() -> set[str] | None:
         return None
 
     return pod_ids
+
+
+def _get_job_pod_id(job_id: int) -> str | None:
+    """Return the DB-recorded pod_id for a job, or None if absent."""
+    from sqlalchemy import create_engine, text
+
+    database_url = os.getenv("DATABASE_URL", "")
+    if not database_url:
+        return None
+    sync_url = database_url.replace("+asyncpg", "").replace(
+        "postgresql://", "postgresql+psycopg2://"
+    )
+    try:
+        engine = create_engine(sync_url)
+        with engine.connect() as conn:
+            row = conn.execute(
+                text("SELECT pod_id FROM simulation_jobs WHERE id = :id"),
+                {"id": job_id},
+            ).first()
+        engine.dispose()
+        return row[0] if row else None
+    except Exception as e:
+        logger.warning("cleanup.pod_id_lookup_error job_id=%d error=%s", job_id, e)
+        return None
 
 
 def cleanup_orphaned_pods() -> dict:
@@ -129,22 +163,35 @@ def cleanup_orphaned_pods() -> dict:
         if pod_id in active_pod_ids:
             continue
 
-        # Defense in depth: if the pod's name encodes a job_id, check the DB
-        # directly. If that job is still live, skip termination — the DB's
-        # simulation_jobs.pod_id must have drifted to a different pod. This
-        # catches the regression that killed job 118 on 2026-04-19, even if
-        # a future bug reintroduces pod_id drift.
+        # Defense in depth against pod_id drift (the j118 incident) AND
+        # tag collisions from crashed provision retries (the j121 incident):
+        #
+        # - pod.id matches DB → already handled above, we skipped termination.
+        # - pod.tag matches live job but pod.id != DB pod_id:
+        #   * Young pod (< TAG_MISMATCH_GRACE_SECONDS): likely mid-provision
+        #     drift (j118 scenario). Protect — defensive.
+        #   * Old pod: the DB's canonical pod is doing the work, this one is
+        #     an orphan from an earlier crashed attempt. Terminate.
         tag_job_id = _extract_job_tag(pod)
         if tag_job_id is not None:
             from saas.jobs.persistence import _get_job_status
             tag_status = _get_job_status(tag_job_id)
             if tag_status in _LIVE_JOB_STATUSES:
+                age = _pod_age_seconds(pod)
+                if age < TAG_MISMATCH_GRACE_SECONDS:
+                    logger.warning(
+                        "cleanup.skipped_tagged_young pod_id=%s tag_job_id=%d "
+                        "status=%s age=%ds (drift safety window)",
+                        pod_id, tag_job_id, tag_status, age,
+                    )
+                    continue
+                canonical_pod = _get_job_pod_id(tag_job_id)
                 logger.warning(
-                    "cleanup.skipped_tagged pod_id=%s tag_job_id=%d status=%s "
-                    "(DB pod_id drift — investigate)",
-                    pod_id, tag_job_id, tag_status,
+                    "cleanup.tagged_orphan pod_id=%s tag_job_id=%d status=%s "
+                    "age=%ds canonical=%s — terminating",
+                    pod_id, tag_job_id, tag_status, age, canonical_pod,
                 )
-                continue
+                # fall through to termination below
 
         uptime = _pod_age_seconds(pod)
         if uptime < GRACE_PERIOD_SECONDS:

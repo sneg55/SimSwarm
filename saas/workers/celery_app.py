@@ -36,6 +36,10 @@ celery_app.conf.update(
             "task": "fishcloud.cleanup_orphaned_pods",
             "schedule": 600.0,  # every 10 minutes
         },
+        "detect-stale-jobs": {
+            "task": "fishcloud.detect_stale_jobs",
+            "schedule": 900.0,  # every 15 minutes
+        },
         "prune-error-events": {
             "task": "fishcloud.prune_error_events",
             "schedule": 86400.0,  # daily
