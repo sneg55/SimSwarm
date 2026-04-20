@@ -46,3 +46,17 @@ class TestSubmitJobPayload:
         await submit_job("http://worker", cfg, client)
         body = client.post.call_args.kwargs["json"]
         assert body["markets_config"] is None
+
+    @pytest.mark.asyncio
+    async def test_timeout_seconds_matches_tier(self):
+        """Body must include the tier-derived timeout so the pod-side
+        subprocess wait aligns with the orchestrator's tier budget
+        (sim 122 was killed at 1 h by a hardcoded pod-side timeout)."""
+        from saas.constants.tiers import TIER_TIMEOUTS
+        client = MagicMock()
+        resp = MagicMock(status_code=200)
+        client.post = AsyncMock(return_value=resp)
+        cfg = _make_config(tier="medium")
+        await submit_job("http://worker", cfg, client)
+        body = client.post.call_args.kwargs["json"]
+        assert body["timeout_seconds"] == TIER_TIMEOUTS["medium"]

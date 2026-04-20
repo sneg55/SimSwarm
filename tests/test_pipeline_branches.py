@@ -77,6 +77,7 @@ async def test_submit_job_success():
         target_agents = 5
         upload_urls = None
         markets_config = None
+        timeout_seconds = 3600
 
     ok = MagicMock()
     ok.status_code = 200
@@ -95,6 +96,7 @@ async def test_submit_job_rejected_json_body():
         target_agents = 5
         upload_urls = None
         markets_config = None
+        timeout_seconds = 3600
 
     resp = MagicMock()
     resp.status_code = 400
@@ -120,6 +122,7 @@ async def test_submit_job_tolerates_already_running():
         target_agents = 5
         upload_urls = None
         markets_config = None
+        timeout_seconds = 3600
 
     resp = MagicMock()
     resp.status_code = 409
@@ -142,6 +145,7 @@ async def test_submit_job_rejected_text_body():
         target_agents = 5
         upload_urls = None
         markets_config = None
+        timeout_seconds = 3600
 
     resp = MagicMock()
     resp.status_code = 500

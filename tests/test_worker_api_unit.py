@@ -133,6 +133,26 @@ class TestWorkerJobEndpoint:
         assert resp.status_code == 200
         assert resp.get_json()["status"] == "accepted"
 
+    def test_job_forwards_timeout_seconds_to_pipeline(self, worker_client):
+        """POST /job must pass timeout_seconds to _run_pipeline so the
+        subprocess.wait ceiling aligns with the caller's tier budget
+        (medium tier = 18000s, not the old hardcoded 3600)."""
+        flask_client, _ = worker_client
+        with patch("threading.Thread") as mock_thread_cls:
+            mock_thread = MagicMock()
+            mock_thread_cls.return_value = mock_thread
+            with patch("pathlib.Path.write_text"):
+                resp = flask_client.post(
+                    "/job",
+                    json={
+                        "seed_text": "s", "goal": "g", "max_rounds": 100,
+                        "timeout_seconds": 18000,
+                    },
+                )
+        assert resp.status_code == 200
+        kwargs = mock_thread_cls.call_args.kwargs
+        assert kwargs["kwargs"]["timeout_seconds"] == 18000
+
 
 # ---------------------------------------------------------------------------
 # /logs

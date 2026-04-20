@@ -84,8 +84,13 @@ def _upload_sim_data(results_dir, upload_urls):
 
 
 def _run_pipeline(seed_text, goal, max_rounds, forecast_days=None, upload_urls=None,
-                  target_agents=5, markets_config=None):
-    """Run SimSwarm pipeline in background, stream output to log file."""
+                  target_agents=5, markets_config=None, timeout_seconds=43200):
+    """Run SimSwarm pipeline in background, stream output to log file.
+
+    `timeout_seconds` must match the caller's tier budget (TIER_TIMEOUTS).
+    Default 43200 (12 h, large-tier cap) is a safety net for orphan pods
+    whose caller forgot to pass one — real callers always supply it.
+    """
     try:
         seed_file = Path("/tmp/seed.txt")
         seed_file.write_text(seed_text)
@@ -115,7 +120,7 @@ def _run_pipeline(seed_text, goal, max_rounds, forecast_days=None, upload_urls=N
                 stderr=subprocess.STDOUT,
                 env={**os.environ},
             )
-            proc.wait(timeout=3600)
+            proc.wait(timeout=timeout_seconds)
 
         log_content = LOG_FILE.read_text()
 
@@ -159,7 +164,7 @@ def _run_pipeline(seed_text, goal, max_rounds, forecast_days=None, upload_urls=N
         proc.kill()
         with _lock:
             _job["status"] = "failed"
-            _job["error"] = "Job timed out after 1 hour"
+            _job["error"] = f"Job timed out after {timeout_seconds}s"
     except Exception as e:
         with _lock:
             _job["status"] = "failed"
@@ -193,7 +198,8 @@ def submit_job():
     forecast_days = data.get("forecast_days")
     upload_urls = data.get("upload_urls")
     target_agents = data.get("target_agents", 5)
-    markets_config = data.get("markets_config")  # NEW
+    markets_config = data.get("markets_config")
+    timeout_seconds = data.get("timeout_seconds", 43200)
 
     with _lock:
         if _job["status"] == "running":
@@ -206,7 +212,16 @@ def submit_job():
 
     thread = threading.Thread(
         target=_run_pipeline,
-        args=(seed_text, goal, max_rounds, forecast_days, upload_urls, target_agents, markets_config),
+        kwargs={
+            "seed_text": seed_text,
+            "goal": goal,
+            "max_rounds": max_rounds,
+            "forecast_days": forecast_days,
+            "upload_urls": upload_urls,
+            "target_agents": target_agents,
+            "markets_config": markets_config,
+            "timeout_seconds": timeout_seconds,
+        },
         daemon=True,
     )
     thread.start()
