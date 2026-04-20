@@ -49,7 +49,7 @@ def test_run_simulation_emits_round_markers(capsys):
         def __init__(self, *a, **kw):
             pass
 
-        async def run(self, config, on_progress=None):
+        async def run(self, config, on_progress=None, on_round=None):
             if on_progress:
                 for r in range(1, config.rounds + 1):
                     await on_progress(r, config.rounds, {})

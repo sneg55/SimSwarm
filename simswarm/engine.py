@@ -33,6 +33,7 @@ from simswarm.types import (
 logger = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[int, int, dict[str, Any]], Awaitable[None]]
+RoundCallback = Callable[[int, list[ActionRecord]], Awaitable[None]]
 
 
 class Engine:
@@ -50,6 +51,7 @@ class Engine:
         self,
         config: SimulationConfig,
         on_progress: ProgressCallback | None = None,
+        on_round: RoundCallback | None = None,
     ) -> SimulationResult:
         environments = self._create_environments(config.environments)
         agents = self._create_agents(config.entities, list(environments.keys()))
@@ -149,6 +151,8 @@ class Engine:
                 metrics={"actions": len([r for rs in results for r in rs])},
             ))
 
+            if on_round:
+                await on_round(round_num, chat_log)
             if on_progress:
                 await on_progress(round_num, config.rounds, snapshots[-1].metrics)
 

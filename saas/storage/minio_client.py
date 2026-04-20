@@ -19,7 +19,7 @@ SIM_DATA_FILES = [
     "relations.json",  # LLM-extracted typed graph edges; useful for post-mortems
 ]
 
-UPLOAD_EXPIRY = timedelta(hours=2)
+UPLOAD_EXPIRY = timedelta(hours=14)
 DOWNLOAD_EXPIRY = timedelta(hours=1)
 
 
