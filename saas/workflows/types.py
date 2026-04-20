@@ -5,7 +5,7 @@ Zero Temporal imports — this module is safe to import from both the workflow
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 

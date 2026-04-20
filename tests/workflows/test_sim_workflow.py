@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import uuid
-from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from temporalio.worker import Worker
@@ -34,15 +33,18 @@ async def test_workflow_happy_path(temporal_env):
 
     @activity.defn(name="fishcloud.enrich_seed")
     async def _enrich(a, b, c):
-        call_log.append("enrich_seed"); return a
+        call_log.append("enrich_seed")
+        return a
 
     @activity.defn(name="fishcloud.derive_markets")
     async def _markets(a, b, c, d):
-        call_log.append("derive_markets"); return [{"name": "M1"}]
+        call_log.append("derive_markets")
+        return [{"name": "M1"}]
 
     @activity.defn(name="fishcloud.provision_pod")
     async def _provision(a, b):
-        call_log.append("provision_pod"); return PodInfo(id="pod-test")
+        call_log.append("provision_pod")
+        return PodInfo(id="pod-test")
 
     @activity.defn(name="fishcloud.wait_for_worker_health")
     async def _health(a):
@@ -104,19 +106,36 @@ async def test_workflow_refunds_when_pipeline_fails(temporal_env):
     call_log: list[str] = []
 
     @activity.defn(name="fishcloud.enrich_seed")
-    async def _e(a, b, c): call_log.append("enrich"); return a
+    async def _e(a, b, c):
+        call_log.append("enrich")
+        return a
+
     @activity.defn(name="fishcloud.derive_markets")
-    async def _m(a, b, c, d): call_log.append("markets"); return []
+    async def _m(a, b, c, d):
+        call_log.append("markets")
+        return []
+
     @activity.defn(name="fishcloud.provision_pod")
-    async def _p(a, b): call_log.append("provision"); return PodInfo(id="pod-x")
+    async def _p(a, b):
+        call_log.append("provision")
+        return PodInfo(id="pod-x")
+
     @activity.defn(name="fishcloud.wait_for_worker_health")
-    async def _h(a): call_log.append("health")
+    async def _h(a):
+        call_log.append("health")
+
     @activity.defn(name="fishcloud.submit_and_poll")
-    async def _s(a, b, c): call_log.append("submit"); raise RuntimeError("pipeline boom")
+    async def _s(a, b, c):
+        call_log.append("submit")
+        raise RuntimeError("pipeline boom")
+
     @activity.defn(name="fishcloud.upload_and_finalize")
-    async def _u(a, b, c): call_log.append("upload")
+    async def _u(a, b, c):
+        call_log.append("upload")
+
     @activity.defn(name="fishcloud.terminate_pod")
-    async def _t(a): call_log.append("terminate")
+    async def _t(a):
+        call_log.append("terminate")
     @activity.defn(name="fishcloud.refund_credits")
     async def _r(a, b, c, d): call_log.append("refund")
 

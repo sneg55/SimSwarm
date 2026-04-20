@@ -1,7 +1,6 @@
 """Shared fixtures for workflow tests: time-skipping Temporal environment."""
 from __future__ import annotations
 
-import pytest
 import pytest_asyncio
 from temporalio.testing import WorkflowEnvironment
 

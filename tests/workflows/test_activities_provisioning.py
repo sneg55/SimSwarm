@@ -55,7 +55,6 @@ async def test_provision_pod_creates_new_when_no_existing():
     call_kwargs = fake_provider.provision.call_args.kwargs
     assert "on_created" in call_kwargs
     # trigger the on_created callback manually to verify it writes to DB
-    import asyncio
     await call_kwargs["on_created"]("pod-new")
     mock_update_pod.assert_called_with(5, "pod-new")
 

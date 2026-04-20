@@ -1,7 +1,6 @@
 """Coverage for Celery task branches: enrichment and cleanup."""
 from unittest.mock import patch
 
-import pytest
 
 
 def test_enrich_retry_task_succeeds():

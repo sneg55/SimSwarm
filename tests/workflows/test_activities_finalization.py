@@ -1,7 +1,7 @@
 """Tests for finalization activities (upload_and_finalize, refund_credits)."""
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 

@@ -1,6 +1,5 @@
 from unittest.mock import patch
 
-import pytest
 
 
 def test_generate_report_task_skips_terminal_job():
