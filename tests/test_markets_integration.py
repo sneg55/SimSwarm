@@ -39,7 +39,7 @@ class TestMarketsEndToEnd:
 
         class FakeEngine:
             def __init__(self, **kw): pass
-            async def run(self, config, on_progress=None):
+            async def run(self, config, on_progress=None, on_round=None):
                 market_ec = next(ec for ec in config.environments if ec.type == "market")
                 captured["market_params"] = market_ec.params
                 class R:

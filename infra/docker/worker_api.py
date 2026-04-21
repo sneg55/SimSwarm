@@ -274,13 +274,15 @@ def logs():
 
 @app.route("/partial_chat", methods=["GET"])
 def partial_chat():
-    """Return the last N chat messages from the in-progress pipeline.
+    """Return the last N chat messages produced so far by the sim.
 
-    Reads /tmp/results/chat_log.json which run_job_v2.py writes incrementally.
-    Returns [] gracefully if the file doesn't exist or is mid-write (partial JSON).
+    Engine writes chat_log.json.partial each round; write_results() replaces
+    it with chat_log.json at the end. Prefer final, fall back to partial.
     """
     tail = request.args.get("tail", 20, type=int)
-    path = Path("/tmp/results/chat_log.json")
+    final = Path("/tmp/results/chat_log.json")
+    partial = Path("/tmp/results/chat_log.json.partial")
+    path = final if final.exists() else partial
     if not path.exists():
         return jsonify({"messages": []})
     try:

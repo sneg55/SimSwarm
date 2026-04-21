@@ -69,7 +69,7 @@ def run_pipeline(
     result = asyncio.run(
         run_simulation(
             seed_text, goal, max_rounds, entities, target_agents,
-            markets_config=markets_config,
+            markets_config=markets_config, output_dir=output_dir,
         )
     )
     print(

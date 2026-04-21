@@ -1,6 +1,23 @@
+from datetime import timedelta
 from unittest.mock import MagicMock
 
-from saas.storage.minio_client import SimDataStorage, SIM_DATA_FILES
+from saas.constants.tiers import TIER_TIMEOUTS
+from saas.storage.minio_client import SimDataStorage, SIM_DATA_FILES, UPLOAD_EXPIRY
+
+
+def test_upload_expiry_covers_largest_tier():
+    """Presigned upload URLs must outlive the longest possible sim.
+
+    Sim 123 (medium tier, 5 h) completed at ~4 h 53 m and every upload was
+    rejected because the 2 h expiry had already lapsed. URLs are minted at
+    sim-creation time and the pod PUTs right after the pipeline ends, so the
+    window has to cover tier timeout + provisioning + some slack.
+    """
+    max_tier_s = max(TIER_TIMEOUTS.values())
+    assert UPLOAD_EXPIRY >= timedelta(seconds=max_tier_s + 3600), (
+        f"UPLOAD_EXPIRY={UPLOAD_EXPIRY} is too short for largest tier "
+        f"({max_tier_s}s) plus a 1 h safety buffer."
+    )
 
 
 def test_sim_data_files_list():

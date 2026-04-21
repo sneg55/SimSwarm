@@ -87,6 +87,28 @@ class TestProgressCallback:
         await engine.run(config, on_progress=on_progress)
         assert progress_calls == [1, 2, 3]
 
+    @pytest.mark.asyncio
+    async def test_on_round_sees_growing_chat_log(self):
+        """on_round fires after each round with the full accumulated chat log,
+        so the pod can stream partial chat to the live UI during the run."""
+        mock_llm = AsyncMock(spec=LLMClient)
+        mock_llm.chat.return_value = _mock_llm_response("do_nothing")
+        snapshots = []
+
+        async def on_round(round_num, chat_log):
+            snapshots.append((round_num, len(chat_log)))
+
+        engine = Engine(
+            fast_llm=mock_llm,
+            smart_llm=mock_llm,
+            engine_config=EngineConfig(concurrency=4),
+        )
+        config = _make_config(rounds=3)
+        await engine.run(config, on_round=on_round)
+        assert [s[0] for s in snapshots] == [1, 2, 3]
+        # chat_log grows monotonically
+        assert snapshots[0][1] < snapshots[-1][1]
+
 
 class TestAgentGeneration:
     @pytest.mark.asyncio

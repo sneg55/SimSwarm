@@ -67,6 +67,7 @@ async def run_simulation(
     entities: list[Entity],
     target_agents: int,
     markets_config: list[dict] | None = None,
+    output_dir: str = "/tmp/results",
 ) -> SimulationResult:
     """Build Engine from env-var LLM config, run a full simulation."""
     fast_llm = LLMClient(base_url=_VLLM_URL, model=_FAST_MODEL, api_key=_LLM_API_KEY)
@@ -102,8 +103,27 @@ async def run_simulation(
     async def _on_progress(round_num: int, total: int, _metrics: dict) -> None:
         print(f"round={round_num}/{total}", flush=True)
 
+    # Write the growing chat log to a sidecar file after each round so the
+    # worker pod's /partial_chat endpoint can stream live agent dialogue to
+    # the frontend while the sim is still running.
+    partial_chat_path = Path(output_dir) / "chat_log.json.partial"
+
+    async def _on_round(round_num: int, chat_log: list) -> None:
+        try:
+            partial_chat_path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = partial_chat_path.with_suffix(".partial.tmp")
+            tmp.write_text(
+                json.dumps(adapt_chat_log(chat_log), ensure_ascii=False, default=str),
+                encoding="utf-8",
+            )
+            tmp.replace(partial_chat_path)
+        except Exception as exc:
+            print(f"[runner] partial chat write failed: {exc}", flush=True)
+
     try:
-        result = await engine.run(config, on_progress=_on_progress)
+        result = await engine.run(
+            config, on_progress=_on_progress, on_round=_on_round,
+        )
         # Enrich the graph with LLM-extracted typed relations (DISAGREES_WITH,
         # SUPPORTS, RESPONDS_TO, …). This is the post-cutover replacement for
         # the Graphiti knowledge-graph edges. On failure we keep the
