@@ -4,6 +4,7 @@ Direct aiohttp calls — no SDK, no framework.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from dataclasses import dataclass, field
@@ -14,6 +15,18 @@ import aiohttp
 from simswarm.types import Agent, Observation
 
 logger = logging.getLogger(__name__)
+
+# Transient network errors we retry past. vLLM occasionally drops the
+# connection mid-request (worker restart, network jitter); a single drop
+# should never kill the whole sim.
+_RETRYABLE = (
+    aiohttp.ServerDisconnectedError,
+    aiohttp.ServerTimeoutError,
+    aiohttp.ClientConnectionError,
+    asyncio.TimeoutError,
+)
+_CHAT_MAX_ATTEMPTS = 3
+_CHAT_INITIAL_BACKOFF_S = 1.0
 
 
 @dataclass
@@ -105,8 +118,26 @@ class LLMClient:
         url = f"{self.base_url}/chat/completions"
         headers = {"Authorization": f"Bearer {self.api_key}"}
 
-        resp = await session.post(url, json=payload, headers=headers)
-        data = await resp.json()
+        last_exc: Exception | None = None
+        for attempt in range(1, _CHAT_MAX_ATTEMPTS + 1):
+            try:
+                resp = await session.post(url, json=payload, headers=headers)
+                data = await resp.json()
+                break
+            except _RETRYABLE as exc:
+                last_exc = exc
+                if attempt == _CHAT_MAX_ATTEMPTS:
+                    raise
+                backoff = _CHAT_INITIAL_BACKOFF_S * (2 ** (attempt - 1))
+                logger.warning(
+                    "llm.chat transient error attempt=%d/%d: %s — "
+                    "retrying in %.1fs",
+                    attempt, _CHAT_MAX_ATTEMPTS, type(exc).__name__, backoff,
+                )
+                await asyncio.sleep(backoff)
+                session = await self._ensure_session()
+        else:  # pragma: no cover — unreachable, the for always breaks or raises
+            raise last_exc  # type: ignore[misc]
 
         message = data.get("choices", [{}])[0].get("message", {})
         return LLMResponse(

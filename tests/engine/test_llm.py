@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 from unittest.mock import AsyncMock
 
+import aiohttp
 import pytest
 
 from simswarm.llm import LLMClient, build_context, parse_tool_calls
@@ -128,6 +129,50 @@ class TestLLMClient:
         payload = call_kwargs.kwargs.get("json") or call_kwargs[1].get("json")
         assert payload["model"] == "test-model"
         assert payload["messages"][0]["content"] == "Hi"
+
+    @pytest.mark.asyncio
+    async def test_chat_retries_on_server_disconnected(self, monkeypatch):
+        """vLLM occasionally drops the connection mid-request. A single
+        ServerDisconnectedError must not kill the whole sim — sim 126 lost
+        90 credits at round 75 because chat had no retry and one drop
+        propagated all the way up through engine.run.
+        """
+        # Mock no-op sleep so the test doesn't block on backoff.
+        import asyncio
+        monkeypatch.setattr(asyncio, "sleep", AsyncMock())
+        mock_session = AsyncMock()
+        ok = AsyncMock()
+        ok.status = 200
+        ok.json = AsyncMock(return_value={
+            "choices": [{"message": {"content": "recovered"}}]
+        })
+        ok.__aenter__ = AsyncMock(return_value=ok)
+        ok.__aexit__ = AsyncMock(return_value=False)
+        drop = aiohttp.ServerDisconnectedError()
+        mock_session.post = AsyncMock(side_effect=[drop, ok])
+
+        client = LLMClient(base_url="http://localhost:8000/v1", model="m")
+        client.session = mock_session
+        result = await client.chat([{"role": "user", "content": "Hi"}])
+        assert result.content == "recovered"
+        assert mock_session.post.call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_chat_gives_up_after_max_retries(self, monkeypatch):
+        """A genuinely dead endpoint should surface after a bounded number
+        of attempts rather than hang forever."""
+        import asyncio
+        monkeypatch.setattr(asyncio, "sleep", AsyncMock())
+        mock_session = AsyncMock()
+        mock_session.post = AsyncMock(
+            side_effect=aiohttp.ServerDisconnectedError(),
+        )
+        client = LLMClient(base_url="http://localhost:8000/v1", model="m")
+        client.session = mock_session
+        with pytest.raises(aiohttp.ServerDisconnectedError):
+            await client.chat([{"role": "user", "content": "Hi"}])
+        # At least 3 attempts before giving up — catches a single transient.
+        assert mock_session.post.call_count >= 3
 
     @pytest.mark.asyncio
     async def test_chat_passes_tools_when_provided(self):
