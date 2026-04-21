@@ -80,23 +80,29 @@ class SimulationWorkflow:
                     ),
                 )
                 try:
+                    # maximum_attempts=1 because any failure means the pod is
+                    # unusable — retrying health polling on the same dead pod
+                    # only wastes another 15 min. The bad-host retry below
+                    # swaps in a fresh pod instead.
                     await workflow.execute_activity(
                         "fishcloud.wait_for_worker_health",
                         args=[pod.id],
                         start_to_close_timeout=timedelta(minutes=15),
                         heartbeat_timeout=timedelta(seconds=30),
-                        retry_policy=RetryPolicy(maximum_attempts=2),
+                        retry_policy=RetryPolicy(maximum_attempts=1),
                     )
                     break  # healthy — leave the bad-host retry loop
-                except Exception as wait_err:
-                    # ApplicationError("vLLM failed to start ...") surfaces
-                    # here wrapped in ActivityError; check the whole chain.
-                    err_chain = str(wait_err)
-                    cause = getattr(wait_err, "cause", None)
-                    if cause is not None:
-                        err_chain += " | " + str(cause)
-                    is_bad_host = "vLLM failed to start" in err_chain
-                    if is_bad_host and bad_host_attempt < BAD_HOST_MAX_RETRIES:
+                except Exception:
+                    # Any failure — activity timeout, non_retryable vLLM
+                    # marker, or a silent host where Flask never came up —
+                    # means the pod is unusable. While we still have a
+                    # bad-host retry budget, swap pods. Previously we only
+                    # retried on the "vLLM failed to start" marker, which
+                    # missed silent hosts (sim 125: Flask never served, so
+                    # the /logs probe that produces that marker was also
+                    # 502) and burned the full health-wait budget before
+                    # failing.
+                    if bad_host_attempt < BAD_HOST_MAX_RETRIES:
                         workflow.logger.warning(
                             "workflow.bad_host.retrying pod_id=%s attempt=%d",
                             pod.id, bad_host_attempt + 1,
