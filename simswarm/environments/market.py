@@ -215,8 +215,15 @@ class MarketEnvironment:
 
     def _handle_buy(self, agent: Agent, args: dict) -> ActionResult:
         market_id = args.get("market_id", "")
-        outcome = args.get("outcome", "yes")
+        outcome = str(args.get("outcome", "yes")).strip().lower()
         amount = args.get("amount", 0.0)
+        if outcome not in ("yes", "no"):
+            return ActionResult(
+                success=False,
+                data={"error": f"Invalid outcome: {outcome!r} (expected 'yes' or 'no')"},
+            )
+        if amount <= 0:
+            return ActionResult(success=False, data={"error": "amount must be positive"})
         if market_id not in self.markets:
             return ActionResult(success=False, data={"error": "Market not found"})
         portfolio = self.portfolios[agent.id]
@@ -243,8 +250,15 @@ class MarketEnvironment:
 
     def _handle_sell(self, agent: Agent, args: dict) -> ActionResult:
         market_id = args.get("market_id", "")
-        outcome = args.get("outcome", "yes")
+        outcome = str(args.get("outcome", "yes")).strip().lower()
         shares = args.get("shares", 0.0)
+        if outcome not in ("yes", "no"):
+            return ActionResult(
+                success=False,
+                data={"error": f"Invalid outcome: {outcome!r} (expected 'yes' or 'no')"},
+            )
+        if shares <= 0:
+            return ActionResult(success=False, data={"error": "shares must be positive"})
         if market_id not in self.markets:
             return ActionResult(success=False, data={"error": "Market not found"})
         portfolio = self.portfolios[agent.id]
