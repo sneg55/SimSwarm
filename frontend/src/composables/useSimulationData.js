@@ -15,16 +15,35 @@ export function useSimulationData(job) {
       .map(entry => {
         if (entry.content && entry.role) return entry
         const args = entry.action_args || {}
-        const body = args.text ?? args.content ?? entry.content
+        const body = args.text ?? args.content ?? entry.content ?? formatAction(entry.action_type, args)
         return {
           role: 'assistant',
           agent: entry.agent_name || entry.agent || 'Agent',
-          content: body ?? JSON.stringify(args),
+          content: body,
           timestamp: entry.timestamp || null,
         }
       })
       .filter(m => m.content)
   })
+
+  function formatAction(type, args) {
+    if (!type) return ''
+    const mid = args.market_id
+    const outcome = (args.outcome || '').toUpperCase()
+    const marketLabel = mid ? `"${mid.replace(/_/g, ' ')}"` : 'market'
+    if (type === 'buy_shares') {
+      const amount = args.amount != null ? `$${args.amount}` : 'shares'
+      return `Bought ${amount} of ${outcome || '—'} on ${marketLabel}`
+    }
+    if (type === 'sell_shares') {
+      const shares = args.shares != null ? `${args.shares} shares` : 'shares'
+      return `Sold ${shares} of ${outcome || '—'} on ${marketLabel}`
+    }
+    if (type === 'browse_markets') return 'Browsed markets'
+    if (type === 'comment_on_market') return args.text || `Commented on ${marketLabel}`
+    if (type === 'do_nothing') return ''
+    return ''
+  }
 
   const structured = computed(() => {
     const raw = job.value?.result_structured ?? job.value?.structured ?? null
