@@ -71,6 +71,7 @@ class JobResponse(BaseModel):
     enriched_seed: str | None = None
     enrichment_citations: str | None = None
     enrich_web: bool = True
+    forecast_days: int | None = None
     sim_data_available: bool = False
     live_status: dict | None = None
     markets_config: list[dict] | None = None
