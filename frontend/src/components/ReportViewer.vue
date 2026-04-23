@@ -17,9 +17,15 @@ const props = defineProps({
   content: { type: String, default: '' },
 })
 
+// The report generator uses `### slot=<name> — <title>` as a parse sentinel
+// for the Story view's FindingSlotCard extraction (saas/jobs/report.py).
+// It isn't meant to surface here — strip it to keep the H3 clean.
+const SLOT_SENTINEL = /^(#{1,6}\s+)slot=[\w-]+\s*[—–-]\s*/gm
+
 const safeHtml = computed(() => {
   if (!props.content) return ''
-  const rawHtml = md.render(props.content)
+  const cleaned = props.content.replace(SLOT_SENTINEL, '$1')
+  const rawHtml = md.render(cleaned)
   return DOMPurify.sanitize(rawHtml, {
     ALLOWED_TAGS: ['h1','h2','h3','h4','p','strong','em','code','pre','ul','ol','li','a','blockquote','br','table','thead','tbody','tr','th','td'],
     ALLOWED_ATTR: ['href','target','rel'],

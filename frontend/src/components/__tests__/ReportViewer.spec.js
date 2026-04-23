@@ -25,4 +25,15 @@ describe('ReportViewer', () => {
     })
     expect(wrapper.html()).toContain('report-prose')
   })
+
+  it('strips slot=... sentinel from headings', () => {
+    const wrapper = mount(ReportViewer, {
+      props: {
+        content: '### slot=turning_point — Sentiment collapse\n\nBody.',
+      },
+    })
+    const html = wrapper.html()
+    expect(html).not.toContain('slot=')
+    expect(html).toContain('Sentiment collapse')
+  })
 })
