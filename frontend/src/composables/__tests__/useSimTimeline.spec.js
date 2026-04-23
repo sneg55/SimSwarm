@@ -112,3 +112,24 @@ describe('useSimTimeline — finding moments', () => {
     expect(t.moments.filter(m => m.type === 'finding')).toEqual([])
   })
 })
+
+describe('useSimTimeline — post moments', () => {
+  it('keeps top-engagement post per round, above floor', () => {
+    const t = useSimTimeline({
+      startedAt: START, forecastDays: 10, roundCount: 3,
+      structured: {},
+      marketCurves: [],
+      topPosts: [
+        { round_num: 1, agent_name: 'A', text: 'low',  engagement: 0 },
+        { round_num: 2, agent_name: 'B', text: 'mid',  engagement: 3 },
+        { round_num: 2, agent_name: 'C', text: 'high', engagement: 7 },
+        { round_num: 3, agent_name: 'D', text: 'only', engagement: 2 },
+      ],
+      agentTrajectories: [],
+    })
+    const posts = t.moments.filter(m => m.type === 'post')
+    expect(posts).toHaveLength(2)
+    expect(posts[0].roundIndex).toBe(1); expect(posts[0].title).toContain('C')
+    expect(posts[1].roundIndex).toBe(2); expect(posts[1].title).toContain('D')
+  })
+})
