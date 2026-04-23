@@ -22,7 +22,11 @@
     <template v-else>
       <!-- ── Story View ── -->
       <div v-if="viewMode === 'story'" class="relative pt-[120px] pb-24">
-        <ReportToc :items="storySections" />
+        <StoryTimeline
+          :sections="storySections"
+          :moments="timeline.moments"
+          :roundCount="timeline.roundDates.length"
+        />
 
         <div class="max-w-[820px] mx-auto px-6 space-y-6">
           <!-- Meta row -->
@@ -45,6 +49,15 @@
             />
           </div>
 
+          <StoryTimelineBand
+            v-if="timeline.start"
+            :start="timeline.start"
+            :end="timeline.end"
+            :roundCount="timeline.roundDates.length"
+            :moments="timeline.moments"
+            @select="onTimelineSelect"
+          />
+
           <!-- What the simulation surfaced -->
           <div v-if="structured?.findings?.length" id="story-findings">
             <div class="font-mono text-[10px] text-mist-slate uppercase tracking-wider mb-4 pl-1">What the simulation surfaced</div>
@@ -52,6 +65,7 @@
               <FindingSlotCard
                 v-for="(f, i) in structured.findings"
                 :key="i"
+                :id="`story-finding-${i}`"
                 :slot-name="f.slot"
                 :title="f.title"
                 :body="f.body"
@@ -155,6 +169,10 @@ import { useSimulationData } from '../composables/useSimulationData.js'
 import { useResultsExport } from '../composables/useResultsExport.js'
 import { getJob, getJobGraph } from '../api/jobs.js'
 import DataDashboard from '../components/data/DataDashboard.vue'
+import { useSimTimeline } from '../composables/useSimTimeline.js'
+import { useTimelineSimData, computeRoundCount, scrollToMoment } from '../composables/useTimelineSimData.js'
+import StoryTimelineBand from '../components/results/StoryTimelineBand.vue'
+import StoryTimeline from '../components/results/StoryTimeline.vue'
 
 const route = useRoute()
 const jobId = route.params.id
@@ -173,6 +191,8 @@ const hasGraph = ref(false)
 
 const simDataAvailable = ref(false)
 
+const { marketCurves, topPosts, agentTrajectories } = useTimelineSimData(job)
+
 // ── Computed ──────────────────────────────────────────────────────────────────
 
 const {
@@ -188,6 +208,18 @@ const {
   buildNodeRelationships,
 } = useSimulationData(job)
 const { pdfLoading, shareStatus, handleExport, handleShare } = useResultsExport(jobId, job, chatMessages, graphVizRef)
+
+const timeline = computed(() => useSimTimeline({
+  startedAt: job.value?.created_at,
+  forecastDays: job.value?.forecast_days,
+  roundCount: computeRoundCount(marketCurves.value, agentTrajectories.value),
+  structured: structured.value,
+  marketCurves: marketCurves.value,
+  topPosts: topPosts.value,
+  agentTrajectories: agentTrajectories.value,
+}))
+
+const onTimelineSelect = (id) => scrollToMoment(timeline.value.moments, id)
 
 const storySections = computed(() => [
   { id: 'story-hero', label: 'Question & answer' },
