@@ -51,7 +51,8 @@ def extract_top_posts(chat_log: list[ActionRecord], limit: int = 20) -> list[dic
         if not is_post(record.action_type):
             continue
         args = record.action_args or {}
-        explicit = args.get("post_id") or args.get("id")
+        result = record.action_result or {}
+        explicit = result.get("post_id") or args.get("post_id") or args.get("id")
         pid = str(explicit) if explicit else f"{record.agent_id}-r{record.round_num}-{synth_counter}"
         synth_counter += 1
         ids_by_post[id(record)] = pid

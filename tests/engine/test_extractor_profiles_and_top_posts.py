@@ -93,6 +93,36 @@ class TestExtractTopPosts:
         result = extract_top_posts(log)
         assert result[0]["post_id"]  # non-empty
 
+    def test_post_id_from_action_result(self):
+        """Social env assigns post_id in ActionResult.data, not action_args.
+        Votes/replies reference that UUID — the extractor must match them.
+        """
+        uuid_pid = "11111111-2222-3333-4444-555555555555"
+        post = ActionRecord(
+            round_num=1, agent_id="alice", agent_name="Alice",
+            action_type="create_post", platform="twitter",
+            action_args={"text": "claim"},
+            action_result={"post_id": uuid_pid},
+            timestamp="t", success=True,
+        )
+        vote = ActionRecord(
+            round_num=2, agent_id="bob", agent_name="Bob",
+            action_type="vote", platform="twitter",
+            action_args={"post_id": uuid_pid, "value": 1},
+            timestamp="t", success=True,
+        )
+        reply = ActionRecord(
+            round_num=2, agent_id="carol", agent_name="Carol",
+            action_type="reply", platform="twitter",
+            action_args={"post_id": uuid_pid, "text": "agreed"},
+            action_result={"post_id": "other-uuid"},
+            timestamp="t", success=True,
+        )
+        top = extract_top_posts([post, vote, reply])
+        parent = next(p for p in top if p["post_id"] == uuid_pid)
+        assert parent["num_likes"] == 1
+        assert parent["num_shares"] == 1  # reply counted as share
+
     def test_top_posts_tallies_dislikes(self):
         """Vote actions with value=-1 increment num_dislikes on the target post."""
         post = ActionRecord(
