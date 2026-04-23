@@ -170,6 +170,56 @@ describe('useSimTimeline — coalition moments', () => {
   })
 })
 
+describe('useSimTimeline — real extractor shapes', () => {
+  it('derives plurality stance from sentiment when stance field is missing', () => {
+    const t = useSimTimeline({
+      startedAt: START, forecastDays: 10, roundCount: 3,
+      structured: {}, marketCurves: [], topPosts: [],
+      agentTrajectories: [
+        { agent_id: 'a', name: 'A', rounds: [
+          { round: 1, sentiment: 0.2 },   // pro
+          { round: 2, sentiment: -0.2 },  // con
+          { round: 3, sentiment: -0.2 },  // con
+        ]},
+        { agent_id: 'b', name: 'B', rounds: [
+          { round: 1, sentiment: 0.1 },   // pro
+          { round: 2, sentiment: 0.1 },   // pro (majority still pro)
+          { round: 3, sentiment: -0.1 },  // con (flip to con)
+        ]},
+      ],
+    })
+    const shifts = t.moments.filter(m => m.type === 'coalition')
+    expect(shifts.map(s => s.roundIndex)).toEqual([2])  // round 3, 0-indexed
+  })
+
+  it('reads post body from content when text is missing', () => {
+    const t = useSimTimeline({
+      startedAt: START, forecastDays: 10, roundCount: 2,
+      structured: {}, marketCurves: [], agentTrajectories: [],
+      topPosts: [
+        { round_num: 1, agent_name: 'A', content: 'hello world', engagement: 5 },
+      ],
+    })
+    const posts = t.moments.filter(m => m.type === 'post')
+    expect(posts).toHaveLength(1)
+    expect(posts[0].detail).toBe('hello world')
+  })
+
+  it('skips sentiment within ±0.05 as neutral', () => {
+    const t = useSimTimeline({
+      startedAt: START, forecastDays: 10, roundCount: 2,
+      structured: {}, marketCurves: [], topPosts: [],
+      agentTrajectories: [
+        { agent_id: 'a', name: 'A', rounds: [
+          { round: 1, sentiment: 0.03 },
+          { round: 2, sentiment: -0.03 },
+        ]},
+      ],
+    })
+    expect(t.moments.filter(m => m.type === 'coalition')).toEqual([])
+  })
+})
+
 describe('clusterMoments', () => {
   it('groups moments within the threshold and leaves others alone', () => {
     const moments = [

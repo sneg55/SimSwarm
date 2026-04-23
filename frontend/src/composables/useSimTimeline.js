@@ -7,10 +7,19 @@
 function pluralityStance(round, trajectories) {
   const counts = {}
   for (const a of trajectories) {
-    const entry = (a.stance_per_round || []).find(e => e.round_num === round)
-    const s = entry?.stance
-    if (!s || s === 'neutral' || s === 'unknown') continue
-    counts[s] = (counts[s] || 0) + 1
+    const rounds = a.rounds || a.stance_per_round || []
+    const entry = rounds.find(e => (e.round ?? e.round_num) === round)
+    if (!entry) continue
+    let stance = entry.stance
+    if (!stance) {
+      const s = Number(entry.sentiment)
+      if (!Number.isFinite(s)) continue
+      if (s > 0.05) stance = 'pro'
+      else if (s < -0.05) stance = 'con'
+      else continue
+    }
+    if (stance === 'neutral' || stance === 'unknown') continue
+    counts[stance] = (counts[stance] || 0) + 1
   }
   let best = null, bestCount = 0
   for (const [s, c] of Object.entries(counts)) {
@@ -68,6 +77,7 @@ export function useSimTimeline({
     }
   }
   const THRESHOLD = 0.15
+  // NOTE: market_curves.json is not produced by the extractor today; this runs against synthetic input in tests.
   for (const market of marketCurves || []) {
     const pts = Array.isArray(market?.points) ? market.points : []
     if (pts.length < 2) continue
@@ -120,7 +130,7 @@ export function useSimTimeline({
       roundIndex,
       date: roundDates[roundIndex],
       title: `${p.agent_name}`,
-      detail: (p.text || '').slice(0, 120),
+      detail: (p.content || p.text || '').slice(0, 120),
       refId: null,
     })
   }

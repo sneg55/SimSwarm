@@ -66,7 +66,7 @@ export function computeRoundCount(mc, at) {
   )
   const fromAgents = Math.max(
     0,
-    ...((at || []).flatMap(a => (a.stance_per_round || []).map(s => s.round_num || 0))),
+    ...((at || []).flatMap(a => (a.rounds || a.stance_per_round || []).map(r => r.round ?? r.round_num ?? 0))),
   )
   return Math.max(fromMarkets, fromAgents)
 }
