@@ -5,7 +5,7 @@
       <div v-for="(profile, i) in profiles" :key="i"
         class="bg-ocean-abyss border border-mist-depth rounded-xl p-3">
         <div class="text-sm font-medium text-mist-foam truncate">{{ profile.name || profile.user_name || 'Agent' }}</div>
-        <div v-if="profile.persona || profile.bio" class="text-[11px] text-mist-slate mt-1 line-clamp-3">
+        <div v-if="profile.persona || profile.bio" class="text-[11px] text-mist-slate mt-1 break-words">
           {{ profile.persona || profile.bio }}
         </div>
         <div class="flex gap-2 mt-2 text-[10px] text-mist-slate">

@@ -6,7 +6,7 @@
         <InfoTooltip copyKey="marketCurveCompact.currentYes"><span class="text-green-400">{{ currentYes }}%</span> YES</InfoTooltip>
       </div>
     </div>
-    <div class="text-sm text-mist mb-3 line-clamp-2">{{ market.question }}</div>
+    <div class="text-sm text-mist mb-3 break-words">{{ market.question }}</div>
     <svg :viewBox="`0 0 ${W} ${H}`" class="w-full">
       <template v-if="(market?.points || []).length > 1">
         <path :d="yesPath" fill="none" stroke="#4ADE80" stroke-width="2" />
