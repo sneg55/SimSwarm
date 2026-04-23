@@ -16,7 +16,7 @@ RUN pip freeze > /tmp/vllm-freeze.txt
 # Don't use --ignore-installed for ML libs — reuse vLLM's torch/numpy (saves 2GB disk).
 RUN pip install --no-cache-dir --ignore-installed \
         flask flask-cors requests neo4j openai aiohttp jinja2 && \
-    pip install --no-cache-dir pandas scikit-learn
+    pip install --no-cache-dir pandas scikit-learn "vaderSentiment==3.3.2"
 
 # Restore vLLM's critical pins — some worker deps may upgrade numpy/starlette
 # which breaks vLLM. transformers is intentionally excluded from restore —
@@ -46,7 +46,8 @@ RUN python3 -c "import vllm; print(f'vLLM {vllm.__version__}')" && \
     python3 -c "from transformers import AutoConfig; AutoConfig.from_pretrained('Qwen/Qwen3-14B', trust_remote_code=True); print('Qwen3-14B config OK')" && \
     python3 -c "import flask; print('Flask OK')" && \
     python3 -c "import neo4j; print('neo4j OK')" && \
-    python3 -c "import openai; print('openai OK')"
+    python3 -c "import openai; print('openai OK')" && \
+    python3 -c "from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer; SentimentIntensityAnalyzer(); print('vaderSentiment OK')"
 
 # Copy our job runner modules and worker API
 COPY infra/docker/constants.py /app/constants.py

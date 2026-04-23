@@ -127,7 +127,7 @@
           :style="{ color: hoveredNode.sentiment > 0.2 ? '#6EE7B7' : hoveredNode.sentiment < -0.2 ? '#FF6B6B' : '#94A3B8' }"
         >
           {{ hoveredNode.sentiment > 0.2 ? 'Positive' : hoveredNode.sentiment < -0.2 ? 'Negative' : 'Neutral' }}
-          {{ hoveredNode.sentiment > 0 ? '+' : '' }}{{ hoveredNode.sentiment.toFixed(2) }}
+          {{ hoveredNode.sentiment > 0 ? '+' : '' }}{{ Math.round(hoveredNode.sentiment * 100) }}
         </div>
         <div v-if="hoveredNode.stance && hoveredNode.stance !== 'neutral'" class="mt-0.5 text-[11px] text-mist-drift capitalize">
           {{ hoveredNode.stance }}

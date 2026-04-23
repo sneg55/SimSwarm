@@ -10,12 +10,9 @@ import os
 import sqlite3
 from pathlib import Path
 
-_POSITIVE = {"good", "great", "strong", "positive", "support", "gain", "rise", "up", "growth",
-             "success", "win", "benefit", "improve", "surge", "rally", "boost", "confident",
-             "optimistic", "bullish", "recovery", "progress", "opportunity"}
-_NEGATIVE = {"bad", "poor", "weak", "negative", "loss", "fall", "down", "decline", "fail",
-             "crash", "risk", "fear", "drop", "crisis", "concern", "threat", "bearish",
-             "pessimistic", "collapse", "danger", "trouble", "panic"}
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+_VADER = SentimentIntensityAnalyzer()
 
 
 def _open_db(path: str) -> sqlite3.Connection | None:
@@ -32,13 +29,9 @@ def _dict_rows(conn: sqlite3.Connection, query: str, params=()) -> list[dict]:
 
 
 def _sentiment_score(text: str) -> float:
-    words = set(text.lower().split())
-    pos = len(words & _POSITIVE)
-    neg = len(words & _NEGATIVE)
-    total = pos + neg
-    if total == 0:
+    if not text:
         return 0.0
-    return round((pos - neg) / total, 3)
+    return round(_VADER.polarity_scores(text)["compound"], 3)
 
 
 def extract_posts(sim_dir: str) -> list[dict]:
