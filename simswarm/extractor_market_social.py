@@ -19,14 +19,24 @@ def extract_social_graph(chat_log: list[ActionRecord]) -> dict:
     edges: list[dict] = []
     follow_set: set[tuple[str, str]] = set()
 
+    # Build id→name map from every record so we can resolve followee names
+    # even though the social env's follow handler only stores the target id.
+    id_to_name: dict[str, str] = {}
+    for record in chat_log:
+        if record.agent_id and record.agent_id not in id_to_name:
+            id_to_name[record.agent_id] = record.agent_name or ""
+
     for record in chat_log:
         if not is_follow(record.action_type):
             continue
+        if not record.success:
+            continue
         args = record.action_args or {}
-        followee_id = args.get("target_id", "")
-        followee_name = args.get("target_name", "")
+        # Engine tool schema uses `agent_id`; older logs may use `target_id`.
+        followee_id = args.get("agent_id") or args.get("target_id") or ""
         if not followee_id:
             continue
+        followee_name = args.get("target_name") or id_to_name.get(followee_id, "")
         edges.append({
             "follower_id": record.agent_id,
             "follower_name": record.agent_name,

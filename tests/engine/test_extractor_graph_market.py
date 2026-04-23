@@ -52,6 +52,18 @@ class TestExtractSocialGraph:
         assert edges_by_pair[("agent-gamma", "agent-alpha")]["platform"] == "twitter"
         assert edges_by_pair[("agent-gamma", "agent-beta")]["platform"] == "reddit"
 
+    def test_followee_name_resolved_from_id(self):
+        # Engine's follow handler only stores agent_id; extractor must resolve
+        # the name by looking up other records for that agent.
+        edges = extract_social_graph(SAMPLE_LOG)["edges"]
+        by_pair = {(e["follower_id"], e["followee_id"]): e for e in edges}
+        assert by_pair[("agent-gamma", "agent-alpha")]["followee_name"] == "Alice"
+        assert by_pair[("agent-alpha", "agent-gamma")]["followee_name"] == "Carol"
+
+    def test_failed_follow_excluded(self):
+        edges = extract_social_graph(SAMPLE_LOG)["edges"]
+        assert all(e["followee_id"] != "agent-ghost" for e in edges)
+
     def test_empty_log_returns_empty_graph(self):
         result = extract_social_graph([])
         assert result["edges"] == []
