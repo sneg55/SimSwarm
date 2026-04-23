@@ -20,7 +20,7 @@
           v-if="cluster.items.length > 1"
           data-timeline-cluster
           :style="{ left: (cluster.position * 100) + '%' }"
-          class="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 px-2 py-0.5 rounded-full bg-mist-depth text-[10px] text-mist-foam border border-mist-slate hover:border-ocean-glow transition-colors"
+          :class="['absolute top-1/2 -translate-x-1/2 -translate-y-1/2 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors', clusterTint(cluster.items)]"
           @click="$emit('clusterClick', cluster)"
         >+{{ cluster.items.length }}</button>
 
@@ -77,8 +77,30 @@ const ticks = computed(() => {
 function pickFormatter(spanMs) {
   const days = spanMs / (86400 * 1000)
   if (days <= 2) return d => d.toISOString().slice(11, 16) + 'Z'
-  if (days <= 60) return d => d.toISOString().slice(5, 10)
+  if (days <= 60) return d => d.toLocaleString('en-US', { month: 'short', day: 'numeric' })
+  if (days <= 365) return d => d.toLocaleString('en-US', { month: 'short', day: 'numeric' })
   return d => d.toLocaleString('en-US', { month: 'short', year: '2-digit' })
+}
+
+function dominantType(items) {
+  const counts = {}
+  for (const it of items) counts[it.type] = (counts[it.type] || 0) + 1
+  let best = null, bestCount = 0
+  for (const [t, c] of Object.entries(counts)) {
+    if (c > bestCount) { best = t; bestCount = c }
+  }
+  return best
+}
+
+function clusterTint(items) {
+  const t = dominantType(items)
+  switch (t) {
+    case 'market':    return 'border-coral/60 bg-coral/10 text-coral'
+    case 'coalition': return 'border-ocean-teal/60 bg-ocean-teal/10 text-ocean-teal'
+    case 'post':      return 'border-ocean-glow/60 bg-ocean-glow/10 text-ocean-glow'
+    case 'finding':   return 'border-amber-400/60 bg-amber-400/10 text-amber-400'
+    default:          return 'border-mist-slate bg-mist-depth text-mist-foam'
+  }
 }
 
 function typeColor(type) {

@@ -114,23 +114,23 @@ describe('useSimTimeline — finding moments', () => {
 })
 
 describe('useSimTimeline — post moments', () => {
-  it('keeps top-engagement post per round, above floor', () => {
+  it('keeps top-3 posts by engagement across all rounds', () => {
     const t = useSimTimeline({
-      startedAt: START, forecastDays: 10, roundCount: 3,
-      structured: {},
-      marketCurves: [],
+      startedAt: START, forecastDays: 10, roundCount: 5,
+      structured: {}, marketCurves: [],
       topPosts: [
-        { round_num: 1, agent_name: 'A', text: 'low',  engagement: 0 },
-        { round_num: 2, agent_name: 'B', text: 'mid',  engagement: 3 },
-        { round_num: 2, agent_name: 'C', text: 'high', engagement: 7 },
-        { round_num: 3, agent_name: 'D', text: 'only', engagement: 2 },
+        { round_num: 1, agent_name: 'A', text: 'r1',  engagement: 2 },
+        { round_num: 2, agent_name: 'B', text: 'r2a', engagement: 1 },
+        { round_num: 2, agent_name: 'C', text: 'r2b', engagement: 8 },
+        { round_num: 3, agent_name: 'D', text: 'r3',  engagement: 6 },
+        { round_num: 4, agent_name: 'E', text: 'r4',  engagement: 4 },
+        { round_num: 5, agent_name: 'F', text: 'r5',  engagement: 0 }, // below floor
       ],
       agentTrajectories: [],
     })
     const posts = t.moments.filter(m => m.type === 'post')
-    expect(posts).toHaveLength(2)
-    expect(posts[0].roundIndex).toBe(1); expect(posts[0].title).toContain('C')
-    expect(posts[1].roundIndex).toBe(2); expect(posts[1].title).toContain('D')
+    expect(posts).toHaveLength(3)
+    expect(posts.map(p => p.title)).toEqual(expect.arrayContaining(['C', 'D', 'E']))
   })
 })
 

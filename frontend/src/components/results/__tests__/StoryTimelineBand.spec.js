@@ -47,4 +47,19 @@ describe('StoryTimelineBand', () => {
     expect(chip.exists()).toBe(true)
     expect(chip.text()).toContain('+2')
   })
+
+  it('tints cluster chips by dominant moment type', () => {
+    const w = mount(StoryTimelineBand, {
+      props: {
+        ...baseProps,
+        moments: [
+          { id: 'a', type: 'finding', roundIndex: 2, title: 'A', detail: '' },
+          { id: 'b', type: 'finding', roundIndex: 2, title: 'B', detail: '' },
+          { id: 'c', type: 'post',    roundIndex: 2, title: 'C', detail: '' },
+        ],
+      },
+    })
+    const chip = w.find('[data-timeline-cluster]')
+    expect(chip.classes().some(c => c.includes('amber'))).toBe(true)
+  })
 })

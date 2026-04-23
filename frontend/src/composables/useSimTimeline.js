@@ -115,21 +115,20 @@ export function useSimTimeline({
       refId: `story-finding-${idx}`,
     })
   })
-  const postsByRound = new Map()
-  for (const p of topPosts || []) {
-    const eng = Number(p.engagement) || 0
-    if (eng < 1) continue
-    const prev = postsByRound.get(p.round_num)
-    if (!prev || eng > prev.engagement) postsByRound.set(p.round_num, p)
-  }
-  for (const [round, p] of postsByRound) {
+  // Top-3 posts by engagement overall (not per-round) — keeps the band readable
+  const postsSorted = (topPosts || [])
+    .filter(p => (Number(p.engagement) || 0) >= 1)
+    .sort((a, b) => (b.engagement || 0) - (a.engagement || 0))
+    .slice(0, 3)
+  for (const p of postsSorted) {
+    const round = p.round_num
     const roundIndex = Math.max(0, Math.min(roundCount - 1, round - 1))
     moments.push({
       id: `post:${round}:${p.agent_name}`,
       type: 'post',
       roundIndex,
       date: roundDates[roundIndex],
-      title: `${p.agent_name}`,
+      title: p.agent_name,
       detail: (p.content || p.text || '').slice(0, 120),
       refId: null,
     })
