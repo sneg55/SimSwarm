@@ -22,11 +22,7 @@
     <template v-else>
       <!-- ── Story View ── -->
       <div v-if="viewMode === 'story'" class="relative pt-[120px] pb-24">
-        <StoryTimeline
-          :sections="storySections"
-          :moments="timeline.moments"
-          :roundCount="timeline.roundDates.length"
-        />
+        <ReportToc :items="storySections" />
 
         <div class="max-w-[820px] mx-auto px-6 space-y-6">
           <!-- Meta row -->
@@ -73,6 +69,14 @@
               />
             </div>
           </div>
+
+          <StoryTimelineVertical
+            v-if="timeline.moments.length"
+            :moments="timeline.moments"
+            :start="timeline.start"
+            :end="timeline.end"
+            :roundCount="timeline.roundDates.length"
+          />
 
           <!-- Sim-scale footer -->
           <SimScaleFooter id="story-scale" :scale="simScale" />
@@ -172,7 +176,7 @@ import DataDashboard from '../components/data/DataDashboard.vue'
 import { useSimTimeline } from '../composables/useSimTimeline.js'
 import { useTimelineSimData, computeRoundCount, scrollToMoment } from '../composables/useTimelineSimData.js'
 import StoryTimelineBand from '../components/results/StoryTimelineBand.vue'
-import StoryTimeline from '../components/results/StoryTimeline.vue'
+import StoryTimelineVertical from '../components/results/StoryTimelineVertical.vue'
 
 const route = useRoute()
 const jobId = route.params.id
