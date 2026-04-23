@@ -126,3 +126,26 @@ export function useSimTimeline({
   }
   return { start, end, roundDates, moments }
 }
+
+/**
+ * Cluster moments whose horizontal position on a start→end axis is within
+ * `threshold` (fractional, e.g. 0.02 = 2%) of the previous cluster's anchor.
+ * Input is sorted by roundIndex internally (non-destructive; a copy is sorted).
+ * Returns [{ position, items[] }].
+ */
+export function clusterMoments(moments, roundCount, threshold = 0.02) {
+  if (!moments?.length || !roundCount) return []
+  const sorted = [...moments].sort((a, b) => a.roundIndex - b.roundIndex)
+  const denom = Math.max(1, roundCount - 1)
+  const clusters = []
+  for (const m of sorted) {
+    const pos = m.roundIndex / denom
+    const last = clusters[clusters.length - 1]
+    if (last && Math.abs(pos - last.position) <= threshold) {
+      last.items.push(m)
+    } else {
+      clusters.push({ position: pos, items: [m] })
+    }
+  }
+  return clusters
+}

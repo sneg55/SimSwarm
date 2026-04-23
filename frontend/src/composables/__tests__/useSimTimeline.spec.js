@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { useSimTimeline } from '../useSimTimeline'
+import { useSimTimeline, clusterMoments } from '../useSimTimeline'
 
 const START = '2026-01-01T00:00:00Z'
 
@@ -167,5 +167,38 @@ describe('useSimTimeline — coalition moments', () => {
       ],
     })
     expect(t.moments.filter(m => m.type === 'coalition')).toEqual([])
+  })
+})
+
+describe('clusterMoments', () => {
+  it('groups moments within the threshold and leaves others alone', () => {
+    const moments = [
+      { id: 'a', roundIndex: 0 },
+      { id: 'b', roundIndex: 1 },
+      { id: 'c', roundIndex: 10 },
+    ]
+    const clusters = clusterMoments(moments, 11, 0.02)
+    expect(clusters).toHaveLength(3)
+  })
+
+  it('collapses nearby moments into a single cluster', () => {
+    const moments = [
+      { id: 'a', roundIndex: 5 },
+      { id: 'b', roundIndex: 5 },
+      { id: 'c', roundIndex: 6 },
+    ]
+    const clusters = clusterMoments(moments, 100, 0.02)
+    expect(clusters).toHaveLength(1)
+    expect(clusters[0].items).toHaveLength(3)
+  })
+
+  it('sorts input by roundIndex before clustering', () => {
+    const moments = [
+      { id: 'c', roundIndex: 10 },
+      { id: 'a', roundIndex: 0 },
+      { id: 'b', roundIndex: 1 },
+    ]
+    const clusters = clusterMoments(moments, 11, 0.02)
+    expect(clusters.map(c => c.items[0].id)).toEqual(['a', 'b', 'c'])
   })
 })
