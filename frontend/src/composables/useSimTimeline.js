@@ -4,6 +4,21 @@
  *
  * Returns: { start: Date|null, end: Date|null, roundDates: Date[], moments: [] }
  */
+function pluralityStance(round, trajectories) {
+  const counts = {}
+  for (const a of trajectories) {
+    const entry = (a.stance_per_round || []).find(e => e.round_num === round)
+    const s = entry?.stance
+    if (!s || s === 'neutral' || s === 'unknown') continue
+    counts[s] = (counts[s] || 0) + 1
+  }
+  let best = null, bestCount = 0
+  for (const [s, c] of Object.entries(counts)) {
+    if (c >= bestCount) { best = s; bestCount = c }
+  }
+  return best
+}
+
 export function useSimTimeline({
   startedAt,
   forecastDays,
@@ -32,6 +47,26 @@ export function useSimTimeline({
   }
 
   const moments = []
+  const trajectories = Array.isArray(agentTrajectories) ? agentTrajectories : []
+  if (trajectories.length && roundCount >= 2) {
+    let prev = pluralityStance(1, trajectories)
+    for (let r = 2; r <= roundCount; r++) {
+      const curr = pluralityStance(r, trajectories)
+      if (prev && curr && prev !== curr) {
+        const roundIndex = r - 1
+        moments.push({
+          id: `coalition:${r}`,
+          type: 'coalition',
+          roundIndex,
+          date: roundDates[roundIndex],
+          title: `Majority flips ${prev} → ${curr}`,
+          detail: `Round ${r}: plurality shifted from ${prev} to ${curr}`,
+          refId: null,
+        })
+      }
+      if (curr) prev = curr
+    }
+  }
   const THRESHOLD = 0.15
   for (const market of marketCurves || []) {
     const pts = Array.isArray(market?.points) ? market.points : []

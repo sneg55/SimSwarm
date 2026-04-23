@@ -133,3 +133,39 @@ describe('useSimTimeline — post moments', () => {
     expect(posts[1].roundIndex).toBe(2); expect(posts[1].title).toContain('D')
   })
 })
+
+describe('useSimTimeline — coalition moments', () => {
+  it('emits a moment when plurality stance flips round-over-round', () => {
+    const t = useSimTimeline({
+      startedAt: START, forecastDays: 10, roundCount: 4,
+      structured: {}, marketCurves: [], topPosts: [],
+      agentTrajectories: [
+        { agent_name: 'a', stance_per_round: [
+          { round_num: 1, stance: 'pro' }, { round_num: 2, stance: 'pro' },
+          { round_num: 3, stance: 'con' }, { round_num: 4, stance: 'con' },
+        ]},
+        { agent_name: 'b', stance_per_round: [
+          { round_num: 1, stance: 'pro' }, { round_num: 2, stance: 'pro' },
+          { round_num: 3, stance: 'con' }, { round_num: 4, stance: 'pro' },
+        ]},
+      ],
+    })
+    const shifts = t.moments.filter(m => m.type === 'coalition')
+    expect(shifts.map(s => s.roundIndex)).toEqual([2, 3])
+    expect(shifts[0].detail).toContain('pro')
+    expect(shifts[0].detail).toContain('con')
+  })
+
+  it('ignores neutral/unknown stances when computing plurality', () => {
+    const t = useSimTimeline({
+      startedAt: START, forecastDays: 10, roundCount: 2,
+      structured: {}, marketCurves: [], topPosts: [],
+      agentTrajectories: [
+        { agent_name: 'a', stance_per_round: [
+          { round_num: 1, stance: 'neutral' }, { round_num: 2, stance: 'neutral' },
+        ]},
+      ],
+    })
+    expect(t.moments.filter(m => m.type === 'coalition')).toEqual([])
+  })
+})
