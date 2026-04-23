@@ -8,8 +8,8 @@
            data-test="market-row"
            class="flex flex-col gap-1 p-3 rounded-lg bg-ocean-abyss/40 border border-mist-depth/60">
         <div class="flex items-baseline justify-between gap-3">
-          <span class="text-sm text-ocean-cyan truncate">{{ m.question }}</span>
-          <span class="text-xs font-mono text-mist-slate">
+          <span class="text-sm text-ocean-cyan break-words flex-1">{{ m.question }}</span>
+          <span class="text-xs font-mono text-mist-slate whitespace-nowrap flex-shrink-0">
             YES {{ Math.round((m.initial_price_yes ?? 0.5) * 100) }}%
           </span>
         </div>
