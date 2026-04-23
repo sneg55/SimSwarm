@@ -78,3 +78,37 @@ describe('useSimTimeline — market moments', () => {
     expect(t.moments.filter(m => m.type === 'market')).toHaveLength(0)
   })
 })
+
+describe('useSimTimeline — finding moments', () => {
+  it('anchors findings to phase end-rounds when phase matches', () => {
+    const t = useSimTimeline({
+      startedAt: START, forecastDays: 30, roundCount: 9,
+      structured: {
+        findings: [
+          { title: 'F1', phase: 'Early' },
+          { title: 'F2', phase: 'Late' },
+          { title: 'F3' },
+        ],
+        phase_boundaries: [
+          { phase: 'Early', rounds: [1, 3] },
+          { phase: 'Mid', rounds: [4, 6] },
+          { phase: 'Late', rounds: [7, 9] },
+        ],
+      },
+      marketCurves: [], topPosts: [], agentTrajectories: [],
+    })
+    const f = t.moments.filter(m => m.type === 'finding')
+    expect(f).toHaveLength(3)
+    expect(f[0].title).toBe('F1'); expect(f[0].roundIndex).toBe(2)  // round 3
+    expect(f[1].title).toBe('F2'); expect(f[1].roundIndex).toBe(8)  // round 9
+    expect(f[2].title).toBe('F3'); expect(f[2].roundIndex).toBe(4)  // midpoint
+  })
+
+  it('returns no finding moments when findings array is missing', () => {
+    const t = useSimTimeline({
+      startedAt: START, forecastDays: 10, roundCount: 5,
+      structured: {}, marketCurves: [], topPosts: [], agentTrajectories: [],
+    })
+    expect(t.moments.filter(m => m.type === 'finding')).toEqual([])
+  })
+})

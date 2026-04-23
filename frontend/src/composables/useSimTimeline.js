@@ -53,5 +53,22 @@ export function useSimTimeline({
       }
     }
   }
+  const findings = Array.isArray(structured?.findings) ? structured.findings : []
+  const phases = Array.isArray(structured?.phase_boundaries) ? structured.phase_boundaries : []
+  const midRound = Math.max(1, Math.ceil(roundCount / 2))
+  findings.forEach((f, idx) => {
+    const phase = phases.find(p => p.phase === f.phase)
+    const round = phase ? phase.rounds[1] : midRound
+    const roundIndex = Math.max(0, Math.min(roundCount - 1, round - 1))
+    moments.push({
+      id: `finding:${idx}`,
+      type: 'finding',
+      roundIndex,
+      date: roundDates[roundIndex],
+      title: f.title || f.headline || `Finding ${idx + 1}`,
+      detail: f.summary || f.description || '',
+      refId: `story-finding-${idx}`,
+    })
+  })
   return { start, end, roundDates, moments }
 }
