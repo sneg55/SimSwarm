@@ -217,3 +217,48 @@ class TestMarketIdSlug:
         mid = list(env.markets.keys())[0]
         assert mid in obs.content
         assert "Will X?" in obs.content
+
+
+class TestRoundingConsistency:
+    """Observation must not advertise more shares than the agent can actually sell.
+
+    Regression: :.1f formatting rounds 1.994 -> "2.0"; LLM copies "2.0" into a
+    sell_shares call; sell handler rejects because true held (1.994) < 2.0.
+    """
+
+    def _setup(self):
+        env = MarketEnvironment(MarketConfig(
+            markets=[{"question": "Will X?"}],
+            initial_balance=10_000.0,
+            initial_liquidity=100.0,
+        ))
+        agent = _make_agent("a1")
+        env.register_agent(agent)
+        mid = list(env.markets.keys())[0]
+        # Force portfolio into a known fractional holding.
+        env.portfolios[agent.id].shares[mid] = {"yes": 0.0, "no": 1.994}
+        return env, agent, mid
+
+    def test_observation_does_not_round_up_past_held(self):
+        env, agent, _ = self._setup()
+        obs = env.get_observations(agent).content
+        # Extract the NO=... token and verify displayed value <= true held.
+        import re
+        m = re.search(r"NO=([0-9.]+)", obs)
+        assert m, f"no NO=... token in {obs!r}"
+        displayed = float(m.group(1))
+        assert displayed <= 1.994, f"observation rounded up past held: {displayed}"
+
+    def test_sell_accepts_value_from_observation(self):
+        env, agent, mid = self._setup()
+        obs = env.get_observations(agent).content
+        import re
+        m = re.search(r"NO=([0-9.]+)", obs)
+        displayed = float(m.group(1))
+        result = env.execute_action(
+            agent,
+            Action(agent_id=agent.id, environment="market",
+                   action_type="sell_shares",
+                   args={"market_id": mid, "outcome": "no", "shares": displayed}),
+        )
+        assert result.success, f"sell of displayed balance failed: {result.data}"

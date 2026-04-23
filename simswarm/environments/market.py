@@ -4,14 +4,22 @@ Ported from MiroShark's Polymarket logic. Supports multiple markets.
 """
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from typing import Any
 
+from simswarm.environments.market_amm import Market
 from simswarm.types import Action, ActionResult, Agent, Event, Observation, Tool
 
 
 _SLUG_MAX_LEN = 40
+_SHARE_EPSILON = 1e-6
+
+
+def _floor_1dp(x: float) -> float:
+    """Floor to 1 decimal place so observation never advertises more than held."""
+    return math.floor(x * 10) / 10
 
 
 def _question_to_slug(question: str, existing: set[str]) -> str:
@@ -28,70 +36,6 @@ def _question_to_slug(question: str, existing: set[str]) -> str:
         slug = f"{base}_{n}"
         n += 1
     return slug
-
-
-@dataclass
-class Market:
-    """A single prediction market with AMM pricing."""
-    id: str
-    question: str
-    reserve_yes: float
-    reserve_no: float
-
-    @property
-    def price_yes(self) -> float:
-        return self.reserve_no / (self.reserve_yes + self.reserve_no)
-
-    @property
-    def price_no(self) -> float:
-        return self.reserve_yes / (self.reserve_yes + self.reserve_no)
-
-    def buy_yes(self, usd: float) -> float:
-        """Buy YES shares by injecting USD into the NO reserve.
-
-        Adding USD to reserve_no drives up price_yes = reserve_no / total.
-        Constant-product k = reserve_yes * reserve_no is preserved.
-        """
-        k = self.reserve_yes * self.reserve_no
-        new_reserve_no = self.reserve_no + usd
-        new_reserve_yes = k / new_reserve_no
-        shares = self.reserve_yes - new_reserve_yes
-        self.reserve_yes = new_reserve_yes
-        self.reserve_no = new_reserve_no
-        return shares
-
-    def buy_no(self, usd: float) -> float:
-        """Buy NO shares by injecting USD into the YES reserve.
-
-        Adding USD to reserve_yes drives up price_no = reserve_yes / total.
-        """
-        k = self.reserve_yes * self.reserve_no
-        new_reserve_yes = self.reserve_yes + usd
-        new_reserve_no = k / new_reserve_yes
-        shares = self.reserve_no - new_reserve_no
-        self.reserve_yes = new_reserve_yes
-        self.reserve_no = new_reserve_no
-        return shares
-
-    def sell_yes(self, shares: float) -> float:
-        """Return YES shares to the pool, receive USD from the NO reserve."""
-        k = self.reserve_yes * self.reserve_no
-        new_reserve_yes = self.reserve_yes + shares
-        new_reserve_no = k / new_reserve_yes
-        usd = self.reserve_no - new_reserve_no
-        self.reserve_yes = new_reserve_yes
-        self.reserve_no = new_reserve_no
-        return usd
-
-    def sell_no(self, shares: float) -> float:
-        """Return NO shares to the pool, receive USD from the YES reserve."""
-        k = self.reserve_yes * self.reserve_no
-        new_reserve_no = self.reserve_no + shares
-        new_reserve_yes = k / new_reserve_no
-        usd = self.reserve_yes - new_reserve_yes
-        self.reserve_yes = new_reserve_yes
-        self.reserve_no = new_reserve_no
-        return usd
 
 
 @dataclass
@@ -164,7 +108,9 @@ class MarketEnvironment:
                 m = self.markets.get(mid)
                 if m:
                     lines.append(
-                        f"  {m.question}: YES={shares.get('yes', 0):.1f}, NO={shares.get('no', 0):.1f}"
+                        f"  {m.question}: "
+                        f"YES={_floor_1dp(shares.get('yes', 0)):.1f}, "
+                        f"NO={_floor_1dp(shares.get('no', 0)):.1f}"
                     )
         content = "\n".join(lines) if lines else "(no markets)"
         return Observation(environment=self.name, content=content)
@@ -263,8 +209,11 @@ class MarketEnvironment:
             return ActionResult(success=False, data={"error": "Market not found"})
         portfolio = self.portfolios[agent.id]
         held = portfolio.shares.get(market_id, {}).get(outcome, 0.0)
-        if held < shares:
+        if held <= _SHARE_EPSILON:
             return ActionResult(success=False, data={"error": "Insufficient shares"})
+        # Cap at held so rounded-up observation values (e.g. 1.994 shown as 2.0)
+        # don't trip a strict inequality. See market env rounding regression.
+        shares = min(shares, held)
         market = self.markets[market_id]
         if outcome == "yes":
             proceeds = market.sell_yes(shares)
