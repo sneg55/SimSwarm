@@ -25,6 +25,7 @@ dependencies = [
     "openai>=1.60.0",
     "minio>=7.2.0",
     "anthropic==0.94.0",
+    "vaderSentiment==3.3.2",
 ]
 
 [project.optional-dependencies]

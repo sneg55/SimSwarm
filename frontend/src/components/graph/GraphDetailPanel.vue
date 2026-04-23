@@ -71,7 +71,7 @@
                 <div>
                   <div class="font-mono text-lg font-bold"
                     :style="{ color: node.sentiment > 0.2 ? '#6EE7B7' : node.sentiment < -0.2 ? '#FF6B6B' : '#94A3B8' }"
-                  >{{ node.sentiment > 0 ? '+' : '' }}{{ Math.round(node.sentiment * 100) }}</div>
+                  >{{ node.sentiment > 0 ? '+' : '' }}{{ node.sentiment.toFixed(2) }}</div>
                   <div class="text-[10px] text-mist-slate uppercase">Sentiment</div>
                 </div>
               </InfoTooltip>

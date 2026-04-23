@@ -2,8 +2,6 @@
 from saas.utils.sentiment import (
     score_entity_sentiment,
     needs_sentiment_backfill,
-    POSITIVE_WORDS,
-    NEGATIVE_WORDS,
 )
 
 
@@ -73,7 +71,7 @@ def test_agent_name_match_alone_scores_entity():
 
 def test_score_is_clamped_between_neg1_and_1():
     g = _graph("Zara")
-    log = [_entry("X", "Zara " + " ".join(list(POSITIVE_WORDS)))]
+    log = [_entry("X", "Zara is wonderful, excellent, fantastic, and a great success!")]
     score_entity_sentiment(g, log)
     s = g["nodes"][0]["sentiment"]
     assert -1.0 <= s <= 1.0
@@ -97,11 +95,6 @@ def test_needs_backfill_missing_sentiment():
 
 def test_needs_backfill_has_sentiment():
     assert needs_sentiment_backfill({"nodes": [{"name": "A", "sentiment": 0.3}]}) is False
-
-
-def test_positive_and_negative_word_sets_disjoint_enough():
-    # Sanity: these sets are non-empty
-    assert POSITIVE_WORDS and NEGATIVE_WORDS
 
 
 def test_multiple_entries_accumulate():
