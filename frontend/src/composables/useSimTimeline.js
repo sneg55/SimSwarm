@@ -32,5 +32,26 @@ export function useSimTimeline({
   }
 
   const moments = []
+  const THRESHOLD = 0.15
+  for (const market of marketCurves || []) {
+    const pts = Array.isArray(market?.points) ? market.points : []
+    if (pts.length < 2) continue
+    for (let i = 1; i < pts.length; i++) {
+      const delta = pts[i].price_yes - pts[i - 1].price_yes
+      if (Math.abs(delta) >= THRESHOLD - 1e-9) {
+        const round = pts[i].round_num
+        const roundIndex = Math.max(0, Math.min(roundCount - 1, round - 1))
+        moments.push({
+          id: `market:${market.market_id}:${round}`,
+          type: 'market',
+          roundIndex,
+          date: roundDates[roundIndex],
+          title: market.question || market.market_id,
+          detail: `${delta >= 0 ? '+' : ''}${Math.round(delta * 100)}pp YES`,
+          refId: market.market_id,
+        })
+      }
+    }
+  }
   return { start, end, roundDates, moments }
 }
