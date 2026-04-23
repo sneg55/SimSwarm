@@ -29,11 +29,21 @@ def extract_engagement_summary(chat_log: list[ActionRecord]) -> list[dict]:
     for record in chat_log:
         r = rounds[record.round_num]
         r["agents"].add(record.agent_id)
+        t = (record.action_type or "").lower()
         if is_post(record.action_type):
             r["total_posts"] += 1
-        elif is_like(record.action_type):
+        elif t in ("like_post", "like"):
             r["total_likes"] += 1
-        elif is_comment(record.action_type):
+        elif t == "vote":
+            # Native social env: value>0 is a like, anything else a dislike.
+            # Match extract_top_posts semantics so the chart and feed agree.
+            try:
+                is_positive = int((record.action_args or {}).get("value", 0)) > 0
+            except (TypeError, ValueError):
+                is_positive = False
+            if is_positive:
+                r["total_likes"] += 1
+        elif t in ("create_comment", "comment", "reply"):
             r["total_comments"] += 1
 
     return [

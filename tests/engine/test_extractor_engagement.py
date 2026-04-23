@@ -50,6 +50,42 @@ class TestExtractEngagementSummary:
     def test_empty_log_returns_empty_list(self):
         assert extract_engagement_summary([]) == []
 
+    def test_vote_and_reply_counted_as_engagement(self):
+        """Native social env emits vote (likes/dislikes) and reply
+        (comments) — the summary must count these, not just like_post
+        and create_comment."""
+        from simswarm.types import ActionRecord
+
+        log = [
+            ActionRecord(
+                round_num=1, agent_id="a", agent_name="Alice",
+                action_type="create_post", platform="twitter",
+                action_args={"text": "hello"}, timestamp="t", success=True,
+            ),
+            ActionRecord(
+                round_num=1, agent_id="b", agent_name="Bob",
+                action_type="vote", platform="twitter",
+                action_args={"post_id": "p1", "value": 1},
+                timestamp="t", success=True,
+            ),
+            ActionRecord(
+                round_num=1, agent_id="c", agent_name="Carol",
+                action_type="vote", platform="twitter",
+                action_args={"post_id": "p1", "value": -1},
+                timestamp="t", success=True,
+            ),
+            ActionRecord(
+                round_num=1, agent_id="d", agent_name="Dave",
+                action_type="reply", platform="twitter",
+                action_args={"post_id": "p1", "text": "agreed"},
+                timestamp="t", success=True,
+            ),
+        ]
+        [entry] = extract_engagement_summary(log)
+        assert entry["total_posts"] == 1
+        assert entry["total_likes"] == 1       # only value>0
+        assert entry["total_comments"] == 1    # reply counts
+
 
 class TestExtractAgentTrajectories:
     def test_returns_list_of_dicts(self):
