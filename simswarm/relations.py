@@ -60,16 +60,8 @@ async def extract_relations(
         max_relations=max_relations,
     ).strip()
 
-    response = await llm.chat(
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.2,  # deterministic-ish: we want consistent extraction
-    )
-
-    raw = (response.content or "").strip()
-    if not raw:
-        raise RelationExtractionError("LLM returned empty response")
-
-    data = _parse_json_array(raw)
+    messages: list[dict[str, str]] = [{"role": "user", "content": prompt}]
+    data, raw = await _call_and_parse(llm, messages)
     if not isinstance(data, list):
         raise RelationExtractionError(
             f"Expected JSON array, got {type(data).__name__}"
@@ -151,6 +143,48 @@ def _sample_posts(chat_log: list[ActionRecord], max_posts: int) -> list[dict]:
         if len(out) >= max_posts:
             break
     return out
+
+
+async def _call_and_parse(llm: LLMClient, messages: list[dict[str, str]]):
+    """One LLM call + parse, with a single repair retry on parse failure.
+
+    On the first failure we log a preview of the raw response (previously
+    swallowed — see sim #128, where the failure mode was diagnosable only
+    by re-running the pipeline) and append a stricter repair instruction
+    before retrying."""
+    response = await llm.chat(messages=messages, temperature=0.2)
+    raw = (response.content or "").strip()
+    if not raw:
+        raise RelationExtractionError("LLM returned empty response")
+    try:
+        return _parse_json_array(raw), raw
+    except RelationExtractionError as exc:
+        logger.warning(
+            "relations.parse_failed error=%s raw_preview=%r",
+            exc, raw[:500],
+        )
+        repair_messages = list(messages) + [
+            {"role": "assistant", "content": raw},
+            {"role": "user", "content":
+                "Your previous response could not be parsed as JSON. "
+                "Reply with ONLY a JSON array of relation objects and no "
+                "other text. If there are no substantive relations, reply "
+                "with the empty array []."},
+        ]
+        retry = await llm.chat(messages=repair_messages, temperature=0.0)
+        raw_retry = (retry.content or "").strip()
+        if not raw_retry:
+            raise RelationExtractionError(
+                f"LLM returned empty response on retry (first: {exc})"
+            ) from exc
+        try:
+            return _parse_json_array(raw_retry), raw_retry
+        except RelationExtractionError as exc2:
+            logger.warning(
+                "relations.parse_failed_retry error=%s raw_preview=%r",
+                exc2, raw_retry[:500],
+            )
+            raise
 
 
 def _parse_json_array(text: str):

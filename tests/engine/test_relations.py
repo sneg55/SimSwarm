@@ -16,13 +16,22 @@ from simswarm.types import ActionRecord, Entity
 
 
 class _StubLLM:
-    def __init__(self, content: str):
-        self._content = content
+    def __init__(self, content):
+        # Accept a single string (same response every call) or a list of
+        # strings (one per call, for testing the parse/retry path).
+        if isinstance(content, list):
+            self._responses = list(content)
+        else:
+            self._responses = [content]
         self.calls: list[dict] = []
 
     async def chat(self, messages, tools=None, temperature=0.7):
         self.calls.append({"messages": messages, "temperature": temperature})
-        return LLMResponse(content=self._content, tool_calls=[], raw={})
+        if len(self._responses) > 1:
+            content = self._responses.pop(0)
+        else:
+            content = self._responses[0]
+        return LLMResponse(content=content, tool_calls=[], raw={})
 
     async def close(self):
         pass
@@ -197,11 +206,49 @@ async def test_extract_relations_raises_on_empty_response():
 
 @pytest.mark.asyncio
 async def test_extract_relations_raises_on_invalid_json():
+    # Both the first call and the repair retry must fail for the error to
+    # surface; the stub returns the same unparseable content every call.
     llm = _StubLLM("{not an array}")
     with pytest.raises(RelationExtractionError):
         await extract_relations(
             [_entity("A"), _entity("B")], [_post("a", "A", "x")], llm,
         )
+
+
+@pytest.mark.asyncio
+async def test_extract_relations_logs_raw_preview_on_parse_failure(caplog):
+    """Diagnosing sim #128 required re-running the pipeline because the
+    parser raised without capturing the raw response. The failure path must
+    log a preview of what the LLM actually emitted."""
+    import logging
+    llm = _StubLLM("No meaningful relationships between these entities.")
+    with caplog.at_level(logging.WARNING, logger="simswarm.relations"):
+        with pytest.raises(RelationExtractionError):
+            await extract_relations(
+                [_entity("Alice"), _entity("Bob")],
+                [_post("alice", "Alice", "x")],
+                llm,
+            )
+    records = [r for r in caplog.records if r.levelno == logging.WARNING]
+    assert any("parse_failed" in r.message for r in records)
+    assert any("No meaningful relationships" in r.message for r in records)
+
+
+@pytest.mark.asyncio
+async def test_extract_relations_retries_on_parse_failure():
+    """If the first response can't be parsed, a repair retry is issued."""
+    llm = _StubLLM([
+        "No meaningful relationships between these entities.",
+        '[{"source": "Alice", "target": "Bob", "type": "SUPPORTS", "fact": "f"}]',
+    ])
+    rels = await extract_relations(
+        [_entity("Alice"), _entity("Bob")],
+        [_post("alice", "Alice", "x")],
+        llm,
+    )
+    assert len(llm.calls) == 2
+    assert len(rels) == 1
+    assert rels[0]["target"] == "Bob"
 
 
 # ---------------------------------------------------------------------------
