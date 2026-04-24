@@ -73,3 +73,44 @@ class TestMarketsEndToEnd:
             {"question": "Will it rain?", "initial_price_yes": 0.6},
             {"question": "Will it snow?", "initial_price_yes": 0.2},
         ]
+
+    @pytest.mark.asyncio
+    async def test_empty_markets_config_skips_market_env(self, monkeypatch):
+        """No derived markets → sim runs with social env only, no fabricated market."""
+        from infra.docker.run_job_v2_runner import run_simulation
+        from simswarm.types import Entity
+
+        captured: dict = {}
+
+        class FakeEngine:
+            def __init__(self, **kw): pass
+            async def run(self, config, on_progress=None, on_round=None):
+                captured["env_types"] = [ec.type for ec in config.environments]
+                class R:
+                    chat_log = []
+                    graph_data = type("G", (), {"nodes": [], "edges": [], "metadata": {}})()
+                    trajectories = {}
+                return R()
+
+        monkeypatch.setattr("infra.docker.run_job_v2_runner.Engine", FakeEngine)
+        monkeypatch.setattr(
+            "infra.docker.run_job_v2_runner.LLMClient",
+            lambda *a, **k: MagicMock(close=AsyncMock()),
+        )
+        monkeypatch.setattr(
+            "infra.docker.run_job_v2_runner.extract_relations",
+            AsyncMock(return_value=[]),
+        )
+        monkeypatch.setattr(
+            "infra.docker.run_job_v2_runner.enrich_profiles_with_personas",
+            AsyncMock(side_effect=lambda p, *a, **k: p),
+        )
+
+        await run_simulation(
+            seed_text="", goal="Weather?", max_rounds=1,
+            entities=[Entity(id="a", name="A", type="person", summary="x")],
+            target_agents=1,
+            markets_config=[],
+        )
+
+        assert captured["env_types"] == ["social"]

@@ -41,7 +41,9 @@ async def derive_markets(
     """Derive 3–5 prediction markets from seed + goal.
 
     Side-effect: writes markets_config JSON to simulation_jobs row.
-    Fails soft: the underlying _derive always returns at least one market.
+    Fails soft: on LLM failure the underlying _derive returns []; the runner
+    skips the market env for that sim rather than fabricating a goal-shaped
+    market.
     """
     from saas.jobs.market_derivation import derive_markets as _derive
     from saas.jobs.persistence import _update_markets_config

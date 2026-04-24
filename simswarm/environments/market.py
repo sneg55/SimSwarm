@@ -48,7 +48,11 @@ class Portfolio:
 class MarketConfig:
     markets: list[dict[str, Any]] = field(default_factory=list)
     initial_balance: float = 1000.0
-    initial_liquidity: float = 100.0
+    # Liquidity governs AMM depth. With 20 agents × $1000 balance, liquidity=100
+    # let a single one-sided round peg YES to ~0% / ~100% and agents then
+    # endlessly post about the pegged price (sim 127). 500 still allows
+    # meaningful price moves but keeps prices in ~[10%, 90%] under consensus.
+    initial_liquidity: float = 500.0
     price_move_event_threshold: float = 0.1
 
 

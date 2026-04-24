@@ -6,8 +6,8 @@ from unittest.mock import MagicMock
 
 
 from saas.jobs.market_derivation import (
-    DERIVATION_SOURCE_FALLBACK,
     DERIVATION_SOURCE_LLM,
+    DERIVATION_SOURCE_NONE,
     derive_markets,
 )
 
@@ -77,7 +77,7 @@ class TestDeriveMarkets:
     def test_question_too_long_rejected(self, monkeypatch):
         client = _fake_grok_client({
             "markets": [
-                {"question": "x" * 121, "initial_price_yes": 0.5},
+                {"question": "x" * 201, "initial_price_yes": 0.5},
                 {"question": "Valid Q?", "initial_price_yes": 0.5},
             ]
         })
@@ -97,28 +97,30 @@ class TestDeriveMarkets:
         out = derive_markets("g", "s", "large")["markets"]
         assert [m["question"] for m in out] == ["Valid?"]
 
-    def test_malformed_json_falls_back_to_single_market(self, monkeypatch):
+    def test_malformed_json_returns_empty(self, monkeypatch):
         client = _fake_grok_client("this is not JSON")
         monkeypatch.setattr("saas.jobs.market_derivation._build_client", lambda: client)
         out = derive_markets(goal="My Goal?", enriched_seed="", tier="small")
-        assert out["source"] == DERIVATION_SOURCE_FALLBACK
-        assert out["markets"] == [{"question": "My Goal?", "initial_price_yes": 0.5, "rationale": ""}]
+        assert out["source"] == DERIVATION_SOURCE_NONE
+        assert out["markets"] == []
 
-    def test_empty_markets_list_falls_back(self, monkeypatch):
+    def test_empty_markets_list_returns_empty(self, monkeypatch):
         client = _fake_grok_client({"markets": []})
         monkeypatch.setattr("saas.jobs.market_derivation._build_client", lambda: client)
         out = derive_markets(goal="G?", enriched_seed="", tier="small")
-        assert out["source"] == DERIVATION_SOURCE_FALLBACK
+        assert out["source"] == DERIVATION_SOURCE_NONE
+        assert out["markets"] == []
 
-    def test_missing_api_key_falls_back(self, monkeypatch):
+    def test_missing_api_key_returns_empty(self, monkeypatch):
         monkeypatch.setattr("saas.jobs.market_derivation._build_client", lambda: None)
         out = derive_markets(goal="Goal text?", enriched_seed="", tier="medium")
-        assert out["source"] == DERIVATION_SOURCE_FALLBACK
-        assert out["markets"] == [{"question": "Goal text?", "initial_price_yes": 0.5, "rationale": ""}]
+        assert out["source"] == DERIVATION_SOURCE_NONE
+        assert out["markets"] == []
 
-    def test_client_exception_falls_back(self, monkeypatch):
+    def test_client_exception_returns_empty(self, monkeypatch):
         client = MagicMock()
         client.responses.create.side_effect = RuntimeError("grok down")
         monkeypatch.setattr("saas.jobs.market_derivation._build_client", lambda: client)
         out = derive_markets(goal="G?", enriched_seed="", tier="small")
-        assert out["source"] == DERIVATION_SOURCE_FALLBACK
+        assert out["source"] == DERIVATION_SOURCE_NONE
+        assert out["markets"] == []

@@ -73,24 +73,27 @@ async def run_simulation(
     fast_llm = LLMClient(base_url=_VLLM_URL, model=_FAST_MODEL, api_key=_LLM_API_KEY)
     smart_llm = LLMClient(base_url=_VLLM_URL, model=_SMART_MODEL, api_key=_LLM_API_KEY)
 
-    # Seed the market env with derived markets so agents actually have
-    # something to trade on. Fall back to a goal-derived single market if
-    # upstream derivation produced nothing.
+    # Seed the market env with derived markets. If upstream derivation produced
+    # nothing (non-binary goal, LLM failure, etc.), skip the market env entirely
+    # rather than fabricate a single goal-shaped market — that produced the
+    # "100% NO" agent chatter on retrospective goals (sim 127).
     market_entries = [
         {"question": m["question"],
          "initial_price_yes": m.get("initial_price_yes", 0.5)}
         for m in (markets_config or [])
-    ] or [{"question": goal or "Will the simulated outcome occur?",
-           "initial_price_yes": 0.5}]
+    ]
+
+    environments = [EnvironmentConfig(type="social", params={})]
+    if market_entries:
+        environments.append(
+            EnvironmentConfig(type="market", params={"markets": market_entries})
+        )
 
     config = SimulationConfig(
         seed_text=seed_text,
         goal=goal,
         entities=entities[:target_agents],
-        environments=[
-            EnvironmentConfig(type="social", params={}),
-            EnvironmentConfig(type="market", params={"markets": market_entries}),
-        ],
+        environments=environments,
         rounds=max_rounds,
         concurrency=target_agents,
     )
