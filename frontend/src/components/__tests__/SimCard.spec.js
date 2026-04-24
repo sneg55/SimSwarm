@@ -118,4 +118,47 @@ describe('SimCard', () => {
       expect(wrapper.html()).toBeTruthy()
     }
   })
+
+  it('shows Restart in kebab for terminal statuses', async () => {
+    for (const status of ['COMPLETED', 'FAILED', 'REFUNDED']) {
+      const wrapper = mount(SimCard, {
+        props: { job: { ...baseJob, status } },
+        global: { stubs: { RouterLink: RouterLinkStub } },
+        attachTo: document.body,
+      })
+      await wrapper.findAll('button')[0].trigger('click')
+      const labels = wrapper.findAll('button').map(b => b.text())
+      expect(labels).toContain('Restart')
+      wrapper.unmount()
+    }
+  })
+
+  it('hides Restart for in-flight statuses', async () => {
+    for (const status of ['RUNNING', 'PROVISIONING', 'PENDING']) {
+      const wrapper = mount(SimCard, {
+        props: { job: { ...baseJob, status } },
+        global: { stubs: { RouterLink: RouterLinkStub } },
+        attachTo: document.body,
+      })
+      await wrapper.findAll('button')[0].trigger('click')
+      const labels = wrapper.findAll('button').map(b => b.text())
+      expect(labels).not.toContain('Restart')
+      wrapper.unmount()
+    }
+  })
+
+  it('emits restart with the full job when Restart clicked', async () => {
+    const wrapper = mount(SimCard, {
+      props: { job: { ...baseJob, status: 'COMPLETED' } },
+      global: { stubs: { RouterLink: RouterLinkStub } },
+      attachTo: document.body,
+    })
+    await wrapper.findAll('button')[0].trigger('click')
+    const restartBtn = wrapper.findAll('button').find(b => b.text().includes('Restart'))
+    await restartBtn.trigger('click')
+    expect(wrapper.emitted('restart')?.[0]?.[0]).toMatchObject({
+      id: 'j1', goal: 'My Sim', status: 'COMPLETED',
+    })
+    wrapper.unmount()
+  })
 })
