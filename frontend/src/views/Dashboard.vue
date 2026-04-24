@@ -89,7 +89,7 @@
             <div class="flex-1 h-px bg-gradient-to-r from-mist-depth to-transparent" />
           </div>
           <div class="space-y-3 mb-10">
-            <SimCard v-for="job in activeJobs" :key="job.id" :job="job" @delete="handleDelete" />
+            <SimCard v-for="job in activeJobs" :key="job.id" :job="job" @delete="handleDelete" @restart="handleRestart" />
           </div>
         </template>
 
@@ -99,7 +99,7 @@
           <div class="flex-1 h-px bg-gradient-to-r from-mist-depth to-transparent" />
         </div>
         <div class="space-y-3">
-          <SimCard v-for="job in recentJobs" :key="job.id" :job="job" @delete="handleDelete" />
+          <SimCard v-for="job in recentJobs" :key="job.id" :job="job" @delete="handleDelete" @restart="handleRestart" />
         </div>
 
         <!-- Load more -->
@@ -122,11 +122,13 @@ import CreditWarning from '../components/CreditWarning.vue'
 import DashboardEmpty from '../components/DashboardEmpty.vue'
 import SimCard from '../components/SimCard.vue'
 import SkeletonCard from '../components/SkeletonCard.vue'
-import { listJobs, deleteJob } from '../api/jobs.js'
+import { listJobs, deleteJob, getJob, createDraft } from '../api/jobs.js'
 import { getBalance } from '../api/billing.js'
 import { useCreditsStore } from '../stores/credits.js'
+import { useRouter } from 'vue-router'
 
 const creditsStore = useCreditsStore()
+const router = useRouter()
 const jobs = ref([])
 const loading = ref(true)
 const page = ref(1)
@@ -181,6 +183,22 @@ async function handleDelete(jobId) {
     totalJobs.value = Math.max(0, totalJobs.value - 1)
   } catch (err) {
     console.error('Failed to delete job:', err)
+  }
+}
+
+async function handleRestart(job) {
+  try {
+    const full = await getJob(job.id)
+    const draft = await createDraft({
+      seed_text: full.seed_text,
+      goal: full.goal,
+      tier: full.tier,
+      enrich_web: full.enrich_web,
+      forecast_days: full.forecast_days ?? 30,
+    })
+    router.push(`/sim/new?draft=${draft.id}`)
+  } catch (err) {
+    console.error('Failed to restart job:', err)
   }
 }
 </script>
