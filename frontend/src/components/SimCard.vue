@@ -73,6 +73,14 @@
         class="absolute right-0 top-full mt-1 bg-ocean-deep border border-mist-depth rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.4)] overflow-hidden min-w-[140px] z-20"
       >
         <button
+          v-if="canRestart"
+          @click.prevent.stop="handleRestart"
+          class="w-full text-left px-4 py-2.5 text-sm text-ocean-cyan hover:bg-ocean-teal/10 transition-colors flex items-center gap-2 border-b border-mist-depth/60"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+          Restart
+        </button>
+        <button
           @click.prevent.stop="handleDelete"
           class="w-full text-left px-4 py-2.5 text-sm text-coral hover:bg-coral/10 transition-colors flex items-center gap-2"
         >
@@ -91,7 +99,7 @@ const props = defineProps({
   job: { type: Object, required: true },
 })
 
-const emit = defineEmits(['delete'])
+const emit = defineEmits(['delete', 'restart'])
 
 const menuOpen = ref(false)
 const menuRef = ref(null)
@@ -136,6 +144,14 @@ const insightColor = computed(() => {
   if (text.match(/positive|grow|recovery|bull|increase|strong|rise/)) return '#6EE7B7'
   return '#FBBF24'
 })
+
+const TERMINAL_STATUSES = ['COMPLETED', 'FAILED', 'REFUNDED']
+const canRestart = computed(() => TERMINAL_STATUSES.includes(props.job.status))
+
+function handleRestart() {
+  menuOpen.value = false
+  emit('restart', props.job)
+}
 
 function handleDelete() {
   menuOpen.value = false
