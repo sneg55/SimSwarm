@@ -4,20 +4,31 @@ import { mount, flushPromises } from '@vue/test-utils'
 vi.mock('../../src/api/jobs.js', () => ({
   listJobs: vi.fn(),
   deleteJob: vi.fn(),
+  getJob: vi.fn(),
+  createDraft: vi.fn(),
 }))
 vi.mock('../../src/api/billing.js', () => ({
   getBalance: vi.fn(),
 }))
 
+const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push: routerPush }),
+}))
+
 import Dashboard from '../../src/views/Dashboard.vue'
-import { listJobs, deleteJob } from '../../src/api/jobs.js'
+import { listJobs, deleteJob, getJob, createDraft } from '../../src/api/jobs.js'
 import { getBalance } from '../../src/api/billing.js'
 
 const stubs = {
   'router-link': { template: '<a><slot /></a>' },
   CreditWarning: true,
   DashboardEmpty: { template: '<div class="empty">No jobs</div>' },
-  SimCard: { props: ['job'], template: '<div class="simcard">{{ job.goal }}</div>' },
+  SimCard: {
+    props: ['job'],
+    emits: ['delete', 'restart'],
+    template: `<div class="simcard">{{ job.goal }}<button class="restart-trigger" @click="$emit('restart', job)">r</button></div>`,
+  },
   SkeletonCard: true,
 }
 
@@ -26,6 +37,9 @@ describe('Dashboard.vue', () => {
     listJobs.mockReset()
     deleteJob.mockReset()
     getBalance.mockReset()
+    getJob.mockReset()
+    createDraft.mockReset()
+    routerPush.mockReset()
     vi.stubGlobal('confirm', vi.fn(() => true))
   })
 
@@ -84,7 +98,8 @@ describe('Dashboard.vue', () => {
     await flushPromises()
     // load more success
     listJobs.mockResolvedValueOnce({ jobs: [{ id: '2', status: 'COMPLETED' }], total: 2 })
-    await wrapper.find('button').trigger('click')
+    const loadMore = wrapper.findAll('button').find(b => b.text().includes('Load more'))
+    await loadMore.trigger('click')
     await flushPromises()
     expect(wrapper.findAll('.simcard').length).toBe(2)
   })
@@ -96,7 +111,8 @@ describe('Dashboard.vue', () => {
     await flushPromises()
     listJobs.mockRejectedValueOnce(new Error('x'))
     const err = vi.spyOn(console, 'error').mockImplementation(() => {})
-    await wrapper.find('button').trigger('click')
+    const loadMore = wrapper.findAll('button').find(b => b.text().includes('Load more'))
+    await loadMore.trigger('click')
     await flushPromises()
     expect(err).toHaveBeenCalled()
     err.mockRestore()
@@ -144,6 +160,80 @@ describe('Dashboard.vue', () => {
     await flushPromises()
     await wrapper.find('button[title="Delete draft"]').trigger('click')
     await flushPromises()
+    expect(err).toHaveBeenCalled()
+    err.mockRestore()
+  })
+
+  it('restart fetches full job, creates draft, routes to wizard', async () => {
+    listJobs.mockResolvedValue({
+      jobs: [{ id: 'r1', status: 'COMPLETED', goal: 'Done' }],
+      total: 1,
+    })
+    getBalance.mockResolvedValue({ balance: 100 })
+    getJob.mockResolvedValue({
+      id: 'r1',
+      seed_text: 'Seed body',
+      goal: 'Done',
+      tier: 'small',
+      enrich_web: false,
+      forecast_days: 90,
+    })
+    createDraft.mockResolvedValue({ id: 'd42' })
+
+    const wrapper = mount(Dashboard, { global: { stubs } })
+    await flushPromises()
+    await wrapper.find('.restart-trigger').trigger('click')
+    await flushPromises()
+
+    expect(getJob).toHaveBeenCalledWith('r1')
+    expect(createDraft).toHaveBeenCalledWith({
+      seed_text: 'Seed body',
+      goal: 'Done',
+      tier: 'small',
+      enrich_web: false,
+      forecast_days: 90,
+    })
+    expect(routerPush).toHaveBeenCalledWith('/sim/new?draft=d42')
+  })
+
+  it('restart defaults forecast_days to 30 when source is null', async () => {
+    listJobs.mockResolvedValue({
+      jobs: [{ id: 'r1', status: 'COMPLETED', goal: 'Done' }],
+      total: 1,
+    })
+    getBalance.mockResolvedValue({ balance: 100 })
+    getJob.mockResolvedValue({
+      id: 'r1', seed_text: 'S', goal: 'G', tier: 'small',
+      enrich_web: true, forecast_days: null,
+    })
+    createDraft.mockResolvedValue({ id: 'd1' })
+
+    const wrapper = mount(Dashboard, { global: { stubs } })
+    await flushPromises()
+    await wrapper.find('.restart-trigger').trigger('click')
+    await flushPromises()
+
+    expect(createDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ forecast_days: 30 }),
+    )
+  })
+
+  it('restart failure does not navigate and is logged', async () => {
+    listJobs.mockResolvedValue({
+      jobs: [{ id: 'r1', status: 'COMPLETED', goal: 'Done' }],
+      total: 1,
+    })
+    getBalance.mockResolvedValue({ balance: 100 })
+    getJob.mockRejectedValue(new Error('nope'))
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const wrapper = mount(Dashboard, { global: { stubs } })
+    await flushPromises()
+    await wrapper.find('.restart-trigger').trigger('click')
+    await flushPromises()
+
+    expect(createDraft).not.toHaveBeenCalled()
+    expect(routerPush).not.toHaveBeenCalled()
     expect(err).toHaveBeenCalled()
     err.mockRestore()
   })
