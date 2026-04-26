@@ -117,8 +117,12 @@ async def stripe_webhook(
 
     if event.type == "checkout.session.completed":
         stripe_session = event.data.object
-        user_id = stripe_session.metadata.get("user_id")
-        pack_id = stripe_session.metadata.get("pack_id")
+        # Stripe SDK objects raise AttributeError when a field key is absent
+        # (e.g. test events sent from the dashboard's "Send test webhook" UI),
+        # so read defensively rather than assuming `.metadata` is a dict.
+        metadata = getattr(stripe_session, "metadata", None) or {}
+        user_id = metadata.get("user_id")
+        pack_id = metadata.get("pack_id")
         stripe_session_id = stripe_session.id
 
         if not user_id or not pack_id:
@@ -167,7 +171,10 @@ async def stripe_webhook(
 
     elif event.type == "charge.refunded":
         charge = event.data.object
-        payment_intent_id = charge.payment_intent
+        payment_intent_id = getattr(charge, "payment_intent", None)
+        if not payment_intent_id:
+            logger.warning("charge.refunded missing payment_intent — ignoring")
+            return {"status": "ok"}
         ledger = CreditLedger(session)
 
         original_credit = await ledger.get_credit_by_payment_intent(payment_intent_id)
