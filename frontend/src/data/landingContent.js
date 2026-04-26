@@ -17,11 +17,11 @@ export const PROOFS = [
 // API supplies name/credits/price; this overlay supplies visual styling + bullets.
 export const PACK_DISPLAY = {
   starter: { accent: '#22D3EE', featured: false,
-    features: ['3-4 small simulations', 'Up to 500 agents per run', 'Full guided story results', 'PDF & JSON export'] },
+    features: ['~3 small simulations', '10 agents · 15 rounds', 'Up to 30-day forecasts', 'PDF & JSON export'] },
   pro: { accent: '#A78BFA', featured: true,
-    features: ['15-20 medium simulations', 'Up to 2,000 agents per run', 'Priority GPU allocation', 'Full export suite'] },
+    features: ['~5 medium simulations', '20 agents · 100 rounds', 'Up to 6-month forecasts', 'PDF & JSON export'] },
   heavy: { accent: '#FBBF24', featured: false,
-    features: ['Large-scale simulations', 'Up to 10,000 agents per run', 'Dedicated GPU instances', 'Priority support'] },
+    features: ['~6 large simulations', '35 agents · 200 rounds', 'Up to 1-year forecasts', 'PDF & JSON export'] },
 }
 
 export const FALLBACK_PACK_DISPLAY = { accent: '#22D3EE', featured: false, features: [] }

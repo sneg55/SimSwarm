@@ -93,17 +93,17 @@ const selectedTier = ref('medium')
 emit('update:tier', 'medium')
 
 const tiers = [
-  { id: 'small', label: 'Small', range: '1–500 agents', duration: '< 30 min', accent: '#22D3EE', border: '#0E7490', glow: 'rgba(34,211,238,0.08)' },
-  { id: 'medium', label: 'Medium', range: '501–2,000 agents', duration: '< 4 hours', accent: '#A78BFA', border: '#7C3AED', glow: 'rgba(167,139,250,0.08)' },
-  { id: 'large', label: 'Large', range: '2,001–10,000 agents', duration: '< 12 hours', accent: '#FBBF24', border: '#D97706', glow: 'rgba(251,191,36,0.08)' },
+  { id: 'small', label: 'Small', range: '10 agents · 15 rounds', duration: '~45 min', accent: '#22D3EE', border: '#0E7490', glow: 'rgba(34,211,238,0.08)' },
+  { id: 'medium', label: 'Medium', range: '20 agents · 100 rounds', duration: '~5 hours', accent: '#A78BFA', border: '#7C3AED', glow: 'rgba(167,139,250,0.08)' },
+  { id: 'large', label: 'Large', range: '35 agents · 200 rounds', duration: 'up to 12 hours', accent: '#FBBF24', border: '#D97706', glow: 'rgba(251,191,36,0.08)' },
 ]
 
 const sizeInfo = [
-  { label: 'Small', color: '#22D3EE', traits: ['Fewer perspectives', 'Faster results', 'Key trends only'],
+  { label: 'Small', color: '#22D3EE', traits: ['10 agents', 'Fewer perspectives', 'Quick scan'],
     dots: [{x:'40%',y:'30%',s:'5px',c:'#22D3EE'},{x:'55%',y:'50%',s:'4px',c:'#A78BFA'},{x:'35%',y:'60%',s:'4px',c:'#6EE7B7'}] },
-  { label: 'Medium', color: '#A78BFA', traits: ['Balanced depth', 'Coalition detection', 'Most popular'],
+  { label: 'Medium', color: '#A78BFA', traits: ['20 agents', 'Balanced depth', 'Most popular'],
     dots: [{x:'30%',y:'20%',s:'5px',c:'#22D3EE'},{x:'60%',y:'25%',s:'4px',c:'#A78BFA'},{x:'25%',y:'50%',s:'4px',c:'#6EE7B7'},{x:'55%',y:'55%',s:'5px',c:'#FF6B6B'},{x:'45%',y:'70%',s:'3px',c:'#FBBF24'},{x:'70%',y:'45%',s:'4px',c:'#22D3EE'}] },
-  { label: 'Large', color: '#FBBF24', traits: ['Maximum diversity', 'Emergent coalitions', 'Deepest insights'],
+  { label: 'Large', color: '#FBBF24', traits: ['35 agents', 'Maximum diversity', 'Deepest insights'],
     dots: [{x:'20%',y:'15%',s:'4px',c:'#22D3EE'},{x:'45%',y:'12%',s:'5px',c:'#A78BFA'},{x:'70%',y:'20%',s:'3px',c:'#6EE7B7'},{x:'30%',y:'40%',s:'5px',c:'#FF6B6B'},{x:'55%',y:'45%',s:'4px',c:'#FBBF24'},{x:'15%',y:'60%',s:'4px',c:'#22D3EE'},{x:'65%',y:'55%',s:'3px',c:'#A78BFA'},{x:'40%',y:'70%',s:'5px',c:'#6EE7B7'},{x:'75%',y:'65%',s:'4px',c:'#FF6B6B'}] },
 ]
 
