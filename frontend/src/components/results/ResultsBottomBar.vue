@@ -17,14 +17,6 @@
       {{ pdfLoading ? 'Generating...' : 'Export as PDF' }}
     </button>
     <button
-      v-if="showJson"
-      @click="$emit('export', 'json')"
-      class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-mist-drift bg-ocean-deep border border-mist-depth transition-all duration-250 ease-spring hover:border-ocean-teal hover:text-mist-foam hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
-    >
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1"/></svg>
-      Export as JSON
-    </button>
-    <button
       v-if="showCsv"
       @click="$emit('export', 'csv')"
       class="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-mist-drift bg-ocean-deep border border-mist-depth transition-all duration-250 ease-spring hover:border-ocean-teal hover:text-mist-foam hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.3)]"
@@ -49,7 +41,6 @@ import { computed } from 'vue'
 
 const props = defineProps({
   showPng: { type: Boolean, default: false },
-  showJson: { type: Boolean, default: true },
   showCsv: { type: Boolean, default: true },
   pdfLoading: { type: Boolean, default: false },
   shareStatus: { type: String, default: '' },

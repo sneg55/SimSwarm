@@ -69,11 +69,6 @@ export async function exportPDF(jobId) {
   return resp.data
 }
 
-export async function exportJSON(jobId) {
-  const resp = await api.get(`/jobs/${jobId}/export/json`, { responseType: 'blob' })
-  return resp.data
-}
-
 export async function createShareLink(jobId) {
   const resp = await api.post(`/jobs/${jobId}/share`)
   return resp.data

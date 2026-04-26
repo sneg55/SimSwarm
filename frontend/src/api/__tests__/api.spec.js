@@ -229,11 +229,9 @@ describe('api/jobs', () => {
     expect(api.get).toHaveBeenCalledWith('/jobs/j/graph')
   })
 
-  it('exportPDF and exportJSON request blobs', async () => {
+  it('exportPDF requests a blob', async () => {
     await jobs.exportPDF('j')
     expect(api.get).toHaveBeenCalledWith('/jobs/j/export/pdf', { responseType: 'blob' })
-    await jobs.exportJSON('j')
-    expect(api.get).toHaveBeenCalledWith('/jobs/j/export/json', { responseType: 'blob' })
   })
 
   it('createShareLink, revokeShareLink', async () => {

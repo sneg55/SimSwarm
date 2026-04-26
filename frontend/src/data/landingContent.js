@@ -17,11 +17,11 @@ export const PROOFS = [
 // API supplies name/credits/price; this overlay supplies visual styling + bullets.
 export const PACK_DISPLAY = {
   starter: { accent: '#22D3EE', featured: false,
-    features: ['~3 small simulations', '10 agents · 15 rounds', 'Up to 30-day forecasts', 'PDF & JSON export'] },
+    features: ['~3 small simulations', '10 agents · 15 rounds', 'Up to 30-day forecasts', 'PDF export'] },
   pro: { accent: '#A78BFA', featured: true,
-    features: ['~5 medium simulations', '20 agents · 100 rounds', 'Up to 6-month forecasts', 'PDF & JSON export'] },
+    features: ['~5 medium simulations', '20 agents · 100 rounds', 'Up to 6-month forecasts', 'PDF export'] },
   heavy: { accent: '#FBBF24', featured: false,
-    features: ['~6 large or ~22 medium', '35 agents · 200 rounds', 'Up to 1-year forecasts', 'PDF & JSON export'] },
+    features: ['~6 large or ~22 medium', '35 agents · 200 rounds', 'Up to 1-year forecasts', 'PDF export'] },
 }
 
 export const FALLBACK_PACK_DISPLAY = { accent: '#22D3EE', featured: false, features: [] }

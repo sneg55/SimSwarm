@@ -36,17 +36,6 @@ export function useResultsExport(jobId, job, chatMessages, graphVizRef) {
     }
   }
 
-  function exportJSON() {
-    const data = {
-      jobId,
-      report: job.value?.result_report || job.value?.report,
-      messages: chatMessages.value,
-      exportedAt: new Date().toISOString(),
-    }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
-    triggerDownload(blob, `simswarm-${jobId}.json`)
-  }
-
   function exportCSV() {
     const messages = chatMessages.value
     const rows = [['role', 'agent', 'content', 'timestamp']]
@@ -66,7 +55,6 @@ export function useResultsExport(jobId, job, chatMessages, graphVizRef) {
 
   async function handleExport(format) {
     if (format === 'pdf') await exportPDF()
-    else if (format === 'json') exportJSON()
     else if (format === 'csv') exportCSV()
     else if (format === 'png') exportPNG()
   }

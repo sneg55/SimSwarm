@@ -113,7 +113,7 @@
           key findings, sentiment shifts, coalition maps, and confidence scores.
           No PhD required. Just scroll and understand.
         </template>
-        <template #detail>Export as PDF, JSON, or CSV for your team.</template>
+        <template #detail>Export as PDF or CSV for your team.</template>
         <template #mockup>
           <div
             v-for="insight in insights" :key="insight.label"

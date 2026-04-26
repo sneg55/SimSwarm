@@ -19,13 +19,6 @@ describe('useResultsExport', () => {
     createShareLink.mockResolvedValue({ share_token: 'tok123' })
   })
 
-  it('exports JSON via Blob', async () => {
-    const job = ref({ result_report: 'hi', report: null })
-    const exp = useResultsExport('job-1', job, ref([]), ref(null))
-    await exp.handleExport('json')
-    expect(URL.createObjectURL).toHaveBeenCalled()
-  })
-
   it('exports CSV', async () => {
     const chatMessages = ref([
       { role: 'user', agent: 'A', content: 'hi,there', timestamp: '2024' },

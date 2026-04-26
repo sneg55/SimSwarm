@@ -32,11 +32,6 @@ async def test_pdf_no_report(client, auth_headers, db_session):
     assert resp.status_code == 400
 
 
-async def test_json_not_found(client, auth_headers):
-    resp = await client.get("/api/jobs/9999/export/json", headers=auth_headers)
-    assert resp.status_code == 404
-
-
 def test_markdown_to_pdf_covers_all_line_types():
     md = (
         "# Top Heading\n"

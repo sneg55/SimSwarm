@@ -156,7 +156,7 @@ describe('ResultsBottomBar', () => {
   })
 
   it('emits export on button clicks', async () => {
-    const wrapper = mount(ResultsBottomBar, { props: { showPng: true, showJson: true, showCsv: true } })
+    const wrapper = mount(ResultsBottomBar, { props: { showPng: true, showCsv: true } })
     const buttons = wrapper.findAll('button')
     for (const btn of buttons) await btn.trigger('click')
     expect(wrapper.emitted('export')).toBeTruthy()
