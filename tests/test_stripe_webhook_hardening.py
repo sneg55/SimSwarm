@@ -222,6 +222,45 @@ async def test_checkout_webhook_with_no_metadata_field_returns_200(client):
     assert resp.json() == {"status": "ok"}
 
 
+class _StripeMetadata:
+    """Mimics stripe._stripe_object.StripeObject metadata: supports __getitem__
+    and __iter__ but NOT .get() — which is exactly the SDK's behaviour and the
+    reason resending a real event still 500'd after the first hotfix."""
+
+    def __init__(self, **kwargs):
+        self._data = kwargs
+
+    def __getitem__(self, key):
+        return self._data[key]
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __bool__(self):
+        return bool(self._data)
+
+
+async def test_checkout_webhook_with_stripeobject_metadata_credits_user(
+    client, auth_headers, db_session
+):
+    """metadata field is present but is a StripeObject (no .get()).
+    Webhook must still credit the user (this is the actual prod shape)."""
+    user_id = auth_headers["_user_id"]
+    metadata = _StripeMetadata(user_id=user_id, pack_id="starter", credits="100")
+    session_obj = _StripeObjectStub(id="cs_real_shape", metadata=metadata, payment_intent="pi_x")
+
+    event = MagicMock()
+    event.type = "checkout.session.completed"
+    event.data.object = session_obj
+
+    resp = await _post_webhook(client, event)
+    assert resp.status_code == 200
+
+    ledger = CreditLedger(db_session)
+    balance = await ledger.get_balance(user_id)
+    assert balance == 100
+
+
 async def test_refund_webhook_with_no_payment_intent_returns_200(client):
     """charge.refunded without a payment_intent key should not crash."""
     charge_obj = _StripeObjectStub(id="ch_no_pi")

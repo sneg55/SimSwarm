@@ -21,6 +21,30 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/billing", tags=["billing"])
 
 
+def _stripe_metadata_to_dict(metadata) -> dict:
+    """Coerce Stripe SDK metadata into a plain dict.
+
+    StripeObject (used for nested fields like metadata) supports __getitem__
+    and __iter__ but is NOT a dict subclass — calling .get(...) on it raises
+    AttributeError. The metadata field can also be absent entirely on synthetic
+    test webhook events. This helper handles both shapes.
+    """
+    if metadata is None:
+        return {}
+    if isinstance(metadata, dict):
+        return metadata
+    out = {}
+    try:
+        for key in metadata:
+            try:
+                out[key] = metadata[key]
+            except (KeyError, AttributeError, TypeError):
+                continue
+    except (TypeError, AttributeError):
+        return {}
+    return out
+
+
 def _get_stripe_service(request: Request) -> StripeService:
     settings = request.app.state.settings
     return StripeService(
@@ -117,10 +141,10 @@ async def stripe_webhook(
 
     if event.type == "checkout.session.completed":
         stripe_session = event.data.object
-        # Stripe SDK objects raise AttributeError when a field key is absent
-        # (e.g. test events sent from the dashboard's "Send test webhook" UI),
-        # so read defensively rather than assuming `.metadata` is a dict.
-        metadata = getattr(stripe_session, "metadata", None) or {}
+        # Stripe's StripeObject is NOT a dict subclass — it supports obj["key"]
+        # but obj.get(...) raises AttributeError. The whole `.metadata` field
+        # may also be absent on test events. Coerce both cases into a plain dict.
+        metadata = _stripe_metadata_to_dict(getattr(stripe_session, "metadata", None))
         user_id = metadata.get("user_id")
         pack_id = metadata.get("pack_id")
         stripe_session_id = stripe_session.id
