@@ -142,7 +142,7 @@ describe('api/billing', () => {
   })
   it('getHistory', async () => {
     await billing.getHistory()
-    expect(api.get).toHaveBeenCalledWith('/billing/history')
+    expect(api.get).toHaveBeenCalledWith('/billing/history', { params: {} })
   })
 })
 

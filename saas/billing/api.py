@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -202,10 +202,17 @@ async def stripe_webhook(
 
 @router.get("/history", response_model=list[CreditHistoryEntry])
 async def get_history(
+    response: Response,
+    limit: int | None = Query(None, ge=1, le=100),
+    offset: int = Query(0, ge=0),
     current_user: dict = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ):
     user_id = current_user["user_id"]
     ledger = CreditLedger(session)
-    entries = await ledger.get_history(user_id)
+    entries = await ledger.get_history(user_id, limit=limit, offset=offset)
+    if limit is not None:
+        # Caller is paginating — surface total so the client can render "load more"
+        total = await ledger.count_history(user_id)
+        response.headers["X-Total-Count"] = str(total)
     return entries

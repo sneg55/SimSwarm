@@ -57,22 +57,36 @@
       <div v-else-if="history.length === 0" class="text-center text-mist-slate py-4 text-sm">
         No transactions yet.
       </div>
-      <div v-else class="divide-y divide-mist-depth">
-        <div
-          v-for="tx in history"
-          :key="tx.id"
-          class="flex items-center justify-between py-3"
-        >
-          <div>
-            <div class="text-sm font-medium text-mist-foam">{{ tx.description }}</div>
-            <div class="text-xs text-mist-slate">{{ formatDate(tx.created_at) }}</div>
-          </div>
+      <div v-else>
+        <div class="divide-y divide-mist-depth">
           <div
-            class="text-sm font-semibold"
-            :class="tx.amount > 0 ? 'text-organic-seafoam' : 'text-coral'"
+            v-for="tx in history"
+            :key="tx.id"
+            class="flex items-center justify-between py-3"
           >
-            {{ tx.amount > 0 ? '+' : '' }}{{ tx.amount }} credits
+            <div>
+              <div class="text-sm font-medium text-mist-foam">{{ tx.description }}</div>
+              <div class="text-xs text-mist-slate">{{ formatDate(tx.created_at) }}</div>
+            </div>
+            <div
+              class="text-sm font-semibold"
+              :class="tx.amount > 0 ? 'text-organic-seafoam' : 'text-coral'"
+            >
+              {{ tx.amount > 0 ? '+' : '' }}{{ tx.amount }} credits
+            </div>
           </div>
+        </div>
+        <div v-if="history.length < historyTotal" class="mt-4 flex items-center justify-between">
+          <span class="text-xs text-mist-slate">
+            Showing {{ history.length }} of {{ historyTotal }}
+          </span>
+          <button
+            @click="loadMoreHistory"
+            :disabled="historyLoadingMore"
+            class="px-4 py-2 text-sm font-medium text-mist-drift border border-mist-depth rounded-lg hover:border-ocean-teal hover:text-mist-foam transition-colors disabled:opacity-50"
+          >
+            {{ historyLoadingMore ? 'Loading…' : 'Load more' }}
+          </button>
         </div>
       </div>
     </div>
@@ -97,8 +111,12 @@ const creditsStore = useCreditsStore()
 const paymentSuccess = computed(() => route.query.success === '1')
 const paymentCancelled = computed(() => route.query.cancel === '1')
 
+const HISTORY_PAGE_SIZE = 20
+
 const history = ref([])
+const historyTotal = ref(0)
 const historyLoading = ref(true)
+const historyLoadingMore = ref(false)
 const purchasing = ref(null)
 const purchaseSuccess = ref(false)
 const purchaseError = ref('')
@@ -114,12 +132,13 @@ onMounted(async () => {
   try {
     const [balanceData, historyData, packsData] = await Promise.all([
       getBalance(),
-      getHistory(),
+      getHistory({ limit: HISTORY_PAGE_SIZE, offset: 0 }),
       getPacks(),
     ])
     const initialBalance = balanceData.balance ?? balanceData
     creditsStore.setBalance(initialBalance)
-    history.value = historyData.transactions || historyData
+    history.value = historyData.entries
+    historyTotal.value = historyData.total
     creditPacks.value = packsData.map(p => ({
       id: p.slug,
       credits: p.credits,
@@ -135,6 +154,20 @@ onMounted(async () => {
     historyLoading.value = false
   }
 })
+
+async function loadMoreHistory() {
+  if (historyLoadingMore.value) return
+  historyLoadingMore.value = true
+  try {
+    const next = await getHistory({ limit: HISTORY_PAGE_SIZE, offset: history.value.length })
+    history.value.push(...next.entries)
+    historyTotal.value = next.total
+  } catch (err) {
+    console.error('Failed to load more history:', err)
+  } finally {
+    historyLoadingMore.value = false
+  }
+}
 
 async function handlePurchase(pack) {
   purchasing.value = pack.id

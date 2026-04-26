@@ -118,10 +118,28 @@ class CreditLedger:
         )
         return result.scalar_one_or_none()
 
-    async def get_history(self, user_id: str) -> list[CreditEntry]:
-        result = await self.session.execute(
-            select(CreditEntry)
-            .where(CreditEntry.user_id == user_id)
-            .order_by(CreditEntry.created_at.asc())
-        )
+    async def get_history(
+        self,
+        user_id: str,
+        limit: int | None = None,
+        offset: int = 0,
+    ) -> list[CreditEntry]:
+        stmt = select(CreditEntry).where(CreditEntry.user_id == user_id)
+        if limit is None:
+            # Legacy unpaginated path: oldest-first, full set
+            stmt = stmt.order_by(CreditEntry.created_at.asc())
+        else:
+            # Paginated path: newest-first, sliced
+            stmt = (
+                stmt.order_by(CreditEntry.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+            )
+        result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def count_history(self, user_id: str) -> int:
+        result = await self.session.execute(
+            select(func.count(CreditEntry.id)).where(CreditEntry.user_id == user_id)
+        )
+        return result.scalar() or 0
