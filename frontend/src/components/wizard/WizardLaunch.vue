@@ -28,6 +28,9 @@
         <div v-if="!tierFitsTimeline(tier.id)" class="text-[10px] text-coral/70 mt-1">
           Needs {{ tier.id === 'small' ? 'Medium' : 'Large' }}+
         </div>
+        <div v-else-if="!creditsStore.canAfford(tier.id)" class="text-[10px] text-coral-amber/80 mt-1">
+          Need {{ creditsStore.getTierCost(tier.id) - creditsStore.balance }} more
+        </div>
       </button>
     </div>
 

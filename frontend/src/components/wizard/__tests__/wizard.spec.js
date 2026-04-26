@@ -194,4 +194,14 @@ describe('WizardLaunch', () => {
     // medium = 90, so balance after = 410
     expect(wrapper.text()).toContain('410')
   })
+
+  it('shows "Need N more" hint when tier is unaffordable but timeline-fits', () => {
+    const store = useCreditsStore()
+    store.balance = 100  // mid balance: small (30) ok, medium (90) ok, large (300) short by 200
+    const wrapper = mount(WizardLaunch, {
+      props: {},
+      global: { stubs: { RouterLink: RouterLinkStub } },
+    })
+    expect(wrapper.text()).toContain('Need 200 more')
+  })
 })

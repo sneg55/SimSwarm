@@ -4,6 +4,9 @@ import { mount, flushPromises } from '@vue/test-utils'
 vi.mock('../../src/api/demos.js', () => ({
   listDemos: vi.fn(),
 }))
+vi.mock('../../src/api/billing.js', () => ({
+  getPacks: vi.fn().mockResolvedValue([]),
+}))
 
 import Landing from '../../src/views/Landing.vue'
 import { listDemos } from '../../src/api/demos.js'

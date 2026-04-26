@@ -31,14 +31,15 @@
       </li>
     </ul>
 
-    <button
-      class="w-full py-3 rounded-xl text-[15px] font-semibold transition-all duration-250 ease-spring"
+    <router-link
+      :to="ctaTo"
+      class="block w-full py-3 rounded-xl text-[15px] font-semibold transition-all duration-250 ease-spring"
       :class="featured
         ? 'bg-gradient-to-br from-ocean-cyan to-cyan-500 text-white glow-cyan hover:glow-cyan-lg hover:-translate-y-0.5'
         : 'bg-transparent text-mist-drift border border-mist-depth hover:border-ocean-teal hover:text-mist-foam hover:bg-ocean-teal/20 hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(0,0,0,0.2)]'"
     >
-      Get started
-    </button>
+      {{ ctaLabel }}
+    </router-link>
   </div>
 </template>
 
@@ -50,5 +51,7 @@ defineProps({
   features: { type: Array, required: true },
   accentColor: { type: String, default: '#22D3EE' },
   featured: { type: Boolean, default: false },
+  ctaTo: { type: [String, Object], default: '/register' },
+  ctaLabel: { type: String, default: 'Get started' },
 })
 </script>

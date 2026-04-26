@@ -19,8 +19,8 @@ class Settings(BaseSettings):
     # Stripe billing
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
-    STRIPE_SUCCESS_URL: str = "http://localhost:3000/billing?success=1"
-    STRIPE_CANCEL_URL: str = "http://localhost:3000/billing?cancel=1"
+    STRIPE_SUCCESS_URL: str = "http://localhost:3000/account?success=1"
+    STRIPE_CANCEL_URL: str = "http://localhost:3000/account?cancel=1"
 
     # xAI enrichment
     XAI_API_KEY: str = ""
