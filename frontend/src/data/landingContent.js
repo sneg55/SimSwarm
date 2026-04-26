@@ -19,9 +19,9 @@ export const PACK_DISPLAY = {
   starter: { accent: '#22D3EE', featured: false,
     features: ['~3 small simulations', '10 agents · 15 rounds', 'Up to 30-day forecasts', 'PDF & JSON export'] },
   pro: { accent: '#A78BFA', featured: true,
-    features: ['~5 medium or ~16 small', '20 agents · 100 rounds', 'Up to 6-month forecasts', 'PDF & JSON export'] },
+    features: ['~5 medium simulations', '20 agents · 100 rounds', 'Up to 6-month forecasts', 'PDF & JSON export'] },
   heavy: { accent: '#FBBF24', featured: false,
-    features: ['~6 large · ~22 medium · ~66 small', '35 agents · 200 rounds', 'Up to 1-year forecasts', 'PDF & JSON export'] },
+    features: ['~6 large or ~22 medium', '35 agents · 200 rounds', 'Up to 1-year forecasts', 'PDF & JSON export'] },
 }
 
 export const FALLBACK_PACK_DISPLAY = { accent: '#22D3EE', featured: false, features: [] }
