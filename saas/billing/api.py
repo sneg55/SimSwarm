@@ -21,28 +21,20 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/billing", tags=["billing"])
 
 
-def _stripe_metadata_to_dict(metadata) -> dict:
-    """Coerce Stripe SDK metadata into a plain dict.
+def _stripe_meta_get(metadata, key):
+    """Read a single key from Stripe metadata regardless of shape.
 
-    StripeObject (used for nested fields like metadata) supports __getitem__
-    and __iter__ but is NOT a dict subclass — calling .get(...) on it raises
-    AttributeError. The metadata field can also be absent entirely on synthetic
-    test webhook events. This helper handles both shapes.
+    The metadata field can be: None (synthetic test events), a real dict
+    (in our pytest mocks), or a Stripe SDK StripeObject — which supports
+    obj[key] but NOT obj.get(key), and whose __iter__ doesn't behave like
+    a dict. Avoid iteration entirely; just probe the one key we care about.
     """
     if metadata is None:
-        return {}
-    if isinstance(metadata, dict):
-        return metadata
-    out = {}
+        return None
     try:
-        for key in metadata:
-            try:
-                out[key] = metadata[key]
-            except (KeyError, AttributeError, TypeError):
-                continue
-    except (TypeError, AttributeError):
-        return {}
-    return out
+        return metadata[key]
+    except (KeyError, AttributeError, TypeError):
+        return None
 
 
 def _get_stripe_service(request: Request) -> StripeService:
@@ -141,12 +133,11 @@ async def stripe_webhook(
 
     if event.type == "checkout.session.completed":
         stripe_session = event.data.object
-        # Stripe's StripeObject is NOT a dict subclass — it supports obj["key"]
-        # but obj.get(...) raises AttributeError. The whole `.metadata` field
-        # may also be absent on test events. Coerce both cases into a plain dict.
-        metadata = _stripe_metadata_to_dict(getattr(stripe_session, "metadata", None))
-        user_id = metadata.get("user_id")
-        pack_id = metadata.get("pack_id")
+        # See _stripe_meta_get docstring — metadata can be None, dict, or a
+        # quirky StripeObject; avoid iterating it, just probe known keys.
+        metadata = getattr(stripe_session, "metadata", None)
+        user_id = _stripe_meta_get(metadata, "user_id")
+        pack_id = _stripe_meta_get(metadata, "pack_id")
         stripe_session_id = stripe_session.id
 
         if not user_id or not pack_id:

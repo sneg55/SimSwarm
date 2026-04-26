@@ -223,18 +223,32 @@ async def test_checkout_webhook_with_no_metadata_field_returns_200(client):
 
 
 class _StripeMetadata:
-    """Mimics stripe._stripe_object.StripeObject metadata: supports __getitem__
-    and __iter__ but NOT .get() — which is exactly the SDK's behaviour and the
-    reason resending a real event still 500'd after the first hotfix."""
+    """Mimics stripe._stripe_object.StripeObject metadata.
+
+    Real-world behaviours observed in prod that broke earlier "fixes":
+    - supports obj["key"] (dict-style indexing)
+    - does NOT have .get() (raises AttributeError)
+    - __iter__ behaves as a sequence (yields integers 0, 1, 2…) rather than
+      yielding dict-style keys, so iterating it and probing values raises
+      KeyError on integer indices.
+    The defensive helper must not iterate — only probe known string keys.
+    """
 
     def __init__(self, **kwargs):
         self._data = kwargs
 
     def __getitem__(self, key):
+        # Sequence-style access raises like the SDK does
+        if isinstance(key, int):
+            raise KeyError(key)
         return self._data[key]
 
     def __iter__(self):
-        return iter(self._data)
+        # Reproduce the broken __iter__: yields integer indices, not keys
+        return iter(range(len(self._data)))
+
+    def __len__(self):
+        return len(self._data)
 
     def __bool__(self):
         return bool(self._data)
