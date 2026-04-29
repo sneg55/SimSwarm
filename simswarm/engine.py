@@ -5,14 +5,13 @@ import asyncio
 import logging
 from typing import Any, Callable, Awaitable
 
-from simswarm.belief import update_beliefs
+from simswarm.belief import apply_belief_updates
 from simswarm.bridge import Bridge
 from simswarm.environments.social import SocialConfig, SocialEnvironment
 from simswarm.environments.market import MarketConfig, MarketEnvironment
 from simswarm.environments.economic import EconomicConfig, EconomicEnvironment
 from simswarm.graph import build_graph
 from simswarm.llm import LLMClient, build_context
-from simswarm.stance import score_stance
 from simswarm.sweep import ScenarioSweep, generate_sweep_configs
 from simswarm.types import (
     Action,
@@ -139,8 +138,8 @@ class Engine:
             for env in environments.values():
                 if hasattr(env, "current_engagement"):
                     likes_lookup.update(env.current_engagement())
-            _apply_belief_updates(agents, round_records, belief_topic,
-                                  likes_lookup=likes_lookup)
+            apply_belief_updates(agents, round_records, belief_topic,
+                                 likes_lookup=likes_lookup)
 
             for env in environments.values():
                 env.tick()
@@ -227,72 +226,4 @@ class Engine:
         return agent.environments[0] if agent.environments else "unknown"
 
 
-# ---------------------------------------------------------------------------
-# Belief dynamics integration
-# ---------------------------------------------------------------------------
-
-
-def _apply_belief_updates(
-    agents: dict[str, Agent],
-    round_records: list[ActionRecord],
-    topic: str,
-    likes_lookup: dict[str, tuple[int, int]] | None = None,
-) -> None:
-    """Update each agent's belief state from the other agents' posts this round.
-
-    Mutates Agent.belief_state in place. Own posts are skipped (agents don't
-    influence themselves). Stance is scored from post text via
-    simswarm.stance.score_stance. Engagement (likes/dislikes) is looked up
-    by post_id via *likes_lookup* — typically built from each social
-    environment's current_engagement() snapshot.
-    """
-    # Build the exposure payload shape that belief.update_beliefs expects.
-    # Only POST-like actions count as "exposures" — browse/follow/etc don't
-    # carry a stance.
-    post_actions = [
-        r for r in round_records
-        if r.success
-        and r.action_type.lower() in ("create_post", "post", "comment", "reply")
-    ]
-
-    posts_by_author: dict[str, list[dict[str, Any]]] = {}
-    for action in post_actions:
-        text = (action.action_args or {}).get("text") or \
-            (action.action_args or {}).get("content") or ""
-        if not text:
-            continue
-        stance = score_stance(text)
-        # content_hash need only be unique per post within the run so
-        # exposure_history can dedupe repeated exposures.
-        content_hash = f"r{action.round_num}:{action.agent_id}:{hash(text) & 0xffffffff:08x}"
-        post_id = (action.action_result or {}).get("post_id")
-        if likes_lookup and post_id in likes_lookup:
-            likes, dislikes = likes_lookup[post_id]
-        else:
-            likes, dislikes = 0, 0
-        posts_by_author.setdefault(action.agent_id, []).append({
-            "author": action.agent_name,
-            "content_hash": content_hash,
-            "stance": stance,
-            "likes": likes,
-            "dislikes": dislikes,
-        })
-
-    if not posts_by_author:
-        return
-
-    for agent_id, agent in agents.items():
-        exposures = [
-            post for author, posts in posts_by_author.items()
-            if author != agent_id
-            for post in posts
-        ]
-        if not exposures:
-            continue
-        agent.belief_state = update_beliefs(
-            state=agent.belief_state,
-            posts=exposures,
-            topic=topic,
-            own_likes=0,
-            own_dislikes=0,
-        )
+# Belief dynamics integration lives in simswarm/belief.py (apply_belief_updates).

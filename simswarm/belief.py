@@ -6,8 +6,10 @@ pure math based on trust, social proof, novelty, and confidence resistance.
 from __future__ import annotations
 
 import copy
+from typing import Any
 
-from simswarm.types import BeliefState
+from simswarm.stance import score_stance
+from simswarm.types import ActionRecord, Agent, BeliefState
 
 EXPOSURE_CAP = 2000
 DEFAULT_TRUST = 0.5
@@ -102,3 +104,80 @@ def update_beliefs(
             updated.exposure_history.discard(item)
 
     return updated
+
+
+# ---------------------------------------------------------------------------
+# Engine integration: build the {post_id: (likes, dislikes)} payload from
+# ActionRecords and apply update_beliefs to every exposed agent.
+# ---------------------------------------------------------------------------
+
+
+def apply_belief_updates(
+    agents: dict[str, Agent],
+    round_records: list[ActionRecord],
+    topic: str,
+    likes_lookup: dict[str, tuple[int, int]] | None = None,
+) -> None:
+    """Update each agent's belief state from the other agents' posts this round.
+
+    Mutates Agent.belief_state in place. Own posts are skipped (agents don't
+    influence themselves). Stance is scored from post text via
+    simswarm.stance.score_stance. Engagement (likes/dislikes) is looked up
+    by post_id via *likes_lookup* — typically built from each social
+    environment's current_engagement() snapshot.
+    """
+    post_actions = [
+        r for r in round_records
+        if r.success
+        and r.action_type.lower() in ("create_post", "post", "comment", "reply")
+    ]
+
+    posts_by_author: dict[str, list[dict[str, Any]]] = {}
+    for action in post_actions:
+        text = (action.action_args or {}).get("text") or \
+            (action.action_args or {}).get("content") or ""
+        if not text:
+            continue
+        stance = score_stance(text)
+        content_hash = f"r{action.round_num}:{action.agent_id}:{hash(text) & 0xffffffff:08x}"
+        post_id = (action.action_result or {}).get("post_id")
+        if likes_lookup and post_id in likes_lookup:
+            likes, dislikes = likes_lookup[post_id]
+        else:
+            likes, dislikes = 0, 0
+        posts_by_author.setdefault(action.agent_id, []).append({
+            "author": action.agent_name,
+            "content_hash": content_hash,
+            "stance": stance,
+            "likes": likes,
+            "dislikes": dislikes,
+        })
+
+    own_engagement: dict[str, tuple[int, int]] = {}
+    for action in post_actions:
+        post_id = (action.action_result or {}).get("post_id")
+        if not post_id or not likes_lookup or post_id not in likes_lookup:
+            continue
+        l, d = likes_lookup[post_id]
+        prev_l, prev_d = own_engagement.get(action.agent_id, (0, 0))
+        own_engagement[action.agent_id] = (prev_l + l, prev_d + d)
+
+    if not posts_by_author and not own_engagement:
+        return
+
+    for agent_id, agent in agents.items():
+        exposures = [
+            post for author_id, posts in posts_by_author.items()
+            if author_id != agent_id
+            for post in posts
+        ]
+        own_l, own_d = own_engagement.get(agent_id, (0, 0))
+        if not exposures and own_l == 0 and own_d == 0:
+            continue
+        agent.belief_state = update_beliefs(
+            state=agent.belief_state,
+            posts=exposures,
+            topic=topic,
+            own_likes=own_l,
+            own_dislikes=own_d,
+        )

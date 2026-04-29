@@ -1,7 +1,7 @@
 """Engine-level tests proving belief_state actually mutates across rounds."""
 from __future__ import annotations
 
-from simswarm.engine import _apply_belief_updates
+from simswarm.belief import apply_belief_updates as _apply_belief_updates
 from simswarm.stance import score_stance
 from simswarm.types import (
     Agent,
@@ -121,7 +121,7 @@ def test_apply_belief_updates_uses_post_likes_when_available():
 
     likes_lookup = {"p1": (0, 0), "p2": (10, 0)}
 
-    from simswarm.engine import _apply_belief_updates
+    from simswarm.belief import apply_belief_updates as _apply_belief_updates
     _apply_belief_updates(agents, [rec_no_likes], "t", likes_lookup=likes_lookup)
     after_low = alice.belief_state.positions.get("t", 0.0)
 
@@ -131,6 +131,42 @@ def test_apply_belief_updates_uses_post_likes_when_available():
     after_high = alice2.belief_state.positions.get("t", 0.0)
 
     assert after_high > after_low
+
+
+def test_own_post_likes_raise_confidence():
+    alice = _agent("alice", "Alice")
+    bob = _agent("bob", "Bob")
+    alice.belief_state.confidence["topic"] = 0.5
+    agents = {"alice": alice, "bob": bob}
+
+    alice_rec = _record("alice", "Alice", "Neutral statement here.")
+    alice_rec.action_result = {"post_id": "alice_post"}
+    bob_rec = _record("bob", "Bob", "Some support text.")
+    bob_rec.action_result = {"post_id": "bob_post"}
+
+    likes_lookup = {"alice_post": (5, 0), "bob_post": (0, 0)}
+    from simswarm.belief import apply_belief_updates as _apply_belief_updates
+    _apply_belief_updates(agents, [alice_rec, bob_rec], "topic",
+                          likes_lookup=likes_lookup)
+    assert alice.belief_state.confidence["topic"] > 0.5
+
+
+def test_own_post_dislikes_lower_confidence():
+    alice = _agent("alice", "Alice")
+    bob = _agent("bob", "Bob")
+    alice.belief_state.confidence["topic"] = 0.5
+    agents = {"alice": alice, "bob": bob}
+
+    alice_rec = _record("alice", "Alice", "Neutral statement.")
+    alice_rec.action_result = {"post_id": "alice_post"}
+    bob_rec = _record("bob", "Bob", "Some support text.")
+    bob_rec.action_result = {"post_id": "bob_post"}
+
+    likes_lookup = {"alice_post": (0, 5), "bob_post": (0, 0)}
+    from simswarm.belief import apply_belief_updates as _apply_belief_updates
+    _apply_belief_updates(agents, [alice_rec, bob_rec], "topic",
+                          likes_lookup=likes_lookup)
+    assert alice.belief_state.confidence["topic"] < 0.5
 
 
 def test_repeated_exposure_still_nudges_at_lower_weight():
