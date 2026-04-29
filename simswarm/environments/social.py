@@ -113,6 +113,13 @@ class SocialEnvironment:
         self._pending_events.clear()
         return events
 
+    def current_engagement(self) -> dict[str, tuple[int, int]]:
+        """Return {post_id: (likes, dislikes)} snapshot for the round.
+
+        Used by the engine to feed engagement signals into belief updates.
+        """
+        return {pid: (post.likes, post.dislikes) for pid, post in self.posts.items()}
+
     def tick(self) -> None:
         self.current_round += 1
         for post_id, post in self.posts.items():

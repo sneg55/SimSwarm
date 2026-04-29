@@ -108,6 +108,31 @@ def test_empty_text_posts_dont_trigger_updates():
     assert alice.belief_state.positions == {}
 
 
+def test_apply_belief_updates_uses_post_likes_when_available():
+    """Belief updates should pull likes from action_result.post_id, not assume 0."""
+    alice = _agent("alice", "Alice")
+    bob = _agent("bob", "Bob")
+    agents = {"alice": alice, "bob": bob}
+
+    rec_no_likes = _record("bob", "Bob", "I support the peaceful reform.")
+    rec_no_likes.action_result = {"post_id": "p1"}
+    rec_with_likes = _record("bob", "Bob", "I support the peaceful reform.")
+    rec_with_likes.action_result = {"post_id": "p2"}
+
+    likes_lookup = {"p1": (0, 0), "p2": (10, 0)}
+
+    from simswarm.engine import _apply_belief_updates
+    _apply_belief_updates(agents, [rec_no_likes], "t", likes_lookup=likes_lookup)
+    after_low = alice.belief_state.positions.get("t", 0.0)
+
+    alice2 = _agent("alice", "Alice")
+    agents2 = {"alice": alice2, "bob": _agent("bob", "Bob")}
+    _apply_belief_updates(agents2, [rec_with_likes], "t", likes_lookup=likes_lookup)
+    after_high = alice2.belief_state.positions.get("t", 0.0)
+
+    assert after_high > after_low
+
+
 def test_repeated_exposure_still_nudges_at_lower_weight():
     alice = _agent("alice", "Alice")
     bob = _agent("bob", "Bob")

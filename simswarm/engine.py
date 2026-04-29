@@ -133,9 +133,14 @@ class Engine:
                 round_records.extend(records)
 
             # Belief dynamics: each agent sees the posts authored by others this
-            # round, weighted by stance. The old v1 (MiroShark) path ran this;
-            # under v2 it had been stubbed out, leading to flat 0.0 sentiment.
-            _apply_belief_updates(agents, round_records, belief_topic)
+            # round, weighted by stance and engagement. Engagement counts come
+            # from each environment's current_engagement() snapshot.
+            likes_lookup: dict[str, tuple[int, int]] = {}
+            for env in environments.values():
+                if hasattr(env, "current_engagement"):
+                    likes_lookup.update(env.current_engagement())
+            _apply_belief_updates(agents, round_records, belief_topic,
+                                  likes_lookup=likes_lookup)
 
             for env in environments.values():
                 env.tick()
@@ -231,12 +236,15 @@ def _apply_belief_updates(
     agents: dict[str, Agent],
     round_records: list[ActionRecord],
     topic: str,
+    likes_lookup: dict[str, tuple[int, int]] | None = None,
 ) -> None:
     """Update each agent's belief state from the other agents' posts this round.
 
     Mutates Agent.belief_state in place. Own posts are skipped (agents don't
     influence themselves). Stance is scored from post text via
-    simswarm.stance.score_stance.
+    simswarm.stance.score_stance. Engagement (likes/dislikes) is looked up
+    by post_id via *likes_lookup* — typically built from each social
+    environment's current_engagement() snapshot.
     """
     # Build the exposure payload shape that belief.update_beliefs expects.
     # Only POST-like actions count as "exposures" — browse/follow/etc don't
@@ -257,11 +265,17 @@ def _apply_belief_updates(
         # content_hash need only be unique per post within the run so
         # exposure_history can dedupe repeated exposures.
         content_hash = f"r{action.round_num}:{action.agent_id}:{hash(text) & 0xffffffff:08x}"
+        post_id = (action.action_result or {}).get("post_id")
+        if likes_lookup and post_id in likes_lookup:
+            likes, dislikes = likes_lookup[post_id]
+        else:
+            likes, dislikes = 0, 0
         posts_by_author.setdefault(action.agent_id, []).append({
             "author": action.agent_name,
             "content_hash": content_hash,
             "stance": stance,
-            "likes": 0,  # engagement counts aren't tracked yet; follow-up
+            "likes": likes,
+            "dislikes": dislikes,
         })
 
     if not posts_by_author:
