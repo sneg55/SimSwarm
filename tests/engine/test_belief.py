@@ -111,6 +111,17 @@ class TestConfidenceResistance:
         updated_high = update_beliefs(high_conf, posts, topic="topic")
         assert abs(updated_low.positions["topic"]) > abs(updated_high.positions["topic"])
 
+    def test_full_confidence_almost_fully_resists(self):
+        """Confidence=1.0 -> resistance divisor ~1.0; confidence=0.0 -> divisor ~0.3.
+        High-confidence agent moves much less than low-confidence one."""
+        low = BeliefState(positions={"t": 0.0}, confidence={"t": 0.0}, trust={"a": 0.8})
+        high = BeliefState(positions={"t": 0.0}, confidence={"t": 1.0}, trust={"a": 0.8})
+        posts = [{"author": "a", "content_hash": "h", "stance": 1.0, "likes": 5}]
+        u_low = update_beliefs(low, posts, topic="t")
+        u_high = update_beliefs(high, posts, topic="t")
+        # low gets divided by 0.3, high gets divided by 1.0 -> low moves ~3.3x more.
+        assert u_low.positions["t"] > 2.5 * u_high.positions["t"]
+
     def test_confidence_increases_with_engagement(self):
         bs = BeliefState(
             positions={"topic": 0.5}, confidence={"topic": 0.5}, trust={},

@@ -40,8 +40,8 @@ def update_beliefs(
     current_pos = updated.positions.get(topic, 0.0)
     current_conf = updated.confidence.get(topic, 0.5)
 
-    # Resistance factor: high confidence = resist change
-    resistance = 1.0 - (current_conf * 0.8)  # range: 0.2 to 1.0
+    # Resistance divisor: high confidence = larger divisor = smaller nudge.
+    resistance = 0.3 + current_conf * 0.7  # range: 0.3 to 1.0
 
     position_delta = 0.0
 
@@ -63,8 +63,8 @@ def update_beliefs(
         # Social proof: linear with floor (zero-engagement posts still register)
         social_proof = SOCIAL_PROOF_FLOOR + likes * SOCIAL_PROOF_PER_LIKE
 
-        # Influence = trust * social_proof * novelty * resistance
-        influence = trust * social_proof * novelty * resistance
+        # Influence = trust * social_proof * novelty / resistance
+        influence = trust * social_proof * novelty / resistance
 
         # Pull-toward-stance: nudge proportional to gap between post and current position.
         gap = stance - current_pos
