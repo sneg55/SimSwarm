@@ -37,6 +37,44 @@ class LLMResponse:
     raw: dict[str, Any] = field(default_factory=dict)
 
 
+def _position_band(position: float) -> str:
+    """Map [-1, 1] position to an English band."""
+    if position >= 0.6:
+        return "strongly supportive"
+    if position >= 0.2:
+        return "leaning supportive"
+    if position > -0.2:
+        return "undecided"
+    if position > -0.6:
+        return "leaning opposed"
+    return "strongly opposed"
+
+
+def _confidence_band(confidence: float) -> str:
+    """Map [0, 1] confidence to an English band."""
+    if confidence >= 0.75:
+        return "firmly held — would take overwhelming evidence to shift"
+    if confidence >= 0.45:
+        return "moderate — open to strong arguments"
+    if confidence >= 0.2:
+        return "tentative — actively weighing alternatives"
+    return "uncertain — open to change"
+
+
+def render_beliefs(state) -> str:
+    """Serialize a BeliefState as English bands for the LLM system prompt."""
+    if not state.positions:
+        return ""
+    lines = []
+    for topic, position in state.positions.items():
+        confidence = state.confidence.get(topic, 0.5)
+        lines.append(
+            f"On {topic}: you are {_position_band(position)} "
+            f"(confidence: {_confidence_band(confidence)})"
+        )
+    return "\n".join(lines)
+
+
 def parse_tool_calls(raw: dict) -> list[dict[str, Any]]:
     """Extract tool calls from an OpenAI-format response."""
     message = raw.get("choices", [{}])[0].get("message", {})
@@ -58,14 +96,11 @@ def build_context(agent: Agent, observations: list[Observation]) -> list[dict[st
     messages = [{"role": "system", "content": agent.persona}]
 
     # Belief summary
-    if agent.belief_state.positions:
-        lines = []
-        for topic, pos in agent.belief_state.positions.items():
-            conf = agent.belief_state.confidence.get(topic, 0.5)
-            lines.append(f"- {topic}: position={pos:.2f}, confidence={conf:.2f}")
+    rendered = render_beliefs(agent.belief_state)
+    if rendered:
         messages.append({
             "role": "system",
-            "content": "Your current beliefs:\n" + "\n".join(lines),
+            "content": "Your current beliefs:\n" + rendered,
         })
 
     # Recent memory
