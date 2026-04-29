@@ -9,8 +9,9 @@ from collections import defaultdict
 from typing import Any
 
 from simswarm.extractor_common import (
-    is_comment, is_like, is_post, post_text, score_sentiment,
+    is_comment, is_like, is_post, post_text,
 )
+from simswarm.stance import score_stance
 from simswarm.types import ActionRecord
 
 
@@ -95,7 +96,7 @@ def extract_agent_trajectories(chat_log: list[ActionRecord]) -> list[dict]:
                 "round": rnum,
                 "posts": rd["posts"],
                 "actions": rd["actions"],
-                "sentiment": score_sentiment(combined_text),
+                "sentiment": score_stance(combined_text),
             })
         result.append({
             "agent_id": aid,

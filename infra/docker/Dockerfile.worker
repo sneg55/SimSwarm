@@ -11,12 +11,12 @@ WORKDIR /app
 RUN pip freeze > /tmp/vllm-freeze.txt
 
 # Worker-specific deps: Flask (worker_api), neo4j (optional connectivity check),
-# openai/aiohttp (simswarm.llm), jinja2 (simswarm.prompts), pandas/scikit-learn
-# (sim_data_extractor).
+# openai/aiohttp (simswarm.llm), jinja2 (simswarm.prompts), vaderSentiment
+# (simswarm.stance + simswarm.extractor_activity).
 # Don't use --ignore-installed for ML libs — reuse vLLM's torch/numpy (saves 2GB disk).
 RUN pip install --no-cache-dir --ignore-installed \
         flask flask-cors requests neo4j openai aiohttp jinja2 && \
-    pip install --no-cache-dir pandas scikit-learn "vaderSentiment==3.3.2"
+    pip install --no-cache-dir "vaderSentiment==3.3.2"
 
 # Restore vLLM's critical pins — some worker deps may upgrade numpy/starlette
 # which breaks vLLM. transformers is intentionally excluded from restore —
@@ -57,7 +57,6 @@ COPY infra/docker/run_job_v2_runner.py /app/run_job_v2_runner.py
 COPY infra/docker/run_job_v2_entities.py /app/run_job_v2_entities.py
 COPY infra/docker/enrichment.py /app/enrichment.py
 COPY infra/docker/worker_api.py /app/worker_api.py
-COPY infra/docker/sim_data_extractor.py /app/sim_data_extractor.py
 COPY infra/docker/start.sh /app/start.sh
 
 # SimSwarm engine (imported by run_job_v2_runner). Copied verbatim — the
