@@ -131,11 +131,42 @@ class TestConfidenceResistance:
 
 
 class TestTrustUpdate:
-    def test_trust_defaults_to_half(self):
+    def test_trust_defaults_to_half_for_unknown_author(self):
+        """Unknown author starts at 0.5 trust on first exposure (after update)."""
         bs = BeliefState()
-        posts = [{"author": "stranger", "content_hash": "h1", "stance": 0.5, "likes": 1}]
-        updated = update_beliefs(bs, posts, topic="topic")
-        assert updated.trust.get("stranger", 0.5) == 0.5
+        posts = [{"author": "stranger", "content_hash": "h1", "stance": 0.5, "likes": 0}]
+        updated = update_beliefs(bs, posts, topic="t")
+        # First exposure: trust gets seeded then nudged. Should still be near 0.5.
+        assert 0.3 < updated.trust["stranger"] < 0.7
+
+    def test_aligned_author_gains_trust(self):
+        """Author whose post matches the agent's resulting position gains trust."""
+        bs = BeliefState(
+            positions={"t": 0.5}, confidence={"t": 0.7},
+            trust={"ally": 0.5},
+        )
+        posts = [{"author": "ally", "content_hash": "h", "stance": 0.5, "likes": 0}]
+        updated = update_beliefs(bs, posts, topic="t")
+        assert updated.trust["ally"] > 0.5
+
+    def test_opposing_author_loses_trust(self):
+        """Author posting at opposite stance loses trust."""
+        bs = BeliefState(
+            positions={"t": 0.8}, confidence={"t": 0.9},  # high conf -> resists much
+            trust={"opponent": 0.5},
+        )
+        posts = [{"author": "opponent", "content_hash": "h", "stance": -0.8, "likes": 0}]
+        updated = update_beliefs(bs, posts, topic="t")
+        assert updated.trust["opponent"] < 0.5
+
+    def test_trust_clamped_to_unit_interval(self):
+        bs = BeliefState(
+            positions={"t": 1.0}, confidence={"t": 1.0},
+            trust={"a": 0.99},
+        )
+        posts = [{"author": "a", "content_hash": "h", "stance": 1.0, "likes": 0}]
+        updated = update_beliefs(bs, posts, topic="t")
+        assert 0.0 <= updated.trust["a"] <= 1.0
 
 
 class TestExposureHistory:

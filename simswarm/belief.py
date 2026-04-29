@@ -17,6 +17,7 @@ SOCIAL_PROOF_FLOOR = 0.3
 SOCIAL_PROOF_PER_LIKE = 0.07
 CONFIDENCE_BOOST_PER_LIKE = 0.005
 CONFIDENCE_DECAY_PER_DISLIKE = 0.008
+TRUST_LEARNING_RATE = 0.05
 
 
 def update_beliefs(
@@ -73,6 +74,19 @@ def update_beliefs(
     # Apply position update
     new_pos = current_pos + position_delta
     updated.positions[topic] = max(-1.0, min(1.0, new_pos))
+
+    # Trust evolution: authors whose stance matches the agent's resulting
+    # position gain trust; those who oppose lose it.
+    new_position = updated.positions[topic]
+    for post in posts:
+        author = post["author"]
+        if author not in updated.trust:
+            updated.trust[author] = DEFAULT_TRUST
+        stance = post["stance"]
+        # alignment in [0, 1]: 1 = same position, 0 = polar opposite
+        alignment = 1.0 - abs(stance - new_position) / 2.0
+        trust_delta = (alignment - 0.5) * TRUST_LEARNING_RATE
+        updated.trust[author] = max(0.0, min(1.0, updated.trust[author] + trust_delta))
 
     # Confidence update from own engagement
     conf_delta = (own_likes * CONFIDENCE_BOOST_PER_LIKE
