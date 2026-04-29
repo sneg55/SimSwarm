@@ -70,8 +70,9 @@ def update_beliefs(
         # Influence = trust * (1 + social_proof) * novelty * resistance
         influence = trust * (1.0 + social_proof) * novelty * resistance
 
-        # Delta = stance * influence * 0.1 (scaled to keep updates small)
-        position_delta += stance * influence * 0.1
+        # Pull-toward-stance: nudge proportional to gap between post and current position.
+        gap = stance - current_pos
+        position_delta += gap * influence * 0.1
 
     # Apply position update
     new_pos = current_pos + position_delta

@@ -40,6 +40,29 @@ class TestPositionUpdate:
         updated = update_beliefs(bs, posts, topic="climate")
         assert updated.positions["climate"] == 0.3  # unchanged
 
+    def test_agent_at_post_stance_does_not_drift(self):
+        """Pull formulation: when current_pos == post_stance, delta is zero."""
+        bs = BeliefState(
+            positions={"climate": 0.6},
+            confidence={"climate": 0.5},
+            trust={"author1": 0.8},
+        )
+        posts = [{"author": "author1", "content_hash": "h1", "stance": 0.6, "likes": 0}]
+        updated = update_beliefs(bs, posts, topic="climate")
+        assert abs(updated.positions["climate"] - 0.6) < 1e-9
+
+    def test_agent_past_post_stance_pulled_back(self):
+        """Pull formulation: agent at +0.9 exposed to +0.5 post drifts negative."""
+        bs = BeliefState(
+            positions={"climate": 0.9},
+            confidence={"climate": 0.3},
+            trust={"author1": 0.8},
+        )
+        posts = [{"author": "author1", "content_hash": "h1", "stance": 0.5, "likes": 0}]
+        updated = update_beliefs(bs, posts, topic="climate")
+        assert updated.positions["climate"] < 0.9
+        assert updated.positions["climate"] > 0.5
+
 
 class TestConfidenceResistance:
     def test_high_confidence_resists_change(self):
