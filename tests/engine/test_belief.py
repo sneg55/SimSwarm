@@ -29,16 +29,27 @@ class TestPositionUpdate:
         updated = update_beliefs(bs, posts, topic="climate")
         assert updated.positions["climate"] < 0.0
 
-    def test_repeated_content_has_no_effect(self):
-        bs = BeliefState(
-            positions={"climate": 0.3},
+    def test_repeated_content_has_half_effect(self):
+        """Re-seen posts still nudge at 0.5x (MiroShark bidirectional novelty)."""
+        bs_first = BeliefState(
+            positions={"climate": 0.0},
+            confidence={"climate": 0.5},
+            trust={"author1": 0.8},
+        )
+        bs_repeat = BeliefState(
+            positions={"climate": 0.0},
             confidence={"climate": 0.5},
             trust={"author1": 0.8},
             exposure_history={"h1"},
         )
-        posts = [{"author": "author1", "content_hash": "h1", "stance": -0.9, "likes": 10}]
-        updated = update_beliefs(bs, posts, topic="climate")
-        assert updated.positions["climate"] == 0.3  # unchanged
+        posts = [{"author": "author1", "content_hash": "h1", "stance": 0.6, "likes": 0}]
+        first = update_beliefs(bs_first, posts, topic="climate")
+        repeat = update_beliefs(bs_repeat, posts, topic="climate")
+
+        assert first.positions["climate"] > 0.0
+        assert repeat.positions["climate"] > 0.0
+        # Repeat is roughly half the magnitude of novel (0.5 / 1.5 = 1/3).
+        assert repeat.positions["climate"] < first.positions["climate"]
 
     def test_agent_at_post_stance_does_not_drift(self):
         """Pull formulation: when current_pos == post_stance, delta is zero."""

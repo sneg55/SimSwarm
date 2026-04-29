@@ -108,7 +108,7 @@ def test_empty_text_posts_dont_trigger_updates():
     assert alice.belief_state.positions == {}
 
 
-def test_repeated_exposure_dedupes_via_content_hash_within_state():
+def test_repeated_exposure_still_nudges_at_lower_weight():
     alice = _agent("alice", "Alice")
     bob = _agent("bob", "Bob")
     agents = {"alice": alice, "bob": bob}
@@ -120,8 +120,11 @@ def test_repeated_exposure_dedupes_via_content_hash_within_state():
     after_first = alice.belief_state.positions.get("t", 0.0)
     assert after_first > 0.0
 
-    # Same round-stamped post hash → should be in exposure_history → no further
-    # position change.
+    # Same content_hash -> in exposure_history -> 0.5x novelty,
+    # so position keeps moving but slower.
     _apply_belief_updates(agents, records, "t")
     after_second = alice.belief_state.positions.get("t", 0.0)
-    assert after_second == after_first
+    delta_first = after_first
+    delta_second = after_second - after_first
+    assert delta_second > 0.0  # still moves
+    assert delta_second < delta_first  # but less than the novel exposure
