@@ -5,7 +5,31 @@ posts/activity/market submodules can stay focused on their own concerns.
 """
 from __future__ import annotations
 
-from simswarm.stance import NEGATIVE_WORDS, POSITIVE_WORDS
+# Keyword bag for the extractor's post-hoc sentiment summaries. The engine's
+# belief loop now uses VADER (simswarm/stance.score_stance); this lighter
+# keyword scorer remains here because the extractor's per-agent sentiment_arc
+# format depends on its specific scaling (pos - neg) / total_words.
+POSITIVE_WORDS = frozenset({
+    "support", "approve", "praise", "welcome", "benefit", "success", "agree",
+    "positive", "progress", "growth", "improve", "achieve", "gain", "boost",
+    "encourage", "optimistic", "favorable", "advance", "strengthen", "celebrate",
+    "endorse", "commend", "constructive", "prosper", "thrive", "cooperate",
+    "alliance", "partnership", "diplomatic", "peaceful", "stable", "recovery",
+    "innovation", "opportunity", "confident", "resolve", "protect", "invest",
+    "expand", "lead", "unite", "embrace", "recommend", "affirm", "uphold",
+    "champion", "reform", "empower", "sustain", "reliable",
+})
+
+NEGATIVE_WORDS = frozenset({
+    "oppose", "condemn", "reject", "threaten", "crisis", "fail", "warn",
+    "attack", "ban", "sanction", "conflict", "damage", "destroy", "collapse",
+    "risk", "danger", "decline", "loss", "struggle", "tension", "hostile",
+    "aggressive", "escalate", "violate", "disrupt", "undermine", "restrict",
+    "protest", "controversy", "criticism", "backlash", "concern", "fear",
+    "instability", "vulnerable", "deficit", "recession", "inflation", "corrupt",
+    "exploit", "abuse", "negligence", "incompetent", "reckless", "toxic",
+    "polarize", "divide", "obstruct", "retaliate", "assassinate",
+})
 
 
 def post_text(action_args: dict | None) -> str:

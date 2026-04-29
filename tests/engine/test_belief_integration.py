@@ -42,8 +42,10 @@ def test_score_stance_negative():
     assert score_stance("This is a dangerous and reckless idea we must oppose.") < 0
 
 
-def test_score_stance_neutral_when_no_keywords():
-    assert score_stance("The weather is fine today.") == 0.0
+def test_score_stance_near_neutral_for_mild_text():
+    # VADER scores "fine" as mildly positive (~0.2) — well within the
+    # "near-neutral" band; the previous keyword scorer returned exactly 0.0.
+    assert abs(score_stance("The weather is fine today.")) < 0.4
 
 
 def test_apply_belief_updates_moves_position_toward_exposed_stance():
