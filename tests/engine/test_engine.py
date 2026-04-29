@@ -202,3 +202,29 @@ class TestActionResultPropagation:
         for r in result.chat_log:
             if r.action_result is not None:
                 assert isinstance(r.action_result, dict)
+
+
+class TestBeliefStateFinite:
+    """Smoke test: belief state stays inside its bounds after multiple rounds."""
+
+    @pytest.mark.asyncio
+    async def test_beliefs_remain_finite_across_rounds(self):
+        mock_llm = AsyncMock(spec=LLMClient)
+        mock_llm.chat.return_value = _mock_llm_response(
+            "create_post", {"text": "I strongly support the peaceful reform."}
+        )
+        engine = Engine(
+            fast_llm=mock_llm, smart_llm=mock_llm,
+            engine_config=EngineConfig(concurrency=2),
+        )
+        config = _make_config(rounds=3, agent_count=2)
+        result = await engine.run(config)
+
+        for agent in result.raw_state.agents.values():
+            for pos in agent.belief_state.positions.values():
+                assert pos == pos  # NaN check
+                assert -1.0 <= pos <= 1.0
+            for conf in agent.belief_state.confidence.values():
+                assert 0.0 <= conf <= 1.0
+            for t in agent.belief_state.trust.values():
+                assert 0.0 <= t <= 1.0
