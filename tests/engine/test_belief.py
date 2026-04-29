@@ -75,6 +75,29 @@ class TestPositionUpdate:
         assert updated.positions["climate"] > 0.5
 
 
+class TestSocialProof:
+    def test_zero_likes_post_still_has_baseline_social_proof(self):
+        """Floor at 0.3: zero-engagement posts still nudge non-trivially."""
+        bs = BeliefState(
+            positions={"t": 0.0}, confidence={"t": 0.0}, trust={"a": 1.0},
+        )
+        posts = [{"author": "a", "content_hash": "h", "stance": 1.0, "likes": 0}]
+        updated = update_beliefs(bs, posts, topic="t")
+        # With trust=1, novelty=1.5, resistance via divisor=0.3,
+        # social_proof=0.3, gap=1.0, the delta should be substantial (> 0.04).
+        assert updated.positions["t"] > 0.04
+
+    def test_likes_increase_influence_linearly(self):
+        """Linear social proof: more likes = more influence."""
+        bs_low = BeliefState(positions={"t": 0.0}, confidence={"t": 0.0}, trust={"a": 0.5})
+        bs_high = BeliefState(positions={"t": 0.0}, confidence={"t": 0.0}, trust={"a": 0.5})
+        posts_low = [{"author": "a", "content_hash": "h1", "stance": 1.0, "likes": 1}]
+        posts_high = [{"author": "a", "content_hash": "h2", "stance": 1.0, "likes": 20}]
+        u_low = update_beliefs(bs_low, posts_low, topic="t")
+        u_high = update_beliefs(bs_high, posts_high, topic="t")
+        assert u_high.positions["t"] > u_low.positions["t"]
+
+
 class TestConfidenceResistance:
     def test_high_confidence_resists_change(self):
         low_conf = BeliefState(

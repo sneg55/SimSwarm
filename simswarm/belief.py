@@ -6,7 +6,6 @@ pure math based on trust, social proof, novelty, and confidence resistance.
 from __future__ import annotations
 
 import copy
-import math
 
 from simswarm.types import BeliefState
 
@@ -14,7 +13,8 @@ EXPOSURE_CAP = 2000
 DEFAULT_TRUST = 0.5
 NOVELTY_NEW = 1.5
 NOVELTY_REPEAT = 0.5
-SOCIAL_PROOF_SCALE = 0.1  # log(1 + likes) * scale
+SOCIAL_PROOF_FLOOR = 0.3
+SOCIAL_PROOF_PER_LIKE = 0.07
 CONFIDENCE_BOOST_PER_LIKE = 0.005
 CONFIDENCE_DECAY_PER_DISLIKE = 0.008
 
@@ -60,11 +60,11 @@ def update_beliefs(
         # Trust weighting (default 0.5 for unknown authors)
         trust = updated.trust.get(author, DEFAULT_TRUST)
 
-        # Social proof: log scale
-        social_proof = math.log1p(likes) * SOCIAL_PROOF_SCALE
+        # Social proof: linear with floor (zero-engagement posts still register)
+        social_proof = SOCIAL_PROOF_FLOOR + likes * SOCIAL_PROOF_PER_LIKE
 
-        # Influence = trust * (1 + social_proof) * novelty * resistance
-        influence = trust * (1.0 + social_proof) * novelty * resistance
+        # Influence = trust * social_proof * novelty * resistance
+        influence = trust * social_proof * novelty * resistance
 
         # Pull-toward-stance: nudge proportional to gap between post and current position.
         gap = stance - current_pos
