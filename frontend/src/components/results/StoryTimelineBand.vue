@@ -4,9 +4,10 @@
        class="relative w-full py-6 px-4 bg-ocean-deep border-y border-mist-depth">
     <!-- Date axis -->
     <div class="relative h-4 mb-2">
-      <span v-for="tick in ticks" :key="tick.label"
+      <span v-for="(tick, i) in ticks" :key="tick.label"
             :style="{ left: tick.pct + '%' }"
-            class="absolute text-[10px] font-mono uppercase tracking-wider text-mist-slate -translate-x-1/2">
+            :class="['absolute text-[10px] font-mono uppercase tracking-wider text-mist-slate whitespace-nowrap',
+                     i === 0 ? '' : i === ticks.length - 1 ? '-translate-x-full' : '-translate-x-1/2']">
         {{ tick.label }}
       </span>
     </div>
@@ -20,8 +21,9 @@
           v-if="cluster.items.length > 1"
           data-timeline-cluster
           :style="{ left: (cluster.position * 100) + '%' }"
-          :class="['absolute top-1/2 -translate-x-1/2 -translate-y-1/2 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors', clusterTint(cluster.items)]"
-          @click="$emit('clusterClick', cluster)"
+          :class="['absolute top-1/2 -translate-x-1/2 -translate-y-1/2 px-2 py-0.5 rounded-full text-[10px] font-medium border transition-colors hover:brightness-125', clusterTint(cluster.items)]"
+          :title="`${cluster.items.length} moments — click to jump to ${cluster.items[0].title}`"
+          @click="$emit('select', cluster.items[0].id)"
         >+{{ cluster.items.length }}</button>
 
         <button
@@ -53,7 +55,7 @@ const props = defineProps({
   roundCount: { type: Number, default: 0 },
   moments: { type: Array, default: () => [] },
 })
-defineEmits(['select', 'clusterClick'])
+defineEmits(['select'])
 
 const { activeRoundIndex } = useStoryScrollSync()
 
