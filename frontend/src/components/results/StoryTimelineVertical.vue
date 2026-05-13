@@ -28,8 +28,8 @@
                 </span>
                 <span class="text-[10px] text-mist-slate font-mono">Round {{ (m.roundIndex ?? 0) + 1 }}</span>
               </div>
-              <div class="text-sm font-semibold text-mist-foam mb-1 line-clamp-2">{{ m.title }}</div>
-              <div v-if="m.detail" class="text-xs text-mist-drift line-clamp-2">{{ m.detail }}</div>
+              <div class="text-sm font-semibold text-mist-foam mb-1 leading-snug line-clamp-2">{{ m.title }}</div>
+              <div v-if="m.detail" class="text-xs text-mist-drift leading-5 line-clamp-2">{{ m.detail }}</div>
             </div>
           </div>
           <div v-else></div>
@@ -63,8 +63,8 @@
                 </span>
                 <span class="text-[10px] text-mist-slate font-mono">Round {{ (m.roundIndex ?? 0) + 1 }}</span>
               </div>
-              <div class="text-sm font-semibold text-mist-foam mb-1 line-clamp-2">{{ m.title }}</div>
-              <div v-if="m.detail" class="text-xs text-mist-drift line-clamp-2">{{ m.detail }}</div>
+              <div class="text-sm font-semibold text-mist-foam mb-1 leading-snug line-clamp-2">{{ m.title }}</div>
+              <div v-if="m.detail" class="text-xs text-mist-drift leading-5 line-clamp-2">{{ m.detail }}</div>
             </div>
           </div>
           <div v-else></div>
