@@ -129,7 +129,7 @@ export function useSimTimeline({
       roundIndex,
       date: roundDates[roundIndex],
       title: p.agent_name,
-      detail: (p.content || p.text || '').slice(0, 120),
+      detail: (p.content || p.text || ''),
       refId: null,
     })
   }
