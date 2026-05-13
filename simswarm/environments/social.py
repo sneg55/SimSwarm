@@ -68,13 +68,15 @@ class SocialEnvironment:
         for post in ranked[:20]:
             score = post.likes - post.dislikes
             lines.append(
-                f"post_id={post.id} [{post.author_name}] {post.text} (score: {score})"
+                f"post_id={post.id} author_id={post.author_id} "
+                f"[{post.author_name}] {post.text} (score: {score})"
             )
             if self.config.threading:
                 replies = [p for p in self.posts.values() if p.parent_id == post.id]
                 for reply in replies[:3]:
                     lines.append(
-                        f"  -> post_id={reply.id} [{reply.author_name}] {reply.text}"
+                        f"  -> post_id={reply.id} author_id={reply.author_id} "
+                        f"[{reply.author_name}] {reply.text}"
                     )
         content = "\n".join(lines) if lines else "(no posts yet)"
         return Observation(environment=self.name, content=content)
@@ -99,9 +101,9 @@ class SocialEnvironment:
                  parameters={"type": "object", "properties": {
                      "post_id": {"type": "string", "description": "The post_id from the feed (UUID)"},
                  }, "required": ["post_id"]}),
-            Tool(name="follow", description="Follow another agent",
+            Tool(name="follow", description="Follow another agent. Use the author_id shown in the feed.",
                  parameters={"type": "object", "properties": {
-                     "agent_id": {"type": "string"},
+                     "agent_id": {"type": "string", "description": "The author_id from the feed (UUID)"},
                  }, "required": ["agent_id"]}),
             Tool(name="do_nothing", description="Take no action this round",
                  parameters={"type": "object", "properties": {}}),

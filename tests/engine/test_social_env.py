@@ -54,6 +54,30 @@ class TestPostCreation:
         assert top_id in obs.content
         assert reply_id in obs.content
 
+    def test_feed_exposes_author_id_for_follow(self):
+        """Without author_id in the feed, agents can't construct follow calls.
+
+        Regression guard: the follow tool takes agent_id but the feed used to
+        show only [author_name], so LLMs had nothing to copy. Almost no follow
+        actions fired in prod sims (only 2 of 11 agents ever connected on the
+        social graph view) until author_id was added.
+        """
+        env = SocialEnvironment(SocialConfig(threading=True))
+        alice = _make_agent("a1", "Alice")
+        bob = _make_agent("a2", "Bob")
+        env.execute_action(alice, Action(
+            agent_id="a1", environment="social",
+            action_type="create_post", args={"text": "Top-level"},
+        ))
+        env.execute_action(bob, Action(
+            agent_id="a2", environment="social",
+            action_type="reply",
+            args={"post_id": list(env.posts.keys())[0], "text": "Threaded"},
+        ))
+        obs = env.get_observations(_make_agent("reader"))
+        assert "author_id=a1" in obs.content
+        assert "author_id=a2" in obs.content
+
 
 class TestReplies:
     def test_reply_creates_threaded_response(self):
