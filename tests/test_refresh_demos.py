@@ -3,8 +3,10 @@ from infra.scripts.refresh_demos import DEMO_CONFIGS, validate_snapshot
 
 
 def test_demo_configs_defined():
-    """There should be 15 demo configurations (5 original + 10 new)."""
-    assert len(DEMO_CONFIGS) == 15
+    """Curated landing-page set — keep small. Bump when the list intentionally grows."""
+    assert len(DEMO_CONFIGS) == 6
+    slugs = [c["slug"] for c in DEMO_CONFIGS]
+    assert len(slugs) == len(set(slugs)), f"Duplicate slugs: {slugs}"
 
 
 def test_each_config_has_required_fields():
