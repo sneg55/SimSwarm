@@ -1,10 +1,10 @@
 <template>
   <div class="relative bg-ocean-deep border border-mist-depth rounded-2xl p-6 pl-7 transition-all duration-250 hover:border-ocean-cyan hover:-translate-y-px">
     <div :class="['absolute left-0 top-5 bottom-5 w-[3px] rounded-r-md', accentClass]"></div>
-    <div :class="['font-mono text-[9px] tracking-[0.1em] uppercase font-semibold', labelClass]">{{ slotLabel }}</div>
-    <div class="text-sm font-semibold text-mist-foam mt-2 leading-snug">{{ title }}</div>
-    <div class="text-[13px] text-mist-drift mt-2.5 leading-relaxed">{{ body }}</div>
-    <div v-if="citation" class="font-mono text-[10px] text-mist-slate mt-2.5 pt-2.5 border-t border-mist-depth">
+    <div :class="['font-mono text-[11px] tracking-[0.1em] uppercase font-semibold', labelClass]">{{ slotLabel }}</div>
+    <div class="text-lg font-semibold text-mist-foam mt-2 leading-snug">{{ title }}</div>
+    <div class="text-[15px] text-mist-drift mt-3 leading-relaxed">{{ body }}</div>
+    <div v-if="citation" class="font-mono text-[12px] text-mist-drift mt-3 pt-3 border-t border-mist-depth leading-relaxed">
       {{ citation }}
     </div>
   </div>

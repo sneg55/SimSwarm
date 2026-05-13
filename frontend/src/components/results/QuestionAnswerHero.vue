@@ -5,17 +5,17 @@
          style="background: radial-gradient(ellipse, rgba(34, 211, 238, 0.08), transparent 60%);"></div>
 
     <div class="relative">
-      <div class="flex items-center gap-2 font-mono text-[10px] text-coral-amber tracking-[0.15em] uppercase font-semibold">
+      <div class="flex items-center gap-2 font-mono text-[11px] text-coral-amber tracking-[0.15em] uppercase font-semibold">
         <span class="inline-block w-4 h-px bg-coral-amber"></span>
         The question
       </div>
-      <h2 id="story-question" class="text-xl font-semibold text-mist-foam mt-3 leading-snug tracking-tight">{{ question }}</h2>
+      <h2 id="story-question" class="text-2xl md:text-3xl font-semibold text-mist-foam mt-3 leading-snug tracking-tight">{{ question }}</h2>
 
-      <div class="flex items-center gap-2 font-mono text-[10px] text-ocean-glow tracking-[0.15em] uppercase font-semibold mt-7">
+      <div class="flex items-center gap-2 font-mono text-[11px] text-ocean-glow tracking-[0.15em] uppercase font-semibold mt-7">
         <span class="inline-block w-4 h-px bg-ocean-glow"></span>
         Simulated answer
       </div>
-      <div class="text-base text-mist mt-3 leading-relaxed">
+      <div class="text-[17px] text-mist mt-3 leading-relaxed">
         <template v-if="verdict">{{ verdict }}</template>
         <span v-else class="text-mist-slate italic">Verdict pending — rerun the simulation to generate a new answer.</span>
       </div>

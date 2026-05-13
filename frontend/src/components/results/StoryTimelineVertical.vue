@@ -22,14 +22,14 @@
             >
               <div class="flex items-center gap-2 mb-2">
                 <span
-                  :class="['text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border', typeBadge(m.type)]"
+                  :class="['text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border', typeBadge(m.type)]"
                 >
                   {{ typeLabel(m.type) }}
                 </span>
-                <span class="text-[10px] text-mist-slate font-mono">Round {{ (m.roundIndex ?? 0) + 1 }}</span>
+                <span class="text-[11px] text-mist-slate font-mono">Round {{ (m.roundIndex ?? 0) + 1 }}</span>
               </div>
-              <div class="text-sm font-semibold text-mist-foam mb-1 leading-snug line-clamp-2">{{ m.title }}</div>
-              <div v-if="m.detail" class="text-xs text-mist-drift leading-5 line-clamp-2">{{ m.detail }}</div>
+              <div class="text-[15px] font-semibold text-mist-foam mb-1 leading-snug line-clamp-2">{{ m.title }}</div>
+              <div v-if="m.detail" class="text-[13px] text-mist-drift leading-5 line-clamp-2">{{ m.detail }}</div>
             </div>
           </div>
           <div v-else></div>
@@ -44,7 +44,7 @@
             >
               <div class="w-2 h-2 rounded-full bg-ocean-midnight"></div>
             </div>
-            <div class="text-[10px] font-mono uppercase tracking-wider text-mist-slate mt-1 whitespace-nowrap">
+            <div class="text-[11px] font-mono uppercase tracking-wider text-mist-slate mt-1 whitespace-nowrap">
               {{ formatDate(m.date) }}
             </div>
           </div>
@@ -57,14 +57,14 @@
             >
               <div class="flex items-center gap-2 mb-2">
                 <span
-                  :class="['text-[9px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border', typeBadge(m.type)]"
+                  :class="['text-[11px] font-mono uppercase tracking-wider px-2 py-0.5 rounded-full border', typeBadge(m.type)]"
                 >
                   {{ typeLabel(m.type) }}
                 </span>
-                <span class="text-[10px] text-mist-slate font-mono">Round {{ (m.roundIndex ?? 0) + 1 }}</span>
+                <span class="text-[11px] text-mist-slate font-mono">Round {{ (m.roundIndex ?? 0) + 1 }}</span>
               </div>
-              <div class="text-sm font-semibold text-mist-foam mb-1 leading-snug line-clamp-2">{{ m.title }}</div>
-              <div v-if="m.detail" class="text-xs text-mist-drift leading-5 line-clamp-2">{{ m.detail }}</div>
+              <div class="text-[15px] font-semibold text-mist-foam mb-1 leading-snug line-clamp-2">{{ m.title }}</div>
+              <div v-if="m.detail" class="text-[13px] text-mist-drift leading-5 line-clamp-2">{{ m.detail }}</div>
             </div>
           </div>
           <div v-else></div>

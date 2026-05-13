@@ -26,7 +26,7 @@
 
         <div class="max-w-[820px] mx-auto px-6 space-y-6">
           <!-- Meta row -->
-          <div id="story-meta" class="flex items-center gap-3 font-mono text-[10px] text-mist-slate uppercase tracking-wider">
+          <div id="story-meta" class="flex items-center gap-3 font-mono text-[11px] text-mist-slate uppercase tracking-wider">
             <span>Simulation</span>
             <span class="w-1 h-1 rounded-full bg-mist-depth"></span>
             <span>{{ simScale.participants ?? '—' }} participants</span>
@@ -56,7 +56,7 @@
 
           <!-- What the simulation surfaced -->
           <div v-if="structured?.findings?.length" id="story-findings">
-            <div class="font-mono text-[10px] text-mist-slate uppercase tracking-wider mb-4 pl-1">What the simulation surfaced</div>
+            <div class="font-mono text-[11px] text-mist-slate uppercase tracking-wider mb-4 pl-1">What the simulation surfaced</div>
             <div :class="findingsGridClass">
               <FindingSlotCard
                 v-for="(f, i) in structured.findings"

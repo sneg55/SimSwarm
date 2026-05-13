@@ -6,7 +6,7 @@
     <div class="relative h-4 mb-2">
       <span v-for="(tick, i) in ticks" :key="tick.label"
             :style="{ left: tick.pct + '%' }"
-            :class="['absolute text-[10px] font-mono uppercase tracking-wider text-mist-slate whitespace-nowrap',
+            :class="['absolute text-[11px] font-mono uppercase tracking-wider text-mist-slate whitespace-nowrap',
                      i === 0 ? '' : i === ticks.length - 1 ? '-translate-x-full' : '-translate-x-1/2']">
         {{ tick.label }}
       </span>
