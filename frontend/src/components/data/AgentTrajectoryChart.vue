@@ -10,12 +10,17 @@
         <text :x="PAD-4" :y="yScale(yRange)+3" text-anchor="end" fill="#64748B" font-size="10">{{ axisLabel(yRange) }}</text>
         <text :x="PAD-4" :y="yScale(0)+3" text-anchor="end" fill="#64748B" font-size="10">0</text>
         <text :x="PAD-4" :y="yScale(-yRange)+3" text-anchor="end" fill="#64748B" font-size="10">{{ axisLabel(-yRange) }}</text>
-        <template v-for="agent in agents" :key="agent.agent_id">
+        <template v-for="agent in orderedAgents" :key="agent.agent_id">
           <path v-if="(agent.rounds || []).length > 1"
-            :d="agentPath(agent)" fill="none" :stroke="agentColor(agent)" stroke-width="1.5" opacity="0.7" />
+            :d="agentPath(agent)" fill="none"
+            :stroke="agentColor(agent)"
+            :stroke-width="strokeWidth(agent)"
+            :opacity="lineOpacity(agent)" />
           <circle v-else-if="(agent.rounds || []).length === 1"
-            :cx="xScale(0, 1)" :cy="yScale(agent.rounds[0].sentiment || 0)" r="4"
-            :fill="agentColor(agent)" opacity="0.8" />
+            :cx="xScale(0, 1)" :cy="yScale(agent.rounds[0].sentiment || 0)"
+            :r="agent.agent_id === hoveredId ? 5 : 4"
+            :fill="agentColor(agent)"
+            :opacity="lineOpacity(agent)" />
         </template>
       </svg>
       <div v-if="hovered"
@@ -32,18 +37,23 @@
       </div>
     </div>
     <div v-if="hasData" class="flex flex-wrap gap-3 mt-3">
-      <span v-for="agent in agents.slice(0, 10)" :key="agent.agent_id" class="text-[10px] text-mist-slate flex items-center gap-1">
-        <span class="inline-block w-2 h-2 rounded-full" :style="{ background: agentColor(agent) }"></span>
+      <span v-for="agent in agents.slice(0, 10)" :key="agent.agent_id"
+            class="text-[11px] text-mist-slate flex items-center gap-1.5 cursor-pointer transition-colors hover:text-mist-foam"
+            :class="{ 'text-mist-foam': hoveredId === agent.agent_id }"
+            @mouseenter="hoveredId = agent.agent_id"
+            @mouseleave="hoveredId = null">
+        <span class="inline-block w-2.5 h-2.5 rounded-full transition-transform"
+              :class="{ 'scale-125 ring-1 ring-mist-foam/40': hoveredId === agent.agent_id }"
+              :style="{ background: agentColor(agent) }"></span>
         {{ agent.name }}
       </span>
-      <span v-if="agents.length > 10" class="text-[10px] text-mist-slate">+{{ agents.length - 10 }} more</span>
+      <span v-if="agents.length > 10" class="text-[11px] text-mist-slate">+{{ agents.length - 10 }} more</span>
     </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { getEntityColor } from '../graph/graphColors.js'
 import { getTooltip } from '../../data/tooltipCopy.js'
 
 const props = defineProps({
@@ -54,6 +64,30 @@ const W = 600
 const H = 180
 const PAD = 36
 const hovered = ref(null)
+const hoveredId = ref(null)
+
+// Stable per-agent color: evenly-spread HSL hues so 10+ agents stay distinct.
+// Indexed off the agents prop so the legend dot and chart line always match.
+const colorMap = computed(() => {
+  const map = new Map()
+  const n = props.agents.length || 1
+  // Start at hue 180 (cyan) so the chart anchors in the app's ocean palette.
+  props.agents.forEach((a, i) => {
+    const hue = Math.round((180 + (i * 360) / n) % 360)
+    map.set(a.agent_id, `hsl(${hue}, 68%, 62%)`)
+  })
+  return map
+})
+
+// Render the hovered agent last so its line draws on top of the dimmed others.
+const orderedAgents = computed(() => {
+  if (!hoveredId.value) return props.agents
+  return [...props.agents].sort((a, b) => {
+    const aH = a.agent_id === hoveredId.value ? 1 : 0
+    const bH = b.agent_id === hoveredId.value ? 1 : 0
+    return aH - bH
+  })
+})
 
 const hasData = computed(() => {
   for (const a of props.agents) {
@@ -96,7 +130,16 @@ function xScale(idx, total) {
   if (total <= 1) return PAD + (W - PAD * 2) / 2
   return PAD + (idx / (total - 1)) * (W - PAD * 2)
 }
-function agentColor(agent) { return getEntityColor(agent.type || agent.name || 'Entity') }
+function agentColor(agent) { return colorMap.value.get(agent.agent_id) || 'hsl(180, 68%, 62%)' }
+
+function lineOpacity(agent) {
+  if (!hoveredId.value) return 0.7
+  return agent.agent_id === hoveredId.value ? 1.0 : 0.12
+}
+
+function strokeWidth(agent) {
+  return agent.agent_id === hoveredId.value ? 2.5 : 1.5
+}
 function agentPath(agent) {
   const rounds = agent.rounds || []
   if (!rounds.length) return ''
