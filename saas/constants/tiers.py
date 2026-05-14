@@ -15,3 +15,14 @@ TIER_REPORT_TIMEOUT_S = {"small": 300, "medium": 600, "large": 900}
 # ~5-6× typical per-round wall-clock so transient slow rounds don't trip
 # it (small ≈ 50-80s/round on H100; medium/large ≈ 100-200s/round on L40S).
 TIER_STUCK_THRESHOLD_S = {"small": 300, "medium": 600, "large": 900}
+
+# LLM error-rate circuit breaker. Sampled inside poll_until_complete on
+# every /logs fetch. Trips when sustained errors dominate the pipeline —
+# usually means vLLM on this pod has degraded and retries are looping
+# forever. The workflow catches the marker and swaps pods once. Sized to
+# fire well before the stuck-watchdog so we salvage time when a pod swap
+# can still help.
+LLM_CIRCUIT_BREAKER_WINDOW_S = 60         # rolling window
+LLM_CIRCUIT_BREAKER_ERROR_RATE = 0.7      # errors / total > this trips
+LLM_CIRCUIT_BREAKER_MIN_SAMPLES = 10      # don't trip on small samples
+LLM_CIRCUIT_BREAKER_MARKER = "llm_circuit_broken"  # marker for workflow retry

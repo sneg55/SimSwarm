@@ -37,9 +37,20 @@ async def poll_until_complete(
             async with httpx.AsyncClient(timeout=15) as _c:
                 yield _c
 
-    from saas.constants.tiers import TIER_STUCK_THRESHOLD_S
+    from collections import deque
+    import re
+
+    from saas.constants.tiers import (
+        LLM_CIRCUIT_BREAKER_ERROR_RATE,
+        LLM_CIRCUIT_BREAKER_MARKER,
+        LLM_CIRCUIT_BREAKER_MIN_SAMPLES,
+        LLM_CIRCUIT_BREAKER_WINDOW_S,
+        TIER_STUCK_THRESHOLD_S,
+    )
 
     MAX_CONSECUTIVE_FAILURES = 5
+    _ERROR_LINE_RE = re.compile(r"transient error", re.IGNORECASE)
+    _LLM_LINE_RE = re.compile(r"\b(?:llm\.chat|round[=\s]+\d)", re.IGNORECASE)
 
     async with _ensure_client() as http:
         poll_start = time.monotonic()
@@ -56,6 +67,9 @@ async def poll_until_complete(
         _last_chat_count: int = 0
         _running_fired = False
         consecutive_failures = 0
+        # Rolling samples of (timestamp, error_count, total_count) for the
+        # LLM error-rate circuit breaker. Each /logs poll appends one entry.
+        _llm_samples: deque[tuple[float, int, int]] = deque()
         for poll in range(max_polls):
             await asyncio.sleep(poll_interval)
             try:
@@ -122,6 +136,31 @@ async def poll_until_complete(
                 except Exception:
                     pass
 
+                # LLM error-rate circuit breaker. Classify the freshly-fetched
+                # log batch, append to rolling window, drop samples older than
+                # WINDOW_S, and trip if errors dominate. Single-pod degradation
+                # (vLLM wedged on this host) — workflow catches the marker and
+                # swaps pods once via the existing bad-host retry plumbing.
+                err_count = sum(1 for ln in log_lines if _ERROR_LINE_RE.search(ln))
+                total_count = sum(1 for ln in log_lines if _LLM_LINE_RE.search(ln))
+                if total_count > 0:
+                    _llm_samples.append((now_mono, err_count, total_count))
+                cutoff = now_mono - LLM_CIRCUIT_BREAKER_WINDOW_S
+                while _llm_samples and _llm_samples[0][0] < cutoff:
+                    _llm_samples.popleft()
+                if _llm_samples:
+                    win_err = sum(s[1] for s in _llm_samples)
+                    win_total = sum(s[2] for s in _llm_samples)
+                    if (win_total >= LLM_CIRCUIT_BREAKER_MIN_SAMPLES
+                            and win_err / win_total > LLM_CIRCUIT_BREAKER_ERROR_RATE):
+                        raise RuntimeError(
+                            f"{LLM_CIRCUIT_BREAKER_MARKER}: "
+                            f"{win_err}/{win_total} LLM lines were errors over "
+                            f"~{LLM_CIRCUIT_BREAKER_WINDOW_S}s (rate "
+                            f"{win_err / win_total:.0%} > "
+                            f"{LLM_CIRCUIT_BREAKER_ERROR_RATE:.0%})"
+                        )
+
                 # Infer pipeline stage from logs and notify callback if changed
                 stage = _infer_pipeline_stage(log_lines)
                 if stage is not None and stage != last_stage:
@@ -158,6 +197,13 @@ async def poll_until_complete(
                     or new_log_lines != _last_log_lines
                     or new_chat_count != _last_chat_count
                 ):
+                    # Refresh stuck-watchdog timestamp on genuine forward
+                    # progress (new max round). Logs can repeat the same
+                    # `round=N` line for many polls; only an advance counts.
+                    if new_round is not None and (
+                        _last_round is None or new_round > _last_round
+                    ):
+                        _last_round_progress_at = now_mono
                     _last_round = new_round
                     _last_log_lines = new_log_lines
                     _last_chat_count = new_chat_count
