@@ -1,4 +1,4 @@
-"""Pipeline execution: health polling, job submission, status polling."""
+"""Pipeline status polling. Worker HTTP helpers live in `worker_http`."""
 from __future__ import annotations
 
 import asyncio
@@ -14,107 +14,6 @@ from saas.jobs.status import _infer_pipeline_stage, _extract_live_status
 logger = logging.getLogger(__name__)
 
 HEARTBEAT_INTERVAL_S = 60  # how often to update last_heartbeat during polling
-
-
-async def log_worker_output(
-    worker_url: str, source: str = "all", tail: int = 20,
-    client: httpx.AsyncClient | None = None,
-) -> None:
-    """Pull recent logs from the worker pod and emit them."""
-    try:
-        if client is not None:
-            resp = await client.get(f"{worker_url}/logs?tail={tail}&source={source}")
-        else:
-            async with httpx.AsyncClient(timeout=10) as _client:
-                resp = await _client.get(f"{worker_url}/logs?tail={tail}&source={source}")
-        if resp.status_code == 200:
-            data = resp.json()
-            for line in data.get("lines", []):
-                logger.info(f"  [{source}] {line}")
-    except Exception:
-        pass
-
-
-async def wait_for_worker_health(
-    worker_url: str, client: httpx.AsyncClient,
-) -> None:
-    """Poll /health until the worker API (and vLLM) is ready.
-
-    Raises TimeoutError after 15 minutes (180 attempts * 5s).
-    """
-    health_start = time.monotonic()
-    logger.info(f"Waiting for worker API at {worker_url}/health ...")
-    for attempt in range(180):  # 15 min max (180 * 5s)
-        try:
-            resp = await client.get(f"{worker_url}/health", timeout=10)
-            if resp.status_code == 200:
-                elapsed = int(time.monotonic() - health_start)
-                health_data = resp.json() if resp.headers.get(
-                    "content-type", "").startswith("application/json") else {}
-                vllm_ready = health_data.get("vllm_ready", "?")
-                logger.info(
-                    f"Worker API ready in {elapsed}s (vllm_ready={vllm_ready})",
-                    extra={"event": "health_ready", "elapsed_s": elapsed},
-                )
-                return
-            elif attempt % 6 == 0:  # every 30s
-                elapsed = int(time.monotonic() - health_start)
-                try:
-                    health_data = resp.json()
-                    logger.info(f"Worker health: {health_data} ({elapsed}s elapsed)")
-                except Exception:
-                    logger.info(f"Worker health: HTTP {resp.status_code} ({elapsed}s elapsed)")
-                # Pull vLLM logs while waiting -- key debugging info
-                await log_worker_output(worker_url, source="vllm", tail=20, client=client)
-        except httpx.ConnectError:
-            if attempt % 12 == 0:  # every 60s
-                elapsed = int(time.monotonic() - health_start)
-                logger.info(
-                    f"Worker not reachable yet ({elapsed}s elapsed, attempt {attempt + 1}/180)")
-        except Exception as e:
-            if attempt % 12 == 0:
-                elapsed = int(time.monotonic() - health_start)
-                logger.info(f"Worker health check: {type(e).__name__} ({elapsed}s elapsed)")
-        await asyncio.sleep(5)
-
-    # Exhausted all attempts
-    elapsed = int(time.monotonic() - health_start)
-    logger.error(f"Worker health timeout after {elapsed}s -- dumping vLLM and pipeline logs:")
-    await log_worker_output(worker_url, source="vllm", tail=50, client=client)
-    await log_worker_output(worker_url, source="pipeline", tail=20, client=client)
-    raise TimeoutError(f"Worker API at {worker_url} did not become ready after {elapsed}s")
-
-
-async def submit_job(worker_url: str, config, client: httpx.AsyncClient) -> None:
-    """POST /job to the worker. Raises RuntimeError on rejection — except when
-    the worker says a job is already running, which means the recover task
-    claimed the pod during our wait_for_worker_health. In that case the work
-    is already happening on the same pod; we just hand off to poll_until_complete."""
-    logger.info(f"Submitting job to {worker_url}/job (max_rounds={config.max_rounds})")
-    resp = await client.post(f"{worker_url}/job", json={
-        "seed_text": config.seed_text,
-        "goal": config.goal,
-        "max_rounds": config.max_rounds,
-        "forecast_days": config.forecast_days,
-        "target_agents": config.target_agents,
-        "upload_urls": config.upload_urls,
-        "markets_config": config.markets_config,
-        "timeout_seconds": config.timeout_seconds,
-    }, timeout=30)
-    if resp.status_code != 200:
-        try:
-            error_body = resp.json()
-            error_msg = error_body.get("error", resp.text[:2000])
-        except Exception:
-            error_msg = resp.text[:2000]
-        if "already running" in error_msg.lower():
-            logger.info(
-                "Worker reports a job is already running on this pod "
-                "(recover task got there first) — falling through to /status poll"
-            )
-            return
-        raise RuntimeError(f"Worker rejected job: {error_msg}")
-    logger.info("Job accepted by worker, polling /status...")
 
 
 async def poll_until_complete(
@@ -138,15 +37,21 @@ async def poll_until_complete(
             async with httpx.AsyncClient(timeout=15) as _c:
                 yield _c
 
+    from saas.constants.tiers import TIER_STUCK_THRESHOLD_S
+
     MAX_CONSECUTIVE_FAILURES = 5
 
     async with _ensure_client() as http:
         poll_start = time.monotonic()
         poll_interval = 10
         max_polls = max(360, config.timeout_seconds // poll_interval)
+        stuck_threshold_s = TIER_STUCK_THRESHOLD_S.get(
+            getattr(config, "tier", None), 600,
+        )
         last_stage: int | None = None
         last_heartbeat_time = 0.0
         _last_round: int | None = None
+        _last_round_progress_at = poll_start
         _last_log_lines: list[str] = []
         _last_chat_count: int = 0
         _running_fired = False
@@ -175,6 +80,18 @@ async def poll_until_complete(
                     await heartbeat_callback(config.job_id)
                 except Exception:
                     pass
+
+            # Round-progress watchdog. Only meaningful once the worker has
+            # reported at least one round — before that we're still in
+            # provisioning/vLLM warmup and stuckness is expected.
+            if _last_round is not None and _last_round > 0:
+                stalled_s = now_mono - _last_round_progress_at
+                if stalled_s > stuck_threshold_s:
+                    raise RuntimeError(
+                        f"Sim stuck: no round progress for {int(stalled_s)}s "
+                        f"at round {_last_round} (tier={getattr(config, 'tier', '?')}, "
+                        f"threshold={stuck_threshold_s}s)"
+                    )
 
             job_status = status_data.get("status", "unknown")
 

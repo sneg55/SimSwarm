@@ -6,7 +6,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from saas.jobs.config import JobConfig
-from saas.jobs.pipeline import submit_job
+from saas.jobs.worker_http import submit_job
 
 
 def _make_config(**overrides):

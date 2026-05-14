@@ -4,12 +4,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import httpx
 import pytest
 
-from saas.jobs import pipeline
+from saas.jobs import pipeline, worker_http
 
 
 @pytest.fixture(autouse=True)
 def _no_sleep():
-    with patch("saas.jobs.pipeline.asyncio.sleep", new_callable=AsyncMock):
+    with patch("saas.jobs.pipeline.asyncio.sleep", new_callable=AsyncMock), \
+            patch("saas.jobs.worker_http.asyncio.sleep", new_callable=AsyncMock):
         yield
 
 
@@ -19,7 +20,7 @@ async def test_log_worker_output_with_client():
     resp.json.return_value = {"lines": ["one", "two"]}
     client = AsyncMock()
     client.get.return_value = resp
-    await pipeline.log_worker_output("http://w", client=client)
+    await worker_http.log_worker_output("http://w", client=client)
     client.get.assert_called_once()
 
 
@@ -27,7 +28,7 @@ async def test_log_worker_output_swallows_errors():
     client = AsyncMock()
     client.get.side_effect = RuntimeError("boom")
     # Should not raise
-    await pipeline.log_worker_output("http://w", client=client)
+    await worker_http.log_worker_output("http://w", client=client)
 
 
 async def test_log_worker_output_no_client():
@@ -39,8 +40,8 @@ async def test_log_worker_output_no_client():
     ctx = AsyncMock()
     ctx.__aenter__.return_value = mock_client
     ctx.__aexit__.return_value = False
-    with patch("saas.jobs.pipeline.httpx.AsyncClient", return_value=ctx):
-        await pipeline.log_worker_output("http://w")
+    with patch("saas.jobs.worker_http.httpx.AsyncClient", return_value=ctx):
+        await worker_http.log_worker_output("http://w")
 
 
 async def test_wait_for_worker_health_ready():
@@ -51,21 +52,21 @@ async def test_wait_for_worker_health_ready():
     client = AsyncMock()
     client.get.return_value = ok
 
-    await pipeline.wait_for_worker_health("http://w", client)
+    await worker_http.wait_for_worker_health("http://w", client)
 
 
 async def test_wait_for_worker_health_connect_error_then_timeout():
     client = AsyncMock()
     client.get.side_effect = httpx.ConnectError("down")
     with pytest.raises(TimeoutError):
-        await pipeline.wait_for_worker_health("http://w", client)
+        await worker_http.wait_for_worker_health("http://w", client)
 
 
 async def test_wait_for_worker_health_generic_exception():
     client = AsyncMock()
     client.get.side_effect = RuntimeError("weird")
     with pytest.raises(TimeoutError):
-        await pipeline.wait_for_worker_health("http://w", client)
+        await worker_http.wait_for_worker_health("http://w", client)
 
 
 async def test_submit_job_success():
@@ -84,7 +85,7 @@ async def test_submit_job_success():
     client = AsyncMock()
     client.post.return_value = ok
 
-    await pipeline.submit_job("http://w", Cfg(), client)
+    await worker_http.submit_job("http://w", Cfg(), client)
 
 
 async def test_submit_job_rejected_json_body():
@@ -107,7 +108,7 @@ async def test_submit_job_rejected_json_body():
     client.post.return_value = resp
 
     with pytest.raises(RuntimeError, match="bad-payload"):
-        await pipeline.submit_job("http://w", Cfg(), client)
+        await worker_http.submit_job("http://w", Cfg(), client)
 
 
 async def test_submit_job_tolerates_already_running():
@@ -133,7 +134,7 @@ async def test_submit_job_tolerates_already_running():
     client.post.return_value = resp
 
     # Should NOT raise — main task hands off to polling.
-    await pipeline.submit_job("http://w", Cfg(), client)
+    await worker_http.submit_job("http://w", Cfg(), client)
 
 
 async def test_submit_job_rejected_text_body():
@@ -156,7 +157,7 @@ async def test_submit_job_rejected_text_body():
     client.post.return_value = resp
 
     with pytest.raises(RuntimeError, match="Internal server error text"):
-        await pipeline.submit_job("http://w", Cfg(), client)
+        await worker_http.submit_job("http://w", Cfg(), client)
 
 
 async def test_poll_until_complete_failed_status():
@@ -273,7 +274,7 @@ async def test_poll_until_complete_no_client():
     ctx.__aenter__.return_value = mock_client
     ctx.__aexit__.return_value = False
 
-    with patch("saas.jobs.pipeline.httpx.AsyncClient", return_value=ctx):
+    with patch("saas.jobs.worker_http.httpx.AsyncClient", return_value=ctx):
         with patch("saas.jobs.pipeline._update_live_status_sync"):
             result = await pipeline.poll_until_complete("http://w", "pod", Cfg())
     assert result["status"] == "completed"

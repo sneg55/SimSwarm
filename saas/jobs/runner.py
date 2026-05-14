@@ -10,11 +10,8 @@ from saas.gpu.provider import GPUProvider, GPUProviderConfig
 from saas.constants.tiers import TIER_TIMEOUTS, TIER_MAX_COST_USD  # noqa: F401 — re-export
 from saas.jobs.config import JobConfig, get_worker_image  # noqa: F401 — re-export
 from saas.jobs.status import _extract_live_status  # noqa: F401 — re-export
-from saas.jobs.pipeline import (
-    wait_for_worker_health,
-    submit_job,
-    poll_until_complete,
-)
+from saas.jobs.pipeline import poll_until_complete
+from saas.jobs.worker_http import submit_job, wait_for_worker_health
 
 logger = logging.getLogger(__name__)
 

@@ -34,7 +34,8 @@ async def submit_and_poll(
     and makes the activity safe to retry after a worker restart.
     """
     from saas.jobs.config import JobConfig
-    from saas.jobs.pipeline import poll_until_complete, submit_job
+    from saas.jobs.pipeline import poll_until_complete
+    from saas.jobs.worker_http import submit_job
     from saas.jobs.persistence import (
         _transition_to_running,
         _update_heartbeat_sync,
