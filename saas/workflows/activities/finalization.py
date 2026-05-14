@@ -10,13 +10,18 @@ logger = logging.getLogger(__name__)
 
 @activity.defn(name="fishcloud.upload_and_finalize")
 async def upload_and_finalize(job_id: int, user_id: str, result: dict) -> None:
-    """Persist sim results, transition to REPORTING, enqueue report task.
+    """Update job metadata, transition to REPORTING, enqueue report task.
+
+    The result fields (report/chat_log/graph/structured) are persisted
+    inside submit_and_poll now; they never traverse Temporal so the
+    workflow payload stays small. This activity just handles the
+    post-pipeline transitions.
 
     Raises RuntimeError if sim_data was not uploaded to MinIO — that's
     fatal under the external-report flow.
     """
     from saas.jobs.persistence import (
-        _save_job_results, _transition_to_reporting,
+        _transition_to_reporting,
         _update_job_metadata, _update_sim_data_available,
     )
 
@@ -30,15 +35,6 @@ async def upload_and_finalize(job_id: int, user_id: str, result: dict) -> None:
             provision_seconds=provision_seconds,
             pipeline_seconds=pipeline_seconds,
         )
-
-    _save_job_results(
-        job_id=job_id,
-        report=result.get("report", ""),
-        chat_log=result.get("chat_log", ""),
-        graph_data=result.get("graph_data", "{}"),
-        key_insight=None,
-        structured=result.get("structured", "{}"),
-    )
 
     if not result.get("sim_data_uploaded", False):
         raise RuntimeError(

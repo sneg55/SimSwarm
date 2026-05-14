@@ -7,26 +7,27 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_upload_and_finalize_persists_results_and_enqueues_report():
+async def test_upload_and_finalize_updates_metadata_and_enqueues_report():
+    """Result fields are now persisted inside submit_and_poll; this
+    activity only handles the post-pipeline transitions (metadata,
+    sim_data_available, REPORTING, report enqueue)."""
     from saas.workflows.activities.finalization import upload_and_finalize
 
+    # Note: no report/chat_log/graph_data/structured — they're persisted
+    # in submit_and_poll now to keep this activity's argument small.
     result = {
         "pod_id": "pod-1",
         "provision_seconds": 100, "pipeline_seconds": 700,
-        "report": "", "chat_log": "[]",
-        "graph_data": "{}", "structured": "{}",
         "sim_data_uploaded": True,
     }
 
     with patch("saas.jobs.persistence._update_job_metadata") as mock_meta, \
-         patch("saas.jobs.persistence._save_job_results") as mock_save, \
          patch("saas.jobs.persistence._update_sim_data_available") as mock_sim_avail, \
          patch("saas.jobs.persistence._transition_to_reporting") as mock_reporting, \
          patch("saas.jobs.tasks_report.generate_report_task.apply_async") as mock_enqueue:
         await upload_and_finalize(job_id=55, user_id="u1", result=result)
 
     mock_meta.assert_called_once()
-    mock_save.assert_called_once()
     mock_sim_avail.assert_called_once_with(55, True)
     mock_reporting.assert_called_once_with(55)
     mock_enqueue.assert_called_once()
@@ -43,7 +44,6 @@ async def test_upload_and_finalize_raises_when_upload_missing():
     }
 
     with patch("saas.jobs.persistence._update_job_metadata"), \
-         patch("saas.jobs.persistence._save_job_results"), \
          patch("saas.jobs.tasks_report.generate_report_task.apply_async") as mock_enqueue:
         with pytest.raises(RuntimeError, match="sim_data_upload_failed"):
             await upload_and_finalize(job_id=55, user_id="u1", result=result)

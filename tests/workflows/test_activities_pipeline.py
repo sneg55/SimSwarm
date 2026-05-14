@@ -38,11 +38,18 @@ async def test_submit_and_poll_resumes_when_pod_already_running():
 
     with patch("httpx.AsyncClient", return_value=fake_client), \
          patch("saas.jobs.pipeline.poll_until_complete", side_effect=fake_poll), \
+         patch("saas.jobs.persistence._save_job_results") as mock_save, \
          patch("saas.jobs.persistence._transition_to_running"):
         result = await submit_and_poll("pod-1", _params(), markets=[])
 
     fake_client.post.assert_not_called()
     assert result["sim_data_uploaded"] is True
+    # Result fields are persisted inside the activity now, NOT returned
+    # through Temporal — keeps the payload tiny so the 4MB gRPC frontend
+    # limit isn't blown by large-tier sims.
+    mock_save.assert_called_once()
+    assert "report" not in result
+    assert "chat_log" not in result
 
 
 @pytest.mark.asyncio
@@ -67,9 +74,12 @@ async def test_submit_and_poll_submits_when_pod_idle():
 
     with patch("httpx.AsyncClient", return_value=fake_client), \
          patch("saas.jobs.pipeline.poll_until_complete", side_effect=fake_poll), \
+         patch("saas.jobs.persistence._save_job_results") as mock_save, \
          patch("saas.jobs.persistence._transition_to_running"):
         await submit_and_poll("pod-2", _params(job_id=7), markets=[{"name": "M"}])
 
     fake_client.post.assert_called_once()
     post_url = fake_client.post.call_args[0][0]
     assert post_url.endswith("/job")
+    mock_save.assert_called_once()
+    assert mock_save.call_args.kwargs["job_id"] == 7
