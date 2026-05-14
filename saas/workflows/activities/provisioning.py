@@ -92,7 +92,7 @@ async def provision_pod(params: SimParams, markets: list[dict]) -> PodInfo:
 
     _update_pipeline_stage_sync(params.job_id, 0)
 
-    from saas.constants.tiers import TIER_MAX_COST_USD, TIER_TIMEOUTS
+    from saas.constants.tiers import TIER_CLOUD_TYPE, TIER_MAX_COST_USD, TIER_TIMEOUTS
     from saas.gpu.provider import GPUProviderConfig
     from saas.jobs.config import JobConfig, get_worker_image
 
@@ -124,6 +124,7 @@ async def provision_pod(params: SimParams, markets: list[dict]) -> PodInfo:
         timeout_seconds=TIER_TIMEOUTS.get(params.tier, 2700),
         env_vars=job_config.to_worker_env(),
         job_id=params.job_id,
+        cloud_type=TIER_CLOUD_TYPE.get(params.tier, "ALL"),
     )
 
     async def _on_created(pid: str) -> None:
