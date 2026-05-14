@@ -37,6 +37,7 @@ async def submit_and_poll(
     from saas.jobs.pipeline import poll_until_complete
     from saas.jobs.worker_http import submit_job
     from saas.jobs.persistence import (
+        _save_job_results,
         _transition_to_running,
         _update_heartbeat_sync,
         _update_pipeline_stage_sync,
@@ -107,7 +108,30 @@ async def submit_and_poll(
                 heartbeat_callback=_heartbeat_cb,
                 status_callback=_status_cb,
             )
-            result["pod_id"] = pod_id
-            return result
+
+            # Persist the result fields (report/chat_log/graph/structured)
+            # directly to Postgres here, BEFORE returning. Returning these
+            # through Temporal exceeded the 4MB gRPC frontend limit on
+            # large-tier sims — see sim 142 post-mortem (2026-05-14): a
+            # 4.84MB activity completion was rejected by the server, the
+            # whole sim was treated as failed and refunded despite running
+            # cleanly to round 200/200. Now Temporal only carries small
+            # metadata; upload_and_finalize handles the transitions.
+            _save_job_results(
+                job_id=params.job_id,
+                report=result.get("report", ""),
+                chat_log=result.get("chat_log", "[]"),
+                graph_data=result.get("graph_data", "{}"),
+                key_insight=None,
+                structured=result.get("structured", "{}"),
+            )
+
+            return {
+                "pod_id": pod_id,
+                "sim_data_uploaded": result.get("sim_data_uploaded", False),
+                "provision_seconds": result.get("provision_seconds"),
+                "pipeline_seconds": result.get("pipeline_seconds"),
+                "status": "completed",
+            }
     finally:
         heartbeat_task.cancel()
