@@ -14,6 +14,12 @@ class GPUProviderConfig:
     # When set, the provider tags the pod with the job_id so cleanup can
     # confirm the binding even if the DB's simulation_jobs.pod_id drifts.
     job_id: int | None = None
+    # RunPod cloud pool: "ALL" (cheapest, community-heavy, wide variance),
+    # "SECURE" (datacenter-vetted, ~2× hourly, tight variance), or
+    # "COMMUNITY". Large-tier sims default to SECURE so a single slow host
+    # can't add hours of wall-clock — see 2026-05-14 sim 147 case study
+    # where the community L40S ran at 0.4 rounds/min vs the 1.0+ baseline.
+    cloud_type: str = "ALL"
 
 
 @dataclass

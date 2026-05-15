@@ -26,3 +26,12 @@ LLM_CIRCUIT_BREAKER_WINDOW_S = 60         # rolling window
 LLM_CIRCUIT_BREAKER_ERROR_RATE = 0.7      # errors / total > this trips
 LLM_CIRCUIT_BREAKER_MIN_SAMPLES = 10      # don't trip on small samples
 LLM_CIRCUIT_BREAKER_MARKER = "llm_circuit_broken"  # marker for workflow retry
+
+# RunPod cloud pool selection per tier. "ALL" lets RunPod pick the
+# cheapest pod from community + secure; "SECURE" restricts to vetted
+# datacenter hosts. Large sims live with this for 2-3h so wall-clock
+# variance is the dominant cost driver — paying ~2× hourly for SECURE
+# eliminates the long-tail 8h+ runs we'd otherwise see on community.
+# Small/medium runs are short enough that cost matters more than tail
+# latency.
+TIER_CLOUD_TYPE = {"small": "ALL", "medium": "ALL", "large": "SECURE"}

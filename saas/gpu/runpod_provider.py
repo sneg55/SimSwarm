@@ -61,7 +61,7 @@ class RunPodProvider(GPUProvider):
                     name=pod_name,
                     image_name=config.docker_image,
                     gpu_type_id=gpu,
-                    cloud_type="ALL",
+                    cloud_type=config.cloud_type,
                     gpu_count=1,
                     volume_in_gb=0,
                     # Baked image is ~42GB; allow headroom for logs/results
