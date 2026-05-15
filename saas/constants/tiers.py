@@ -35,3 +35,15 @@ LLM_CIRCUIT_BREAKER_MARKER = "llm_circuit_broken"  # marker for workflow retry
 # Small/medium runs are short enough that cost matters more than tail
 # latency.
 TIER_CLOUD_TYPE = {"small": "ALL", "medium": "ALL", "large": "SECURE"}
+
+# Pod-unreachable marker + tolerance. When temporal-worker can't reach
+# the pod's /status endpoint for MAX_CONSECUTIVE_POLL_FAILURES polls
+# (× 10s poll interval = 5min), poll_until_complete raises with this
+# marker. The workflow catches it and retries submit_and_poll once
+# — the activity is idempotent: it checks /status on re-entry and
+# resumes polling if the pod is still running or completed. Sim 149
+# (2026-05-15) lost a near-completed bitcoin run to a 50s proxy blip
+# on the old 5-failure threshold; 30 raises tolerance to 5min before
+# the workflow even sees the marker.
+MAX_CONSECUTIVE_POLL_FAILURES = 30
+POD_UNREACHABLE_MARKER = "pod_unreachable"
