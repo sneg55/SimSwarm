@@ -194,7 +194,7 @@ async def test_poll_until_complete_circuit_breaker():
     client = AsyncMock()
     client.get.side_effect = httpx.ConnectError("down")
 
-    with pytest.raises(RuntimeError, match="Pod unreachable"):
+    with pytest.raises(RuntimeError, match="pod_unreachable"):
         await pipeline.poll_until_complete("http://w", "pod", Cfg(), client=client)
 
 

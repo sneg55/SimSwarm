@@ -1,10 +1,11 @@
-"""Tests for poll_until_complete circuit breaker on consecutive failures."""
+"""Tests for poll_until_complete pod-unreachable breaker."""
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from saas.constants.tiers import MAX_CONSECUTIVE_POLL_FAILURES, POD_UNREACHABLE_MARKER
 from saas.jobs.pipeline import poll_until_complete
 
 
@@ -22,12 +23,13 @@ class TestPollCircuitBreaker:
 
     @pytest.mark.asyncio
     async def test_raises_after_consecutive_failures(self):
-        """5 consecutive poll failures should raise RuntimeError."""
+        """N consecutive poll failures raise with pod_unreachable marker so
+        the workflow can catch + retry on the same pod (idempotent)."""
         mock_client = AsyncMock()
         mock_client.get.side_effect = Exception("connection refused")
 
         config = _make_config()
-        with pytest.raises(RuntimeError, match="consecutive poll failures"):
+        with pytest.raises(RuntimeError, match=POD_UNREACHABLE_MARKER):
             await poll_until_complete(
                 worker_url="https://pod-dead-5000.proxy.runpod.net",
                 instance_id="pod-dead",
@@ -35,8 +37,8 @@ class TestPollCircuitBreaker:
                 client=mock_client,
             )
 
-        # Should have tried exactly 5 times before giving up
-        assert mock_client.get.call_count == 5
+        # Should have tried exactly MAX_CONSECUTIVE_POLL_FAILURES before giving up
+        assert mock_client.get.call_count == MAX_CONSECUTIVE_POLL_FAILURES
 
     @pytest.mark.asyncio
     async def test_resets_counter_on_success(self):

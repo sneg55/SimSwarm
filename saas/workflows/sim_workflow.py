@@ -12,7 +12,11 @@ from temporalio import workflow
 from temporalio.common import RetryPolicy
 
 with workflow.unsafe.imports_passed_through():
-    from saas.constants.tiers import LLM_CIRCUIT_BREAKER_MARKER, TIER_TIMEOUTS
+    from saas.constants.tiers import (
+        LLM_CIRCUIT_BREAKER_MARKER,
+        POD_UNREACHABLE_MARKER,
+        TIER_TIMEOUTS,
+    )
     from saas.workflows.types import PodInfo, SimParams
 
 
@@ -71,6 +75,14 @@ class SimulationWorkflow:
         # health-check failures and mid-run LLM degradation are different
         # failure modes and each gets its own one-shot swap.
         CIRCUIT_BREAKER_MAX_RETRIES = 1
+        # Pod-unreachable retries don't swap pods — the network blip is
+        # usually between temporal-worker and the RunPod proxy, not in
+        # the pod itself. submit_and_poll is idempotent (it re-checks
+        # /status on entry and resumes polling if the pod is still
+        # running/completed), so we re-run the same activity against the
+        # same pod. Two retries give 3 total attempts × 5min in-activity
+        # tolerance = ~15min of proxy unreachability before we give up.
+        POD_UNREACHABLE_MAX_RETRIES = 2
         pod: PodInfo | None = None
         try:
             for cb_attempt in range(CIRCUIT_BREAKER_MAX_RETRIES + 1):
@@ -126,46 +138,68 @@ class SimulationWorkflow:
 
                 assert pod is not None  # loop always assigns before break/raise
 
-                try:
-                    result = await workflow.execute_activity(
-                        "fishcloud.submit_and_poll",
-                        args=[pod.id, params, markets],
-                        start_to_close_timeout=timedelta(
-                            seconds=TIER_TIMEOUTS.get(params.tier, 2700),
-                        ),
-                        heartbeat_timeout=timedelta(seconds=180),
-                        retry_policy=RetryPolicy(maximum_attempts=1),
-                    )
+                # Inner loop: pod-unreachable retries against the SAME pod.
+                # submit_and_poll is idempotent — on re-entry it checks
+                # /status and resumes polling, so we don't lose any rounds.
+                # An outer LLM-circuit-breaker swap (next branch) is a
+                # different failure mode and requires a fresh pod, which
+                # is why these budgets are separate.
+                result = None
+                swap_pods = False
+                for unreachable_attempt in range(POD_UNREACHABLE_MAX_RETRIES + 1):
+                    try:
+                        result = await workflow.execute_activity(
+                            "fishcloud.submit_and_poll",
+                            args=[pod.id, params, markets],
+                            start_to_close_timeout=timedelta(
+                                seconds=TIER_TIMEOUTS.get(params.tier, 2700),
+                            ),
+                            heartbeat_timeout=timedelta(seconds=180),
+                            retry_policy=RetryPolicy(maximum_attempts=1),
+                        )
+                        break  # leave inner unreachable-retry loop
+                    except Exception as e:
+                        # Activity raises with a marker; Temporal wraps as
+                        # ActivityError whose str() drops the inner message,
+                        # so walk __cause__ chain to find it.
+                        chain_str = ""
+                        cur: BaseException | None = e
+                        while cur is not None:
+                            chain_str += " " + str(cur)
+                            cur = getattr(cur, "cause", None) or cur.__cause__
+
+                        if (POD_UNREACHABLE_MARKER in chain_str
+                                and unreachable_attempt < POD_UNREACHABLE_MAX_RETRIES):
+                            workflow.logger.warning(
+                                "workflow.pod_unreachable.retrying "
+                                "pod_id=%s attempt=%d",
+                                pod.id, unreachable_attempt + 1,
+                            )
+                            # No pod swap — proxy/network blip, pod still alive.
+                            await workflow.sleep(timedelta(seconds=30))
+                            continue
+                        if (LLM_CIRCUIT_BREAKER_MARKER in chain_str
+                                and cb_attempt < CIRCUIT_BREAKER_MAX_RETRIES):
+                            workflow.logger.warning(
+                                "workflow.circuit_breaker.swapping "
+                                "pod_id=%s attempt=%d",
+                                pod.id, cb_attempt + 1,
+                            )
+                            await workflow.execute_activity(
+                                "fishcloud.terminate_pod",
+                                args=[pod.id],
+                                start_to_close_timeout=timedelta(minutes=2),
+                                retry_policy=RetryPolicy(maximum_attempts=5),
+                            )
+                            pod = None
+                            swap_pods = True
+                            break  # leave inner; outer cb_attempt continues
+                        raise
+
+                if result is not None:
                     break  # success — leave the circuit-breaker retry loop
-                except Exception as e:
-                    # LLM error-rate circuit breaker tripped: vLLM on this
-                    # pod is wedged returning timeouts on every chat call.
-                    # Tear it down and re-provision once. Any other
-                    # failure (timeout, DB hiccup, etc.) propagates to the
-                    # saga as before. The activity raises an
-                    # ApplicationError; Temporal wraps that in an
-                    # ActivityError whose str() loses the inner message,
-                    # so walk the cause chain to find the marker.
-                    chain_str = ""
-                    cur: BaseException | None = e
-                    while cur is not None:
-                        chain_str += " " + str(cur)
-                        cur = getattr(cur, "cause", None) or cur.__cause__
-                    if (LLM_CIRCUIT_BREAKER_MARKER in chain_str
-                            and cb_attempt < CIRCUIT_BREAKER_MAX_RETRIES):
-                        workflow.logger.warning(
-                            "workflow.circuit_breaker.swapping pod_id=%s attempt=%d",
-                            pod.id, cb_attempt + 1,
-                        )
-                        await workflow.execute_activity(
-                            "fishcloud.terminate_pod",
-                            args=[pod.id],
-                            start_to_close_timeout=timedelta(minutes=2),
-                            retry_policy=RetryPolicy(maximum_attempts=5),
-                        )
-                        pod = None
-                        continue
-                    raise
+                if swap_pods:
+                    continue  # re-enter outer loop to re-provision
 
             # Cap retries so a permanent PG/MinIO outage can't strand a job
             # in RUNNING forever. 3 attempts covers transient blips; beyond

@@ -45,10 +45,11 @@ async def poll_until_complete(
         LLM_CIRCUIT_BREAKER_MARKER,
         LLM_CIRCUIT_BREAKER_MIN_SAMPLES,
         LLM_CIRCUIT_BREAKER_WINDOW_S,
+        MAX_CONSECUTIVE_POLL_FAILURES,
+        POD_UNREACHABLE_MARKER,
         TIER_STUCK_THRESHOLD_S,
     )
 
-    MAX_CONSECUTIVE_FAILURES = 5
     _ERROR_LINE_RE = re.compile(r"transient error", re.IGNORECASE)
     _LLM_LINE_RE = re.compile(r"\b(?:llm\.chat|round[=\s]+\d)", re.IGNORECASE)
 
@@ -79,9 +80,11 @@ async def poll_until_complete(
             except Exception as e:
                 consecutive_failures += 1
                 logger.warning(f"Status poll {poll + 1} failed: {e}")
-                if consecutive_failures >= MAX_CONSECUTIVE_FAILURES:
+                if consecutive_failures >= MAX_CONSECUTIVE_POLL_FAILURES:
                     raise RuntimeError(
-                        f"Pod unreachable: {MAX_CONSECUTIVE_FAILURES} consecutive poll failures"
+                        f"{POD_UNREACHABLE_MARKER}: "
+                        f"{MAX_CONSECUTIVE_POLL_FAILURES} consecutive /status poll "
+                        f"failures (~{MAX_CONSECUTIVE_POLL_FAILURES * poll_interval}s)"
                     )
                 continue
 
