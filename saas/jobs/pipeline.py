@@ -47,6 +47,10 @@ async def poll_until_complete(
         LLM_CIRCUIT_BREAKER_WINDOW_S,
         MAX_CONSECUTIVE_POLL_FAILURES,
         POD_UNREACHABLE_MARKER,
+        SLOW_POD_MARKER,
+        SLOW_POD_MIN_ROUND_DELTA,
+        SLOW_POD_WINDOW_S,
+        TIER_MIN_ROUNDS_PER_MIN,
         TIER_STUCK_THRESHOLD_S,
     )
 
@@ -60,6 +64,9 @@ async def poll_until_complete(
         stuck_threshold_s = TIER_STUCK_THRESHOLD_S.get(
             getattr(config, "tier", None), 600,
         )
+        min_rounds_per_min = TIER_MIN_ROUNDS_PER_MIN.get(
+            getattr(config, "tier", None), 0.3,
+        )
         last_stage: int | None = None
         last_heartbeat_time = 0.0
         _last_round: int | None = None
@@ -71,6 +78,9 @@ async def poll_until_complete(
         # Rolling samples of (timestamp, error_count, total_count) for the
         # LLM error-rate circuit breaker. Each /logs poll appends one entry.
         _llm_samples: deque[tuple[float, int, int]] = deque()
+        # Rolling samples of (timestamp, round_num) for the slow-pod
+        # detector. One entry per genuine round advance (new max).
+        _round_samples: deque[tuple[float, int]] = deque()
         for poll in range(max_polls):
             await asyncio.sleep(poll_interval)
             try:
@@ -207,6 +217,33 @@ async def poll_until_complete(
                         _last_round is None or new_round > _last_round
                     ):
                         _last_round_progress_at = now_mono
+
+                        # Slow-pod detector: append to rolling window, age
+                        # out old samples, raise if observed rounds/min
+                        # drops below tier threshold. Gated on
+                        # SLOW_POD_MIN_ROUND_DELTA so warmup / brief stalls
+                        # don't false-fire.
+                        _round_samples.append((now_mono, new_round))
+                        cutoff = now_mono - SLOW_POD_WINDOW_S
+                        while _round_samples and _round_samples[0][0] < cutoff:
+                            _round_samples.popleft()
+                        if len(_round_samples) >= 2:
+                            first_ts, first_round = _round_samples[0]
+                            last_ts, last_round = _round_samples[-1]
+                            round_delta = last_round - first_round
+                            seconds = last_ts - first_ts
+                            if (round_delta >= SLOW_POD_MIN_ROUND_DELTA
+                                    and seconds > 0):
+                                rate_per_min = round_delta / seconds * 60
+                                if rate_per_min < min_rounds_per_min:
+                                    raise RuntimeError(
+                                        f"{SLOW_POD_MARKER}: "
+                                        f"{rate_per_min:.2f} rounds/min over "
+                                        f"~{int(seconds)}s "
+                                        f"(round {first_round}→{last_round}, "
+                                        f"tier={getattr(config, 'tier', '?')}, "
+                                        f"threshold={min_rounds_per_min})"
+                                    )
                     _last_round = new_round
                     _last_log_lines = new_log_lines
                     _last_chat_count = new_chat_count
