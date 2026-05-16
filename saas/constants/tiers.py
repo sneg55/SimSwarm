@@ -47,3 +47,21 @@ TIER_CLOUD_TYPE = {"small": "ALL", "medium": "ALL", "large": "SECURE"}
 # the workflow even sees the marker.
 MAX_CONSECUTIVE_POLL_FAILURES = 30
 POD_UNREACHABLE_MARKER = "pod_unreachable"
+
+# Slow-pod detector — closes the "rounds advancing but way too slow"
+# gap that watchdog (rounds=0) and circuit breaker (errors>70%) both
+# miss. Pipeline keeps a rolling window of round advances and raises
+# the marker when observed rounds/min drops below the tier threshold.
+# Workflow swaps pods once (same shape as the LLM circuit breaker).
+# Sim 148 (hormuz, SECURE L40S, 2026-05-15) was at 0.25 r/min when
+# baseline is ~1.0; that would have been auto-killed at the 600s
+# mark instead of needing manual cancel.
+SLOW_POD_WINDOW_S = 1200                # rolling 20min sample window
+SLOW_POD_MIN_ROUND_DELTA = 4            # gate: window must cover ≥ N advances
+TIER_MIN_ROUNDS_PER_MIN = {"small": 0.3, "medium": 0.3, "large": 0.4}
+SLOW_POD_MARKER = "slow_pod"
+# Coverage check: a pod at sim 148's 0.25 r/min produces ~5 advances in
+# the 1200s window — just past the 4-sample gate, rate 0.25 < 0.4 large
+# threshold → trips. A healthy warmup doing 5 rounds in 600s (0.5 r/min)
+# stays under the gate until enough samples accumulate, by which time
+# the window has rolled past warmup.

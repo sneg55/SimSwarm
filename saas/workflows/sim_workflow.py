@@ -15,6 +15,7 @@ with workflow.unsafe.imports_passed_through():
     from saas.constants.tiers import (
         LLM_CIRCUIT_BREAKER_MARKER,
         POD_UNREACHABLE_MARKER,
+        SLOW_POD_MARKER,
         TIER_TIMEOUTS,
     )
     from saas.workflows.types import PodInfo, SimParams
@@ -178,12 +179,14 @@ class SimulationWorkflow:
                             # No pod swap — proxy/network blip, pod still alive.
                             await workflow.sleep(timedelta(seconds=30))
                             continue
-                        if (LLM_CIRCUIT_BREAKER_MARKER in chain_str
+                        is_circuit_breaker = LLM_CIRCUIT_BREAKER_MARKER in chain_str
+                        is_slow_pod = SLOW_POD_MARKER in chain_str
+                        if ((is_circuit_breaker or is_slow_pod)
                                 and cb_attempt < CIRCUIT_BREAKER_MAX_RETRIES):
+                            reason = "circuit_breaker" if is_circuit_breaker else "slow_pod"
                             workflow.logger.warning(
-                                "workflow.circuit_breaker.swapping "
-                                "pod_id=%s attempt=%d",
-                                pod.id, cb_attempt + 1,
+                                "workflow.%s.swapping pod_id=%s attempt=%d",
+                                reason, pod.id, cb_attempt + 1,
                             )
                             await workflow.execute_activity(
                                 "fishcloud.terminate_pod",
