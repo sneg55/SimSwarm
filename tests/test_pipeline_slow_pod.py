@@ -23,7 +23,16 @@ from saas.jobs import pipeline
 
 @pytest.fixture(autouse=True)
 def _no_sleep():
-    with patch("saas.jobs.pipeline.asyncio.sleep", new_callable=AsyncMock):
+    # Patch asyncio.sleep so the poll loop doesn't actually wait, AND
+    # patch asyncio.to_thread so the wrapped sync DB call resolves
+    # synchronously without going through the executor (avoids extra
+    # event-loop scheduling that throws off the monotonic mock's call
+    # counts in these timing-sensitive tests).
+    async def _direct_to_thread(fn, *args, **kwargs):
+        return fn(*args, **kwargs)
+
+    with patch("saas.jobs.pipeline.asyncio.sleep", new_callable=AsyncMock), \
+            patch("saas.jobs.pipeline.asyncio.to_thread", side_effect=_direct_to_thread):
         yield
 
 

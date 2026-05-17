@@ -90,7 +90,7 @@ async def provision_pod(params: SimParams, markets: list[dict]) -> PodInfo:
                     params.job_id, existing_pod_id, term_exc,
                 )
 
-    _update_pipeline_stage_sync(params.job_id, 0)
+    await asyncio.to_thread(_update_pipeline_stage_sync, params.job_id, 0)
 
     from saas.constants.tiers import TIER_CLOUD_TYPE, TIER_MAX_COST_USD, TIER_TIMEOUTS
     from saas.gpu.provider import GPUProviderConfig

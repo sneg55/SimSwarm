@@ -66,18 +66,22 @@ async def submit_and_poll(
         markets_config=markets,
     )
 
+    # All three callbacks call sync psycopg2 helpers; without to_thread
+    # they block the event loop on every poll iteration, which starves
+    # the heartbeat task and every in-loop watchdog/breaker/detector.
+    # Sim 151 (2026-05-16) wedged for 30+ min via this path.
     async def _stage_cb(j_id: int, stage: int) -> None:
-        _update_pipeline_stage_sync(j_id, stage)
+        await asyncio.to_thread(_update_pipeline_stage_sync, j_id, stage)
         if activity.in_activity():
             activity.heartbeat()
 
     async def _heartbeat_cb(j_id: int) -> None:
-        _update_heartbeat_sync(j_id)
+        await asyncio.to_thread(_update_heartbeat_sync, j_id)
         if activity.in_activity():
             activity.heartbeat()
 
     async def _status_cb(j_id: int, _status: str) -> None:
-        _transition_to_running(j_id)
+        await asyncio.to_thread(_transition_to_running, j_id)
 
     heartbeat_task = asyncio.create_task(_heartbeat_every(30))
     try:
@@ -117,7 +121,13 @@ async def submit_and_poll(
             # whole sim was treated as failed and refunded despite running
             # cleanly to round 200/200. Now Temporal only carries small
             # metadata; upload_and_finalize handles the transitions.
-            _save_job_results(
+            # Sync write — for large sims the chat_log alone can be
+            # several MB which makes the INSERT slow; without to_thread
+            # the heartbeat task starves while the write is in flight
+            # and Temporal kills the activity. Pushing it off the loop
+            # keeps heartbeats firing.
+            await asyncio.to_thread(
+                _save_job_results,
                 job_id=params.job_id,
                 report=result.get("report", ""),
                 chat_log=result.get("chat_log", "[]"),
