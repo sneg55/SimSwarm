@@ -13,7 +13,12 @@ REPO_ROOT = Path(__file__).parent.parent.parent
 DEMOS_DIR = REPO_ROOT / "demos"
 
 POLL_INTERVAL_SECONDS = 30
-MAX_WAIT_SECONDS = 4 * 60 * 60  # 4h covers the largest tier with margin
+# Match TIER_TIMEOUTS["large"] = 43200 (12h) — anything beyond that means
+# the workflow itself has timed out. The old 4h cap printed exit-1
+# TIMEOUTs on perfectly healthy large sims that legitimately ran 4-5h
+# (e.g. sim 150 at 4h17min on 2026-05-15), and Temporal continued the
+# workflow regardless so the script's exit code was just misleading.
+MAX_WAIT_SECONDS = 12 * 60 * 60
 DEMO_USER_EMAIL = "demo@fishcloud.internal"
 TERMINAL_STATUSES = {"COMPLETED", "FAILED", "REFUNDED"}
 
