@@ -53,27 +53,45 @@ class RunPodProvider(GPUProvider):
         # Create without a network volume — the baked image carries the model,
         # so we can schedule on any DC (including the many non-storage ones
         # that carry most of RunPod's L40/A40/A6000 stock).
+        #
+        # cloud_type fallback: try the configured pool first (e.g. SECURE
+        # for large tier — tight variance, ~2× hourly), then fall back to
+        # ALL if every GPU type is out of stock there. Sim 152 (2026-05-17)
+        # failed because SECURE L40S was empty AND we never tried community;
+        # downgrading to ALL preserves the chance of running at all when
+        # SECURE inventory is exhausted.
+        cloud_types = [config.cloud_type]
+        if config.cloud_type != "ALL":
+            cloud_types.append("ALL")
+
         last_error = None
         pod = None
-        for gpu in gpu_types:
-            try:
-                pod = runpod.create_pod(
-                    name=pod_name,
-                    image_name=config.docker_image,
-                    gpu_type_id=gpu,
-                    cloud_type=config.cloud_type,
-                    gpu_count=1,
-                    volume_in_gb=0,
-                    # Baked image is ~42GB; allow headroom for logs/results
-                    container_disk_in_gb=60,
-                    ports="5000/http,8000/http",
-                    env=env,
-                )
-                logger.info(f"RunPod: pod created on {gpu}")
+        for cloud_type in cloud_types:
+            for gpu in gpu_types:
+                try:
+                    pod = runpod.create_pod(
+                        name=pod_name,
+                        image_name=config.docker_image,
+                        gpu_type_id=gpu,
+                        cloud_type=cloud_type,
+                        gpu_count=1,
+                        volume_in_gb=0,
+                        # Baked image is ~42GB; allow headroom for logs/results
+                        container_disk_in_gb=60,
+                        ports="5000/http,8000/http",
+                        env=env,
+                    )
+                    logger.info(
+                        f"RunPod: pod created on {gpu} (cloud_type={cloud_type})")
+                    break
+                except Exception as e:
+                    logger.warning(f"RunPod: failed {gpu}/{cloud_type}: {e}")
+                    last_error = e
+            if pod is not None:
                 break
-            except Exception as e:
-                logger.warning(f"RunPod: failed {gpu}: {e}")
-                last_error = e
+            if len(cloud_types) > 1 and cloud_type != cloud_types[-1]:
+                logger.warning(
+                    f"RunPod: {cloud_type} pool exhausted; falling back to ALL")
 
         if pod is None:
             raise RuntimeError(f"No RunPod GPUs available. Last: {last_error}")
