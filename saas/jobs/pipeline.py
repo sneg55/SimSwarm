@@ -247,8 +247,15 @@ async def poll_until_complete(
                     _last_round = new_round
                     _last_log_lines = new_log_lines
                     _last_chat_count = new_chat_count
+                    # Wrap the sync psycopg2 write in asyncio.to_thread so it
+                    # runs off the event loop. Direct calls block every awaiter
+                    # — including the heartbeat task, watchdog, circuit breaker,
+                    # and slow-pod detector, all of which live inside this same
+                    # loop. Sim 151 (2026-05-16) wedged for 30+ min when this
+                    # call hung waiting on the DB. See [[feedback_async_loop_blocking_sync]].
                     try:
-                        _update_live_status_sync(config.job_id, live)
+                        await asyncio.to_thread(
+                            _update_live_status_sync, config.job_id, live)
                     except Exception as exc:
                         logger.warning(
                             "live_status write failed for job %d: %s", config.job_id, exc)
