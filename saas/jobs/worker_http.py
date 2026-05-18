@@ -106,10 +106,19 @@ async def submit_job(worker_url: str, config, client: httpx.AsyncClient) -> None
             error_msg = error_body.get("error", resp.text[:2000])
         except Exception:
             error_msg = resp.text[:2000]
-        if "already running" in error_msg.lower():
+        # 409 Conflict semantically means "already running" regardless of
+        # body — and even with a non-409 status, if the body is empty
+        # treat it as "already running" rather than fail the whole sim
+        # over an unparseable error. Sim 154 (2026-05-18) failed because
+        # the old string-match check ("already running" in error_msg)
+        # didn't fire on an empty error_msg.
+        if (resp.status_code == 409
+                or not error_msg.strip()
+                or "already running" in error_msg.lower()):
             logger.info(
-                "Worker reports a job is already running on this pod "
-                "(recover task got there first) — falling through to /status poll"
+                "Worker rejected job_post (status=%s, msg=%r) — assuming "
+                "job already running, falling through to /status poll",
+                resp.status_code, error_msg[:200],
             )
             return
         raise RuntimeError(f"Worker rejected job: {error_msg}")

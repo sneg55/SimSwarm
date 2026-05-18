@@ -97,7 +97,17 @@ async def submit_and_poll(
             except Exception:
                 status = "unknown"
 
-            if status in ("running", "completed"):
+            # "unknown" = /status itself failed (connection blip). Treat it
+            # like "running" — assume the pod has our job from a prior
+            # attempt and skip the POST. If it's truly a fresh activity
+            # with a connection issue on the very first call, the poll
+            # loop will retry /status itself and either recover or trip
+            # the pod_unreachable threshold. Sim 154 (2026-05-18) hit the
+            # old behavior: pod_unreachable retry's /status returned
+            # "unknown" mid-blip → we wrongly POSTed → worker 409'd with
+            # an empty error_msg → workflow failed despite the retry layer
+            # firing correctly.
+            if status in ("running", "completed", "unknown"):
                 logger.info(
                     "activity.submit_and_poll.resume pod_id=%s status=%s",
                     pod_id, status,
