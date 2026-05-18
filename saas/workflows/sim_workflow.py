@@ -29,20 +29,26 @@ class SimulationWorkflow:
         # DB/network exceptions can still exhaust their 2-attempt retry. No
         # pod exists yet, so a failure here bypasses the Phase 2 saga — we
         # need an explicit refund path before the workflow raises.
+        #
+        # 180s start_to_close: xAI Grok search (enrich_seed) and the markets
+        # LLM call (derive_markets) can each run 30-90s on long seeds — 60s
+        # was too tight and tripped on hormuz attempt #7 (sim 153,
+        # 2026-05-17), failing the whole sim before any GPU was provisioned.
+        # 2 attempts × 180s = up to 6min pre-GPU budget.
         try:
             enriched_seed = params.seed_text
             if params.enrich_web:
                 enriched_seed = await workflow.execute_activity(
                     "fishcloud.enrich_seed",
                     args=[params.seed_text, params.goal, params.job_id],
-                    start_to_close_timeout=timedelta(seconds=60),
+                    start_to_close_timeout=timedelta(seconds=180),
                     retry_policy=RetryPolicy(maximum_attempts=2),
                 )
 
             markets = await workflow.execute_activity(
                 "fishcloud.derive_markets",
                 args=[params.goal, enriched_seed, params.tier, params.job_id],
-                start_to_close_timeout=timedelta(seconds=60),
+                start_to_close_timeout=timedelta(seconds=180),
                 retry_policy=RetryPolicy(maximum_attempts=2),
             )
         except Exception as e:
