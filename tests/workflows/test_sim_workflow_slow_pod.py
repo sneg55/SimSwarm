@@ -76,13 +76,17 @@ async def test_slow_pod_marker_swaps_pods_and_succeeds(temporal_env):
     async def _terminate(pod_id: str):
         call_log.append(f"terminate({pod_id})")
 
+    @activity.defn(name="fishcloud.clear_pod_id")
+    async def _clear_pod_id(job_id: int):
+        call_log.append(f"clear_pod_id({job_id})")
+
     @activity.defn(name="fishcloud.refund_credits")
     async def _refund(a, b, c, d):
         call_log.append("refund")
 
     activities = [
         _enrich, _markets, _provision, _health, _submit,
-        _upload, _terminate, _refund,
+        _upload, _terminate, _clear_pod_id, _refund,
     ]
 
     async with Worker(
@@ -102,5 +106,13 @@ async def test_slow_pod_marker_swaps_pods_and_succeeds(temporal_env):
     assert submit_count["n"] == 2, "expected submit_and_poll retried on new pod"
     # Bad pod torn down before second provision (the slow_pod swap)
     assert call_log.index("terminate(pod-1)") < call_log.index("provision#2")
+    # clear_pod_id MUST fire between terminate and the next provision —
+    # otherwise provision_pod's reuse check can re-bind to the just-
+    # terminated pod during the brief window when /health still 200s.
+    # Sim 155 (2026-05-18) lost the swap to this race.
+    terminate_idx = call_log.index("terminate(pod-1)")
+    clear_idx = call_log.index(f"clear_pod_id({_params().job_id})")
+    provision2_idx = call_log.index("provision#2")
+    assert terminate_idx < clear_idx < provision2_idx
     assert "upload" in call_log
     assert "refund" not in call_log

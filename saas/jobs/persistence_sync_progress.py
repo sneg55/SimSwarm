@@ -105,6 +105,32 @@ def _update_pod_id(job_id: int, pod_id: str, gpu_provider: str = "runpod") -> No
         engine.dispose()
 
 
+def _clear_pod_id(job_id: int) -> None:
+    """NULL out simulation_jobs.pod_id. Called from the workflow swap path
+    after terminate_pod so provision_pod's reuse-check can't re-bind to the
+    just-terminated pod during the brief window when its /health proxy
+    still returns 200 before RunPod actually destroys the container. Race
+    fired on sim 155 (2026-05-18)."""
+    from sqlalchemy import text
+
+    engine = _get_sync_engine()
+    if engine is None:
+        logger.warning("DATABASE_URL not set; skipping pod_id clear for job %d", job_id)
+        return
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                text("UPDATE simulation_jobs SET pod_id = NULL WHERE id = :job_id"),
+                {"job_id": job_id},
+            )
+            conn.commit()
+            logger.info("Cleared pod_id for job %d (post-swap)", job_id)
+    except Exception as exc:
+        logger.warning("Could not clear pod_id for job %d: %s", job_id, exc)
+    finally:
+        engine.dispose()
+
+
 def _update_sim_data_available(job_id: int, available: bool) -> None:
     """Mark whether rich simulation data was uploaded to MinIO."""
     from sqlalchemy import text

@@ -238,3 +238,15 @@ async def terminate_pod(pod_id: str) -> None:
         # Other errors (auth, network) — re-raise so Temporal retry policy triggers
         logger.warning("activity.terminate_pod.error pod_id=%s error=%s", pod_id, e)
         raise
+
+
+@activity.defn(name="fishcloud.clear_pod_id")
+async def clear_pod_id(job_id: int) -> None:
+    """NULL out simulation_jobs.pod_id so the next provision_pod's
+    reuse-check can't re-bind to a just-terminated pod whose /health
+    proxy still 200s in the brief window before the container is
+    actually destroyed. Race fired on sim 155 (2026-05-18): slow_pod
+    swap → terminate → provision_pod reuse-check saw stale pod_id
+    + transient /health=200 → reused dead pod → sim died."""
+    from saas.jobs.persistence import _clear_pod_id as _impl
+    await asyncio.to_thread(_impl, job_id)

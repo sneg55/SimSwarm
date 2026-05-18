@@ -200,6 +200,18 @@ class SimulationWorkflow:
                                 start_to_close_timeout=timedelta(minutes=2),
                                 retry_policy=RetryPolicy(maximum_attempts=5),
                             )
+                            # Null out simulation_jobs.pod_id so the next
+                            # provision_pod's reuse check can't re-bind to
+                            # the pod we just terminated. RunPod's /health
+                            # proxy keeps returning 200 for a few seconds
+                            # after terminate, racing the reuse check —
+                            # sim 155 (2026-05-18) lost the swap to this.
+                            await workflow.execute_activity(
+                                "fishcloud.clear_pod_id",
+                                args=[params.job_id],
+                                start_to_close_timeout=timedelta(seconds=30),
+                                retry_policy=RetryPolicy(maximum_attempts=3),
+                            )
                             pod = None
                             swap_pods = True
                             break  # leave inner; outer cb_attempt continues

@@ -82,13 +82,17 @@ async def test_circuit_breaker_trip_swaps_pods_and_succeeds(temporal_env):
     async def _terminate(pod_id: str):
         call_log.append(f"terminate({pod_id})")
 
+    @activity.defn(name="fishcloud.clear_pod_id")
+    async def _clear_pod_id(job_id: int):
+        call_log.append(f"clear_pod_id({job_id})")
+
     @activity.defn(name="fishcloud.refund_credits")
     async def _refund(a, b, c, d):
         call_log.append("refund")
 
     activities = [
         _enrich, _markets, _provision, _health, _submit,
-        _upload, _terminate, _refund,
+        _upload, _terminate, _clear_pod_id, _refund,
     ]
 
     async with Worker(
@@ -154,13 +158,17 @@ async def test_circuit_breaker_exhausts_budget_then_refunds(temporal_env):
     async def _terminate(pod_id: str):
         call_log.append(f"terminate({pod_id})")
 
+    @activity.defn(name="fishcloud.clear_pod_id")
+    async def _clear_pod_id(job_id: int):
+        call_log.append(f"clear_pod_id({job_id})")
+
     @activity.defn(name="fishcloud.refund_credits")
     async def _refund(a, b, c, d):
         call_log.append("refund")
 
     activities = [
         _enrich, _markets, _provision, _health, _submit,
-        _upload, _terminate, _refund,
+        _upload, _terminate, _clear_pod_id, _refund,
     ]
 
     async with Worker(

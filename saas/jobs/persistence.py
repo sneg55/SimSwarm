@@ -26,6 +26,7 @@ from saas.jobs.persistence_sync import (
     _save_report_result,
 )
 from saas.jobs.persistence_sync_progress import (
+    _clear_pod_id,
     _update_pipeline_stage_sync,
     _update_heartbeat_sync,
     _update_live_status_sync,
@@ -93,6 +94,7 @@ __all__ = [
     "_update_heartbeat_sync",
     "_update_live_status_sync",
     "_update_pod_id",
+    "_clear_pod_id",
     "_update_sim_data_available",
     "_update_enrichment_sync",
     "_update_markets_config_sync",

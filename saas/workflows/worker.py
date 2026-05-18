@@ -12,7 +12,7 @@ from saas.workflows.activities.finalization import (
 from saas.workflows.activities.pipeline import submit_and_poll
 from saas.workflows.activities.pre_gpu import derive_markets, enrich_seed
 from saas.workflows.activities.provisioning import (
-    provision_pod, terminate_pod, wait_for_worker_health,
+    clear_pod_id, provision_pod, terminate_pod, wait_for_worker_health,
 )
 from saas.workflows.client import SIM_TASK_QUEUE, get_temporal_client
 from saas.workflows.sim_workflow import SimulationWorkflow
@@ -34,7 +34,7 @@ async def main() -> None:
         workflows=[SimulationWorkflow],
         activities=[
             enrich_seed, derive_markets,
-            provision_pod, wait_for_worker_health, terminate_pod,
+            provision_pod, wait_for_worker_health, terminate_pod, clear_pod_id,
             submit_and_poll,
             upload_and_finalize, refund_credits,
         ],
