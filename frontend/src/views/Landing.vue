@@ -160,6 +160,10 @@
 
     <div class="max-w-[1100px] mx-auto h-px bg-gradient-to-r from-transparent via-mist-depth to-transparent" />
 
+    <LandingTech />
+
+    <div class="max-w-[1100px] mx-auto h-px bg-gradient-to-r from-transparent via-mist-depth to-transparent" />
+
     <!-- Deploy your own -->
     <section class="py-24 px-4 text-center relative overflow-hidden">
       <div class="absolute inset-0 pointer-events-none"
@@ -199,7 +203,7 @@
         <span>&copy; 2026</span>
       </div>
       <div class="flex gap-6">
-        <a :href="`${GITHUB_URL}#readme`" target="_blank" rel="noopener"
+        <a href="https://docs.simswarm.xyz" target="_blank" rel="noopener"
            class="hover:text-mist-drift transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-cyan">Docs</a>
         <a :href="`${GITHUB_URL}/blob/main/LICENSE`" target="_blank" rel="noopener"
            class="hover:text-mist-drift transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-cyan">License (MIT)</a>
@@ -215,6 +219,7 @@ import ScrollProgress from '../components/ScrollProgress.vue'
 import HeroSwarm from '../components/HeroSwarm.vue'
 import HeroRotatingText from '../components/HeroRotatingText.vue'
 import ExperienceStep from '../components/ExperienceStep.vue'
+import LandingTech from '../components/LandingTech.vue'
 import LogoWavePulse from '../components/LogoWavePulse.vue'
 import DemoCard from '../components/DemoCard.vue'
 import { listDemos } from '../api/demos.js'
