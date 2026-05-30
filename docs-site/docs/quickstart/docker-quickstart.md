@@ -21,13 +21,13 @@ cp .env.example .env
 
 Edit `.env` and fill in the values for your deployment. The variables that must be set for a working instance:
 
-- `POSTGRES_PASSWORD` — password for the bundled Postgres container.
-- `TEMPORAL_DB_PASSWORD` — password for the bundled Temporal Postgres container.
-- `SECRET_KEY` — JWT signing key.
-- `NEO4J_PASSWORD` — Neo4j password (the setting is required; no default).
-- `RUNPOD_API_KEY` — needed by the worker to provision GPU pods.
-- `ANTHROPIC_API_KEY` — used by the off-pod report-generation task.
-- `MINIO_ENDPOINT` / `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` — object storage for simulation artifacts.
+- `POSTGRES_PASSWORD`: password for the bundled Postgres container.
+- `TEMPORAL_DB_PASSWORD`: password for the bundled Temporal Postgres container.
+- `SECRET_KEY`: JWT signing key.
+- `NEO4J_PASSWORD`: Neo4j password (the setting is required; no default).
+- `RUNPOD_API_KEY`: needed by the worker to provision GPU pods.
+- `ANTHROPIC_API_KEY`: used by the off-pod report-generation task.
+- `MINIO_ENDPOINT` / `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY`: object storage for simulation artifacts.
 
 `DOMAIN` defaults to `localhost`; set it to your hostname for automatic TLS via Caddy. See the [Environment Reference](../self-hosting/env-reference.md) for the complete list.
 

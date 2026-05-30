@@ -2,7 +2,7 @@
 sidebar_label: Story Signals
 ---
 
-# Story Signals
+# Story signals
 
 Story signals are deterministic, LLM-free aggregates extracted from the chat log and entity
 graph. They feed both the Story view directly and the `report.j2` prompt as grounding
@@ -46,7 +46,7 @@ opposed signals: `oppose`, `against`, `reject`, `block`, `stifle`/`stifling`, `h
 `standardized reporting`, `market integrity`, `systemic resilience`, `regulatory clarity`.
 A post matching neither set is intentionally neutral.
 
-> These sets were hand-tuned against real corpora — e.g. industry blocs resisting SEC AI
+> These sets were hand-tuned against real corpora. For example, industry blocs resisting SEC AI
 > disclosure rarely say "oppose" outright but reuse a recurring defensive vocabulary
 > (observed in prod job 109). Treat the lists as authoritative; don't paraphrase them.
 
@@ -63,7 +63,7 @@ sorted `members`, `member_count`, and `rationale_keywords` (top 3 tokens via `_t
 with the stance vocabulary excluded so "oppose" doesn't become a bloc's keyword). Positions
 are sorted `opposed, supports, split, neutral`.
 
-`name_coalitions(positions)` promotes any position with **≥2 members** to a named coalition.
+`name_coalitions(positions)` promotes any position with ≥2 members to a named coalition.
 The name prefers a keyword-derived form (`"{keyword.capitalize()}-focused {stance} group"`)
 and falls back to a `COALITION_LABEL` value.
 
@@ -76,7 +76,7 @@ and falls back to a `COALITION_LABEL` value.
   into thirds. Each phase carries a `week_range` (`_days_to_week_range`, 1-indexed weeks of
   7 days) and a `dominant_topic` (the single top keyword across that phase's posts).
 
-This is why the report prompt insists on phase/week language rather than round numbers — the
+This is why the report prompt insists on phase/week language rather than round numbers: the
 phase mapping is the engine's chosen unit of narrative time.
 
 ## Quotable posts
@@ -89,8 +89,8 @@ quote carries `agent_name`, `agent_role` (first non-`Entity` graph label via `_r
 `phase`, `text`, and `engagement`.
 
 > **Caveat (native runs):** these marker and arg names don't appear in native social-env
-> logs — that env emits `vote`/`repost` actions keyed by `post_id`, not `like_post`/`target_post`
-> with an `{agent_id}_r{round}` marker — so `_engagement_for_post` is effectively always 0 and
+> logs. That env emits `vote`/`repost` actions keyed by `post_id`, not `like_post`/`target_post`
+> with an `{agent_id}_r{round}` marker, so `_engagement_for_post` is effectively always 0 and
 > selection degenerates to the first post seen per `(phase, stance)` cell. Likewise `_role_map`
 > reads node keys `name`/`labels`, but `build_graph` nodes use `label`/`group`
 > (`graph.py:122-130`), so `agent_role` is always empty on native runs.
@@ -101,7 +101,7 @@ These live in `story_signals_scale.py` and are re-exported through `story_signal
 
 `extract_disagreement_axis(chat_log)` collects `opposed` vs `supports` post text, takes the
 top keyword from each (excluding the stance vocabulary via the combined `OPPOSED_SIGNALS |
-SUPPORT_SIGNALS` stopword set), and returns `"<support_kw> vs <opposed_kw>"` — falling back to
+SUPPORT_SIGNALS` stopword set), and returns `"<support_kw> vs <opposed_kw>"`, falling back to
 whichever single side has a keyword, or `""`.
 
 `compute_sim_scale(chat_log, forecast_days, bloc_count)` returns honest aggregates:
@@ -116,7 +116,7 @@ whichever single side has a keyword, or `""`.
 ```
 
 `market_stress` is `"present"` only if there is a successful `buy_shares`/`sell_shares`/
-`buy`/`sell` action; otherwise `"none_observed"` — the report is instructed to name a calm
+`buy`/`sell` action; otherwise `"none_observed"`. The report is instructed to name a calm
 market explicitly rather than fabricate trades.
 
 ## Shared color map

@@ -4,7 +4,7 @@ sidebar_label: Reports
 
 # Reports
 
-The **report** is the deep-analysis document a simulation produces — the result view
+The report is the deep-analysis document a simulation produces, and the result view
 most readers start with. It's written by the smart LLM, but it is grounded in the
 simulation's extracted signals so that every claim traces back to something that
 actually happened in the run.
@@ -23,21 +23,21 @@ Report generation is a multi-turn, tool-calling loop rather than a single prompt
 
 This loop is what keeps the report honest: the model writes from data it queried out of
 the run, not from its own priors. The system prompt is also primed with the
-deterministic [story signals](./story-signals.md) — stakeholder positions, named
+deterministic [story signals](./story-signals.md), including stakeholder positions, named
 coalitions, the disagreement axis, phase boundaries, quotable posts, and simulation
-scale — and instructs the model not to invent entities or events that aren't in that
+scale, and instructs the model not to invent entities or events that aren't in that
 data.
 
 ## What the report contains
 
 The report is structured markdown with a fixed set of sections:
 
-- **Executive Summary** — one paragraph answering the goal.
-- **Verdict** — a single plain-language sentence, the headline result.
-- **Key Findings** — exactly four findings, each tagged with a slot (industry,
+- Executive Summary: one paragraph answering the goal.
+- Verdict: a single plain-language sentence, the headline result.
+- Key Findings: exactly four findings, each tagged with a slot (industry,
   regulator, intermediary, market, or turning point) and citing the entities or quotes
   it rests on.
-- **Agent Coalitions** — a prose description of the blocs that formed, anchored to
+- Agent Coalitions: a prose description of the blocs that formed, anchored to
   phases ("early", "midway", "late") rather than raw round numbers.
 
 After generation, the executive summary and the individual findings are parsed back out

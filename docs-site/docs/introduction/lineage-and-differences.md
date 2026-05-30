@@ -2,14 +2,15 @@
 sidebar_label: Lineage & Differences
 ---
 
-# How SimSwarm Differs from MiroFish and MiroShark
+# How SimSwarm differs from MiroFish and MiroShark
 
-SimSwarm's intellectual lineage traces through two earlier projects — **MiroFish** and
-**MiroShark** — but today's engine does not bundle or depend on either of them. SimSwarm is a
+SimSwarm's intellectual lineage traces through two earlier projects, MiroFish and
+MiroShark, but today's engine does not bundle or depend on either of them. SimSwarm is a
 native, MIT-licensed rewrite that reimplements the ideas it found valuable in its own
-architecture — including a clean-room reimplementation of the belief and prediction-market
-modules, written from a behavioral specification rather than carried over from the AGPL source.
-This page explains where it came from and what actually changed.
+architecture. That includes a clean-room reimplementation of the belief and
+prediction-market modules, written from a behavioral specification rather than carried
+over from the AGPL source. This page explains where it came from and what actually
+changed.
 
 ## The lineage
 
@@ -22,16 +23,16 @@ as an AGPL submodule under `vendor/`.
 
 **MiroShark** ([github.com/aaronjmars/MiroShark](https://github.com/aaronjmars/MiroShark)) is
 an AGPL-3.0 fork of MiroFish that added the features SimSwarm cared about most: a
-**belief-state system** (per-agent stance, confidence, and trust), **sliding-window round
-memory** with LLM summarization to survive long runs, a **prediction-market** platform with a
+belief-state system (per-agent stance, confidence, and trust), sliding-window round
+memory with LLM summarization to survive long runs, a prediction-market platform with a
 bridge coupling market prices and social sentiment, a self-hosted graph database, and
-**task-level model routing** (a strong model for reasoning, a cheap one for bulk work).
+task-level model routing (a strong model for reasoning, a cheap one for bulk work).
 SimSwarm migrated onto MiroShark's concepts during its second phase.
 
-**SimSwarm** is the current native engine — a from-scratch rewrite (roughly 90% new code) that
+**SimSwarm** is the current native engine, a from-scratch rewrite (roughly 90% new code) that
 keeps the *ideas* validated by MiroShark (prediction-market mechanics, belief-update dynamics,
 effective prompts) while discarding the inherited framework and structure. Where earlier phases
-had ported specific modules, those — the belief dynamics and the constant-product market maker —
+had ported specific modules, those (the belief dynamics and the constant-product market maker)
 were reimplemented clean-room from a behavioral specification, so the engine shares no source
 with the AGPL upstream. SimSwarm no longer bundles or depends on MiroFish/MiroShark and is
 published under the **MIT** license. (Conceptual credit is recorded in
@@ -64,7 +65,7 @@ rewrite:
    tracing framework internals. SimSwarm calls the model directly, so the entire
    request/response path is in code you can read.
 2. **Inherited complexity.** Two separate hard-coded social platforms, dozens of SQL schema
-   files, prompts scattered across many modules, and an embedding model for feed ranking —
+   files, prompts scattered across many modules, and an embedding model for feed ranking,
    much of it inherited from upstream and not load-bearing. SimSwarm collapses this into a
    small set of focused modules and pluggable environments.
 3. **Architecture limits.** Flask + subprocess + per-sim SQLite added IPC overhead, no shared
@@ -76,11 +77,11 @@ The result is documented in detail under [Engine Internals](../engine/architectu
 
 ## Licensing: why MIT matters
 
-MiroFish and MiroShark are both AGPL-3.0 — a strong copyleft license whose network-use clause
+MiroFish and MiroShark are both AGPL-3.0, a strong copyleft license whose network-use clause
 requires anyone offering the software as a service to make their complete corresponding source
 available. SimSwarm reimplements these concepts in its own engine and no longer bundles the
 AGPL upstream, and is published under the **MIT** license: you can self-host, modify, and build
-on it — commercially or not — without copyleft obligations. See
+on it, commercially or not, without copyleft obligations. See
 [Open Source & Self-Hosting](./oss-and-self-host.md).
 
 ## Acknowledgements

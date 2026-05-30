@@ -50,12 +50,12 @@ The per-job artifact set is defined once in `SIM_DATA_FILES`
 
 ### How artifacts move
 
-- **Upload (pod → MinIO):** at job creation the API presigns PUT URLs for every
+- **Upload (pod to MinIO):** at job creation the API presigns PUT URLs for every
   file in `SIM_DATA_FILES` (`SimDataStorage.generate_upload_urls`,
   14-hour expiry) and hands them to the workflow. The GPU pod uploads directly,
   so artifacts never pass through the API or Temporal.
 - **Download for the browser:** `GET /api/jobs/{job_id}/sim-data` (`saas/jobs/api.py`)
-  returns presigned GET URLs (1-hour expiry) — but only when the job's
+  returns presigned GET URLs (1-hour expiry), but only when the job's
   `sim_data_available` flag is set. If a `proxy_base` is configured, download
   URLs are rewritten to route through the HTTPS reverse proxy, avoiding
   mixed-content blocks when the page is HTTPS but MinIO is plain HTTP.
@@ -64,7 +64,7 @@ The per-job artifact set is defined once in `SIM_DATA_FILES`
   `saas/storage/minio_download.py`), and writes the finished `report.md` back to
   `sim-data/<job_id>/report.md` with `put_report_md`.
 
-`SimDataStorage` is a no-op when `MINIO_ENDPOINT` is unset — `generate_*_urls`
+`SimDataStorage` is a no-op when `MINIO_ENDPOINT` is unset: `generate_*_urls`
 return `None` and the sim-data endpoint responds 404 ("Object storage not
 configured").
 
@@ -88,6 +88,6 @@ MinIO is configured via `MINIO_*` settings/environment variables
 
 ## Related
 
-- [Data Flow](data-flow.md) — when uploads and downloads happen.
-- [MinIO](../self-hosting/minio.md) — operating the object store.
-- [GPU Runner](../self-hosting/gpu-runner.md) — pod startup and weight loading.
+- [Data Flow](data-flow.md): when uploads and downloads happen.
+- [MinIO](../self-hosting/minio.md): operating the object store.
+- [GPU Runner](../self-hosting/gpu-runner.md): pod startup and weight loading.

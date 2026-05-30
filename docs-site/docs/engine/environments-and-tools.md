@@ -2,9 +2,9 @@
 sidebar_label: Environments & Tools
 ---
 
-# Environments & Tools
+# Environments and tools
 
-Environments are the worlds agents act in. Each environment owns its state, decides what an
+Environments are the worlds agents act in. Each environment owns its state and decides what an
 agent can see (`get_observations`), what an agent can do (`get_tools`), how an action resolves
 (`execute_action`), and what cross-environment events it emits (`publish_events`). Three ship
 in `simswarm/environments/`: `social`, `market`, `economic`.
@@ -39,8 +39,8 @@ a tool call, the engine routes it by tool name to the owning environment (see
 
 ### IDs in observations
 
-A recurring engine convention: **if an action argument needs an ID, the corresponding
-observation text must expose that ID.** Agents only know IDs they've read in their feed.
+A recurring engine convention: if an action argument needs an ID, the corresponding
+observation text must expose that ID. Agents only know IDs they've read in their feed.
 
 - The social env's `get_observations` renders each post as
   `post_id=<uuid> author_id=<uuid> [<name>] <text> (score: <likes-dislikes>)`, so the LLM can
@@ -63,17 +63,17 @@ enum `[1, -1]`), `repost` (`post_id`), `follow` (`agent_id`), `do_nothing`.
 
 **State & handlers:** posts are stored in a `dict[str, Post]` keyed by a generated UUID; each
 `Post` tracks `likes`, `dislikes`, `reposts`, `created_round`, `parent_id` (for threads), and
-a `voters` set (one vote per agent — repeat votes fail). `_handle_vote` increments `likes`
+a `voters` set (one vote per agent; repeat votes fail). `_handle_vote` increments `likes`
 when `value > 0`, otherwise `dislikes`. Posts and replies return `{"post_id": <uuid>}` in
-their `ActionResult.data` — this is what `apply_belief_updates` and the extractors key on.
+their `ActionResult.data`, which is what `apply_belief_updates` and the extractors key on.
 
-**Feed ranking** — `_rank_feed` scores top-level posts (`parent_id is None`) with
+**Feed ranking:** `_rank_feed` scores top-level posts (`parent_id is None`) with
 `recency_weight * recency + popularity_weight * log1p(likes + reposts) + relevance_weight *
 relevance`, where `relevance` is `1.0` for followed authors and
 `1.0 - echo_chamber_strength` otherwise. The top 20 are shown, each with up to 3 replies when
 threading is on.
 
-**Engagement & events** — `current_engagement()` returns `{post_id: (likes, dislikes)}` (the
+**Engagement & events:** `current_engagement()` returns `{post_id: (likes, dislikes)}` (the
 engine feeds this into belief updates). `tick()` emits a `viral_post` event the first time a
 post's `likes + reposts >= viral_threshold`.
 
@@ -93,7 +93,7 @@ Each market initializes reserves from the seed price: `reserve_yes = liq*2*(1-pr
 `sell_shares` (`market_id`, `outcome`, `shares`), `browse_markets`, `comment_on_market`
 (`market_id`, `text`), `do_nothing`.
 
-**AMM math** lives in `environments/market_amm.py`. `price_yes = reserve_no / (reserve_yes +
+**AMM math:** this lives in `environments/market_amm.py`. `price_yes = reserve_no / (reserve_yes +
 reserve_no)`. Buying YES injects USD into `reserve_no` and removes YES shares, preserving
 `k = reserve_yes * reserve_no`. Each agent gets a `Portfolio` (lazily registered) with a
 balance and per-market YES/NO share holdings. Buys debit balance and return

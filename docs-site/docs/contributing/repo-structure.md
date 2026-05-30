@@ -2,7 +2,7 @@
 sidebar_label: Repository Structure
 ---
 
-# Repository Structure
+# Repository structure
 
 SimSwarm is organized by feature. Each feature directory under `saas/` owns its
 own models, schemas, API routes, and business logic, rather than splitting the
@@ -19,7 +19,7 @@ tests/           # pytest + pytest-asyncio
 docs-site/       # This documentation site (Docusaurus)
 ```
 
-## `saas/` — application layer
+## `saas/`: application layer
 
 Feature directories co-locate everything that feature needs:
 
@@ -42,9 +42,9 @@ Feature directories co-locate everything that feature needs:
 | `saas/main.py` | FastAPI app factory. |
 
 Note: a `saas/billing/` directory still exists but is empty (only a
-`__pycache__`) — billing was removed in the open-source pivot.
+`__pycache__`); billing was removed in the open-source pivot.
 
-## `frontend/src/` — Vue SPA
+## `frontend/src/`: Vue SPA
 
 | Path | Responsibility |
 | --- | --- |
@@ -56,7 +56,7 @@ Note: a `saas/billing/` directory still exists but is empty (only a
 
 ## The engine: `simswarm/`, not `vendor/`
 
-The simulation engine is a **native package at `simswarm/`**. There is no
+The simulation engine is a native package at `simswarm/`. There is no
 `vendor/` directory and no vendored engine submodule. When contributing to engine behavior (environments, belief
 formulation, extractors, graph building), work in `simswarm/`. The application
 talks to the engine through `saas/adapters/`. See
@@ -64,7 +64,7 @@ talks to the engine through `saas/adapters/`. See
 
 ## File-size norm
 
-Keep files small and focused — under roughly 300 lines. Many features are split
+Keep files small and focused, under roughly 300 lines. Many features are split
 into multiple files for this reason (for example, `saas/jobs/` has separate
 `api.py`, `api_draft.py`, `api_retry.py`, `api_share.py`, and several
 `persistence_*.py` modules). Prefer adding a focused module over growing an
@@ -72,5 +72,5 @@ existing file past the norm.
 
 ## Related
 
-- [System Overview](../architecture/system-overview.md) — how these pieces run.
-- [Code Style](code-style.md) — conventions within this structure.
+- [System Overview](../architecture/system-overview.md): how these pieces run.
+- [Code Style](code-style.md): conventions within this structure.

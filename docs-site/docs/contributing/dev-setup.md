@@ -2,7 +2,7 @@
 sidebar_label: Dev Setup
 ---
 
-# Development Setup
+# Development setup
 
 SimSwarm is MIT-licensed and self-hostable. This page covers running the
 backend and frontend locally for development. For a full deployment, see
@@ -14,8 +14,8 @@ backend and frontend locally for development. For a full deployment, see
   `pyproject.toml`).
 - Node.js + npm for the frontend.
 
-You do **not** need Postgres, Redis, Temporal, Neo4j, or a GPU to run the test
-suite — the backend tests use in-memory SQLite. You do need those services to
+You do not need Postgres, Redis, Temporal, Neo4j, or a GPU to run the test
+suite; the backend tests use in-memory SQLite. You do need those services to
 run real simulations end to end.
 
 ## Backend
@@ -64,7 +64,7 @@ cd frontend && npm run build
 Backend settings are read from environment variables / `.env` via Pydantic
 Settings (`saas/config.py`). For tests, settings are constructed directly with
 SQLite (see [Testing](testing.md)). For a real local run you will need the
-relevant `DATABASE_URL`, `REDIS_URL`, Temporal, MinIO, and LLM variables — see
+relevant `DATABASE_URL`, `REDIS_URL`, Temporal, MinIO, and LLM variables. See
 [Environment Reference](../self-hosting/env-reference.md).
 
 ## Before opening a PR
@@ -75,6 +75,6 @@ lives in `simswarm/`; the application wrapper lives in `saas/`.
 
 ## Related
 
-- [Testing](testing.md) — running pytest and Vitest.
-- [Repository Structure](repo-structure.md) — where code lives.
-- [Code Style](code-style.md) — conventions to follow.
+- [Testing](testing.md): running pytest and Vitest.
+- [Repository Structure](repo-structure.md): where code lives.
+- [Code Style](code-style.md): conventions to follow.

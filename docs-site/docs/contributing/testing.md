@@ -5,7 +5,7 @@ sidebar_label: Testing
 # Testing
 
 SimSwarm has a backend pytest suite and a frontend Vitest suite. Neither
-requires external services — the backend runs against in-memory SQLite.
+requires external services; the backend runs against in-memory SQLite.
 
 ## Backend
 
@@ -15,17 +15,17 @@ pytest
 
 Configuration (`pyproject.toml`):
 
-- **`asyncio_mode = "auto"`** — tests are written with `pytest-asyncio` and
+- `asyncio_mode = "auto"`: tests are written with `pytest-asyncio` and
   async functions are collected automatically (no per-test decorator needed).
-- **`testpaths = ["tests"]`**.
-- Coverage is configured with a **`fail_under = 90`** gate over the `saas`
+- `testpaths = ["tests"]`.
+- Coverage is configured with a `fail_under = 90` gate over the `saas`
   package (`pytest-cov`); `saas/main.py` and `saas/workers/celery_app.py` are
   omitted, along with tests/migrations.
 
 ### Test database
 
-Tests use **in-memory SQLite via `aiosqlite`** (`TEST_DATABASE_URL =
-"sqlite+aiosqlite://"` in `tests/conftest.py`) — no Postgres needed. The schema
+Tests use in-memory SQLite via `aiosqlite` (`TEST_DATABASE_URL =
+"sqlite+aiosqlite://"` in `tests/conftest.py`); no Postgres needed. The schema
 is created from `Base.metadata` per engine fixture and dropped afterward.
 
 ### Fixtures (`tests/conftest.py`)
@@ -54,16 +54,16 @@ the coverage reporter. There is also a Playwright end-to-end suite
 
 ## Linting
 
-Backend code is linted with **Ruff** at **line length 100** (`[tool.ruff]` in
+Backend code is linted with Ruff at line length 100 (`[tool.ruff]` in
 `pyproject.toml`). Run both test suites and lint before opening a PR.
 
 ## No fake data
 
-Never generate fake or mock data for demos or feature testing — use only real
+Never generate fake or mock data for demos or feature testing. Use only real
 data from actual simulation runs. The one exception is unit/integration test
 mocks, which are fine. This keeps demo content and feature validation honest.
 
 ## Related
 
-- [Dev Setup](dev-setup.md) — installing dependencies.
-- [Code Style](code-style.md) — conventions enforced beyond linting.
+- [Dev Setup](dev-setup.md): installing dependencies.
+- [Code Style](code-style.md): conventions enforced beyond linting.

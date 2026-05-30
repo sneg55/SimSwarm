@@ -17,7 +17,7 @@ The Compose stack (`docker-compose.yml`) defines the following containers:
 | Service | Image | Role |
 | --- | --- | --- |
 | `app` | `fishcloud-app` | FastAPI application (`saas.main:create_app`), serves the API on `127.0.0.1:8080`. |
-| `celery` | `fishcloud-app` | Celery worker **with embedded beat** (`--beat`), `--concurrency=4`. Runs the off-pod report task and scheduled maintenance. |
+| `celery` | `fishcloud-app` | Celery worker with embedded beat (`--beat`), `--concurrency=4`. Runs the off-pod report task and scheduled maintenance. |
 | `db` | `postgres:16-alpine` | Primary application database (user `fishcloud`, db `fishcloud`). |
 | `redis` | `redis:7-alpine` | Celery broker + result backend. |
 | `temporal-db` | `postgres:16-alpine` | Dedicated Postgres for Temporal's own state. |
@@ -27,14 +27,14 @@ The Compose stack (`docker-compose.yml`) defines the following containers:
 | `frontend-init` | `fishcloud-app` | One-shot: copies the built frontend into the `frontend_dist` volume. |
 | `migrate` | `fishcloud-app` | One-shot: runs `alembic upgrade head` on deploy. |
 
-Two datastores are **external** to this Compose file and run separately
+Two datastores are external to this Compose file and run separately
 (managed or on their own hosts):
 
-- **Neo4j** — the entity graph database.
-- **MinIO** — S3-compatible object storage for rich simulation artifacts and
+- **Neo4j**: the entity graph database.
+- **MinIO**: S3-compatible object storage for rich simulation artifacts and
   model weights. See [Storage](storage.md).
 
-GPU pods are **ephemeral** and not part of the Compose stack — they are
+GPU pods are ephemeral and not part of the Compose stack. They are
 provisioned per-job from a cloud provider (RunPod) and torn down on
 completion. See [Data Flow](data-flow.md).
 
@@ -101,7 +101,7 @@ finishes. The next page traces that flow end to end.
 
 ## Related
 
-- [Data Flow](data-flow.md) — the end-to-end job lifecycle.
-- [Database Schema](database-schema.md) — the core tables.
-- [Storage](storage.md) — MinIO artifact layout and model weights.
-- [Self-Hosting Architecture](../self-hosting/architecture.md) — deploying the stack.
+- [Data Flow](data-flow.md): the end-to-end job lifecycle.
+- [Database Schema](database-schema.md): the core tables.
+- [Storage](storage.md): MinIO artifact layout and model weights.
+- [Self-Hosting Architecture](../self-hosting/architecture.md): deploying the stack.

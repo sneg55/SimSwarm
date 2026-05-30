@@ -4,7 +4,7 @@ sidebar_label: Neo4j
 
 # Neo4j
 
-Neo4j is the graph database used during a simulation run. It is configured by environment variables and is not part of the main `docker-compose.yml` — it runs as a separate service.
+Neo4j is the graph database used during a simulation run. It is configured by environment variables and is not part of the main `docker-compose.yml`; it runs as a separate service.
 
 ## Configuration
 
@@ -37,6 +37,6 @@ Point `NEO4J_URI` at this host. In production it commonly runs on a separate VPS
 
 ## What degrades without it
 
-The in-app entity-graph **view** is built pure-Python from the simulation's action log by `simswarm.graph.build_graph` and stored as the job's `result_graph` JSON, then rendered with Cytoscape (`GET /api/jobs/{job_id}/graph`). That rendering path does not query Neo4j at view time.
+The in-app entity-graph view is built pure-Python from the simulation's action log by `simswarm.graph.build_graph` and stored as the job's `result_graph` JSON, then rendered with Cytoscape (`GET /api/jobs/{job_id}/graph`). That rendering path does not query Neo4j at view time.
 
 Neo4j is consumed during the run on the pod. If it is unreachable, the worker's `wait_for_neo4j` gate blocks pod startup, so the simulation cannot proceed. Treat a reachable Neo4j (matching `NEO4J_URI` / `NEO4J_PASSWORD`) as a prerequisite for running simulations.

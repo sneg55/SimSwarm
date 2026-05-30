@@ -2,10 +2,10 @@
 sidebar_label: Graph Build
 ---
 
-# Graph Build
+# Graph build
 
 `simswarm/graph.py` constructs the entity graph the frontend renders in Cytoscape. It is
-pure Python — it takes the entity list the sim ran on plus the `ActionRecord` chat log and
+pure Python. It takes the entity list the sim ran on plus the `ActionRecord` chat log and
 returns a `GraphSnapshot` (`{nodes, edges, metadata}`). It replaces an earlier Neo4j-backed
 ingestion path.
 
@@ -19,15 +19,15 @@ def build_graph(
 ) -> GraphSnapshot:
 ```
 
-1. `_build_nodes(entities, chat_log)` — one node per entity.
-2. `id_by_name = {node["label"]: node["id"]}` — name→id lookup.
-3. `_build_post_author_index(chat_log)` — maps `post_id` → authoring `agent_id`.
-4. `_build_edges(...)` — interaction edges from the chat log.
+1. `_build_nodes(entities, chat_log)`: one node per entity.
+2. `id_by_name = {node["label"]: node["id"]}`: name→id lookup.
+3. `_build_post_author_index(chat_log)`: maps `post_id` → authoring `agent_id`.
+4. `_build_edges(...)`: interaction edges from the chat log.
 5. If `relations` is provided, `_relations_to_edges(...)` appends the LLM semantic edges.
 6. `metadata` records `total_nodes`, `total_edges`, `total_rounds`, and sorted
    `entity_types`.
 
-The engine's own `Engine.run` calls `build_graph(entities, chat_log)` **without** relations
+The engine's own `Engine.run` calls `build_graph(entities, chat_log)` without relations
 (interaction edges only); the LLM semantic edges are merged on-pod by the job runner
 (`infra/docker/run_job_v2_runner.py`) right after `Engine.run` returns, before the GPU pod is
 torn down (see [Relations](relations.md)).
@@ -47,7 +47,7 @@ becomes:
 ## Interaction edges
 
 `_build_edges` tallies directed `(source_id, target_id, type)` triples and collapses repeats
-into a single edge with `weight = count`. Only **successful** actions are considered.
+into a single edge with `weight = count`. Only successful actions are considered.
 
 ### Action-type → edge label
 
@@ -87,9 +87,9 @@ Self-edges (`target_id == agent_id`) are never created.
 For post-content actions (`create_post`/`post`/`comment`/`reply`), `_scan_mentions(text,
 id_by_name)` finds referenced agents two ways and tallies a `mention` edge for each:
 
-1. **`@handle`** — the regex `@(\w+)` matches single-token handles; each handle is looked up
+1. **`@handle`:** the regex `@(\w+)` matches single-token handles; each handle is looked up
    in `id_by_name`.
-2. **Full-label match** — case-insensitive, word-boundary (`\b...\b`) search for each entity's
+2. **Full-label match:** case-insensitive, word-boundary (`\b...\b`) search for each entity's
    full name, so multi-word names ("US Navy", "Donald Trump") that the `@`-regex misses are
    still caught.
 

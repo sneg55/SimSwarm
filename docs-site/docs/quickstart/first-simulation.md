@@ -4,7 +4,7 @@ sidebar_label: First Simulation
 
 # Run Your First Simulation
 
-This walks through the end-user flow on a full self-hosted instance (`DEMO_MODE=false`). On a read-only demo instance, register and launch are blocked with a 403 — see [Demo Mode](../self-hosting/demo-mode.md).
+This walks through the end-user flow on a full self-hosted instance (`DEMO_MODE=false`). On a read-only demo instance, register and launch are blocked with a 403. See [Demo Mode](../self-hosting/demo-mode.md).
 
 ## 1. Register and sign in
 
@@ -14,17 +14,17 @@ Create an account from the **Register** page. Registration requires an email and
 
 The wizard (`NewSimulation.vue`) has three steps, shown by the progress bar at the top.
 
-### Step 1 — Seed document
+### Step 1: Seed document
 
 Paste or type your seed text. This is the source material the agents reason about. The seed has a maximum length of 50,000 characters (`MAX_SEED_CHARS`), shown by the live character counter.
 
 The **Enrich with web research** toggle is on by default (`enrich_web=true`). When enabled, the seed is augmented with live web and X/Twitter research before the simulation runs.
 
-### Step 2 — Prediction goal
+### Step 2: Prediction goal
 
-Enter the prediction goal — the question the simulation should answer (for example, a forecast of market or sentiment movement). Set the **forecast horizon in days**; it is required and must be between 1 and 365.
+Enter the prediction goal, the question the simulation should answer (for example, a forecast of market or sentiment movement). Set the **forecast horizon in days**; it is required and must be between 1 and 365.
 
-### Step 3 — Launch
+### Step 3: Launch
 
 Pick a simulation tier (small / medium / large), which controls agent scale and the GPU/model routing. Click **Run Simulation** to submit.
 
@@ -44,9 +44,9 @@ After launch you are taken to the status view. The job moves through statuses ow
 
 When the job reaches `COMPLETED`, open it to see the result views:
 
-- **Story** — narrative overview: the question, a verdict, stakeholder positions, and the findings the simulation surfaced.
-- **Graph** — interactive Cytoscape entity graph of agents and their interactions (`GET /api/jobs/{job_id}/graph`).
-- **Data** — prediction-market and simulation-data charts, backed by presigned MinIO downloads (`GET /api/jobs/{job_id}/sim-data`).
-- **Report** — the deep analysis report with citations.
+- **Story**: narrative overview with the question, a verdict, stakeholder positions, and the findings the simulation surfaced.
+- **Graph**: interactive Cytoscape entity graph of agents and their interactions (`GET /api/jobs/{job_id}/graph`).
+- **Data**: prediction-market and simulation-data charts, backed by presigned MinIO downloads (`GET /api/jobs/{job_id}/sim-data`).
+- **Report**: the deep analysis report with citations.
 
 Completed jobs can be turned into a public **share link** (`/s/{token}`) for read-only viewing.

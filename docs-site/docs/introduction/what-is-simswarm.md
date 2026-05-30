@@ -13,16 +13,16 @@ surfaces the dynamics that emerge from those interactions.
 
 ## The user flow
 
-1. **Seed document** — provide the source text the scenario is built from. Optionally,
-   the seed can be enriched with live web and X/Twitter research before the run.
-2. **Prediction goal** — state, in plain language, the question you want answered (for
+1. **Seed document.** Provide the source text the scenario is built from. The seed can
+   optionally be enriched with live web and X/Twitter research before the run.
+2. **Prediction goal.** State, in plain language, the question you want answered (for
    example, forecasting market response or community sentiment over a horizon).
-3. **Run** — agents are derived from the seed and step through the simulation rounds.
-4. **Results** — when the run completes you get four views of the output:
-   - a deep-analysis **report** with grounded findings,
-   - an interactive **entity graph** of participants and their relationships,
-   - **prediction-market data** (price charts, trades), and
-   - a full **chat replay** of every agent action, round by round.
+3. **Run.** Agents are derived from the seed and step through the simulation rounds.
+4. **Results.** When the run completes you get four views of the output:
+   - a deep-analysis report with grounded findings,
+   - an interactive entity graph of participants and their relationships,
+   - prediction-market data (price charts, trades), and
+   - a full chat replay of every agent action, round by round.
 
 ## Who it's for
 
@@ -35,5 +35,5 @@ report assembly.
 
 A read-only public demo runs at [simswarm.xyz](https://simswarm.xyz), where you can
 browse a gallery of real simulations and their outputs. SimSwarm is open source and
-self-hostable — see [Open Source & Self-Hosting](./oss-and-self-host.md) to run your
+self-hostable; see [Open Source & Self-Hosting](./oss-and-self-host.md) to run your
 own instance.

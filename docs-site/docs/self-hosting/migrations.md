@@ -18,7 +18,7 @@ For a local backend, run the same command after activating your environment.
 
 ## Single head
 
-The migration graph has a **single head**. The current head is `e7d202b2a325` (`e7d202b2a325_drop_billing_tables.py`). A single head means `alembic upgrade head` is unambiguous and the deploy never has to pick between divergent branches.
+The migration graph has a single head. The current head is `e7d202b2a325` (`e7d202b2a325_drop_billing_tables.py`). A single head means `alembic upgrade head` is unambiguous and the deploy never has to pick between divergent branches.
 
 There is a merge revision in the history (`656dca26764a`, with a tuple `down_revision`) that joins two earlier branches; that is expected and does not create a second head.
 

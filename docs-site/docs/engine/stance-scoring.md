@@ -2,10 +2,10 @@
 sidebar_label: Stance Scoring
 ---
 
-# Stance Scoring
+# Stance scoring
 
 Belief updates need a numeric stance for every post. SimSwarm derives it deterministically
-with VADER — no LLM call, so it is fast, cheap, and reproducible. The implementation is
+with VADER, with no LLM call, so it is fast and reproducible. The implementation is
 `simswarm/stance.py`.
 
 ## The scorer
@@ -32,16 +32,16 @@ warmed in the worker Dockerfile so the first call on a fresh pod doesn't pay a l
 
 ## Where it is used
 
-- **Belief loop** — `simswarm/belief.py` calls `score_stance(text)` to assign the `stance`
+- **Belief loop:** `simswarm/belief.py` calls `score_stance(text)` to assign the `stance`
   field on each exposed post before computing the pull-toward-stance nudge. See
   [Belief formulation](belief-formulation.md).
-- **Agent trajectories** — `simswarm/extractor_activity.py` (`extract_agent_trajectories`)
+- **Agent trajectories:** `simswarm/extractor_activity.py` (`extract_agent_trajectories`)
   scores each agent's combined per-round post/comment text with `score_stance` to produce
   the `sentiment` value charted on the Data tab.
 
-## Two distinct scorers — don't confuse them
+## Two distinct scorers
 
-There are **two** sentiment functions in the engine with different purposes and scales:
+There are two sentiment functions in the engine with different purposes and scales:
 
 | Function | Module | Method | Scale | Used by |
 |---|---|---|---|---|
@@ -54,5 +54,5 @@ per-agent `sentiment_arc` formatting. The belief loop standardized on VADER; do 
 new belief-side scoring through the keyword scorer.
 
 This is separate again from `story_signals._classify_stance`, which is a *categorical*
-keyword classifier (`opposed`/`supports`/`neutral`/`split`) used for bloc clustering — see
-[Story signals](story-signals.md). Three different mechanisms, three different jobs.
+keyword classifier (`opposed`/`supports`/`neutral`/`split`) used for bloc clustering; see
+[Story signals](story-signals.md). Each of the three mechanisms does a different job.

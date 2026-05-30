@@ -2,9 +2,9 @@
 sidebar_label: Explore the Demo
 ---
 
-# Explore the Demo
+# Explore the demo
 
-A read-only public demo runs at **[simswarm.xyz](https://simswarm.xyz)**. Signups and job submission are disabled there (`DEMO_MODE=true`), but every curated result is fully browsable through its share link.
+A read-only public demo runs at [simswarm.xyz](https://simswarm.xyz). Signups and job submission are disabled there (`DEMO_MODE=true`), but every curated result is browsable through its share link.
 
 ## Curated demos
 
@@ -25,8 +25,8 @@ Each demo opens at its share URL (`/s/{token}`) and renders through the same `Sh
 
 The shared-result view (`SharedResult.vue`) offers the same view modes as a logged-in result:
 
-- **Story** — a meta row (participant count, forecast horizon in days, tier depth), a question-and-answer hero with the verdict and stakeholder positions, the findings the simulation surfaced as cards with citations, and a simulation-scale footer.
-- **Graph** — the interactive entity graph (nodes, edges, metadata) rendered with the same Cytoscape visualization as the dashboard.
-- **Report** — the full deep-analysis report with its table of contents, headed by the simulation title and tier.
+- **Story**: a meta row (participant count, forecast horizon in days, tier depth), a question-and-answer hero with the verdict and stakeholder positions, the findings the simulation surfaced as cards with citations, and a simulation-scale footer.
+- **Graph**: the interactive entity graph (nodes, edges, metadata) rendered with the same Cytoscape visualization as the dashboard.
+- **Report**: the full deep-analysis report with its table of contents, headed by the simulation title and tier.
 
 Because the demo is read-only, the wizard and account actions are not available; you can only browse these published results.

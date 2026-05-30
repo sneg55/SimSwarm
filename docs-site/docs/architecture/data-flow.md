@@ -65,8 +65,8 @@ sequenceDiagram
 - Rejects job creation when `DEMO_MODE` is on (read-only deploys).
 - Enforces `MAX_SEED_CHARS` and de-duplicates identical in-flight submissions
   within a 60-second window (`_DUP_JOB_WINDOW_SECONDS`).
-- Validates that a `ModelRouting` row exists for the requested tier (no row →
-  500). Routing supplies the `model_id`, `gpu_type`, `max_rounds`,
+- Validates that a `ModelRouting` row exists for the requested tier (no row
+  returns 500). Routing supplies the `model_id`, `gpu_type`, `max_rounds`,
   `vllm_args`, and `target_agents`.
 - Inserts a `SimulationJob` row at status `PENDING` (not yet committed) and
   flushes to get `job.id`.
@@ -78,28 +78,28 @@ sequenceDiagram
 If the Temporal dispatch fails, the session is rolled back and a 500 is
 returned, so no orphaned job row is left behind.
 
-### 2. Phase 1 — pre-GPU (Temporal activities)
+### 2. Phase 1: pre-GPU (Temporal activities)
 
 Before any GPU is provisioned, the workflow runs two fail-soft activities, each
 with a 180-second start-to-close timeout and two attempts:
 
-- `fishcloud.enrich_seed` — xAI Grok web/X search enrichment (only when
+- `fishcloud.enrich_seed`: xAI Grok web/X search enrichment (only when
   `enrich_web` is set).
-- `fishcloud.derive_markets` — LLM derivation of the per-sim prediction
+- `fishcloud.derive_markets`: LLM derivation of the per-sim prediction
   markets.
 
 No pod exists yet, so a failure here bypasses the GPU-phase handler; the
 workflow explicitly calls `fishcloud.mark_failed` before re-raising.
 
-### 3. Phase 2 — GPU lifecycle
+### 3. Phase 2: GPU lifecycle
 
 The workflow provisions and drives an ephemeral pod through a set of activities
 (`saas/workflows/activities/provisioning.py`, `pipeline.py`):
 
-- `fishcloud.provision_pod` — create the GPU pod on the configured provider.
-- `fishcloud.wait_for_worker_health` — poll until the pod's HTTP worker and
+- `fishcloud.provision_pod`: create the GPU pod on the configured provider.
+- `fishcloud.wait_for_worker_health`: poll until the pod's HTTP worker and
   vLLM are ready.
-- `fishcloud.submit_and_poll` — `POST /job` to the pod and poll `/status` to
+- `fishcloud.submit_and_poll`: `POST /job` to the pod and poll `/status` to
   completion. The pod uploads its rich artifacts directly to MinIO, and the
   activity persists the report/chat-log/graph/structured results to Postgres at
   the source (using sync psycopg2), so large payloads never traverse Temporal.
@@ -115,7 +115,7 @@ so a permanent outage cannot strand a job. The same-host retries rely on
 `fishcloud.upload_and_finalize` (`saas/workflows/activities/finalization.py`):
 
 - Updates job metadata (pod id, provision/pipeline seconds).
-- Requires that the pod uploaded its artifacts to MinIO — a missing upload is
+- Requires that the pod uploaded its artifacts to MinIO. A missing upload is
   fatal (raises `RuntimeError`), because the report flow depends on those
   artifacts.
 - Sets `sim_data_available = True`, transitions the job to `REPORTING`, and
@@ -127,7 +127,7 @@ The workflow's `finally` block terminates whatever pod is still held via
 `fishcloud.terminate_pod`. Bad-host and circuit-breaker swaps null out their pod
 references after their in-loop terminate, so the final teardown runs at most
 once per successful provision. GPU instances are ephemeral and teardown happens
-even on failure — see [GPU Runner](../self-hosting/gpu-runner.md).
+even on failure. See [GPU Runner](../self-hosting/gpu-runner.md).
 
 ### 6. Off-pod report (Celery)
 
@@ -138,11 +138,11 @@ not on the GPU pod:
   `REFUNDED`), it skips.
 - Builds a `ReportRunner` backed by the Anthropic client and runs it.
 - Transient errors retry on an escalating backoff (`30, 120, 300, 900, 1800`
-  seconds — a ~55-minute window); permanent errors and exhausted retries mark
+  seconds, a ~55-minute window); permanent errors and exhausted retries mark
   the job `FAILED`.
 - On success it persists the report markdown and the structured payload
   (`adapt_structured`), derives a key insight, and uploads `report.md` to MinIO
-  (non-fatal if MinIO is down — the DB row is authoritative).
+  (non-fatal if MinIO is down, since the DB row is authoritative).
 
 ## Job status progression
 
@@ -152,6 +152,6 @@ retained legacy value (see [Database Schema](database-schema.md)).
 
 ## Related
 
-- [System Overview](system-overview.md) — the services involved.
-- [Simulation Lifecycle](../concepts/simulation-lifecycle.md) — the conceptual view.
-- [Temporal](../self-hosting/temporal.md) — operating the workflow engine.
+- [System Overview](system-overview.md): the services involved.
+- [Simulation Lifecycle](../concepts/simulation-lifecycle.md): the conceptual view.
+- [Temporal](../self-hosting/temporal.md): operating the workflow engine.

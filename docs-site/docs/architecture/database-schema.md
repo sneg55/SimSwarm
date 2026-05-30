@@ -77,16 +77,16 @@ The central table. One row per simulation job.
 ### Dead-but-retained billing artifacts
 
 The open-source pivot removed billing/credits, but two billing artifacts were
-**deliberately kept** to avoid invasive PostgreSQL schema surgery (notably the
-hassle of removing a value from an existing enum type):
+kept to avoid invasive PostgreSQL schema surgery (notably the hassle of
+removing a value from an existing enum type):
 
-- **`credits_charged`** — retained as a dead column that always stays `0`. Its
+- `credits_charged`: retained as a dead column that always stays `0`. Its
   default lets inserts omit it.
-- **`REFUNDED`** status — retained as a `JobStatus` enum value. It is no longer
+- `REFUNDED` status: retained as a `JobStatus` enum value. It is no longer
   reached by normal job flow, but report-task idempotency still treats it as a
   terminal state alongside `COMPLETED` and `FAILED`.
 
-Neither is part of any active code path that charges or refunds — there is no
+Neither is part of any active code path that charges or refunds; there is no
 billing in the OSS build.
 
 ## `model_routing` — `saas/jobs/models.py`
@@ -124,5 +124,5 @@ middleware and other call sites).
 
 ## Related
 
-- [Data Flow](data-flow.md) — how rows transition between statuses.
-- [Migrations](../self-hosting/migrations.md) — Alembic operations.
+- [Data Flow](data-flow.md): how rows transition between statuses.
+- [Migrations](../self-hosting/migrations.md): Alembic operations.

@@ -2,10 +2,10 @@
 sidebar_label: Belief Formulation
 ---
 
-# Belief Formulation
+# Belief formulation
 
 Belief dynamics are what make a SimSwarm run more than a transcript. They are implemented in
-`simswarm/belief.py` as **pure math — no LLM calls**. The conceptual overview lives in
+`simswarm/belief.py` as pure math, with no LLM calls. The conceptual overview is in
 [Beliefs & stance](../concepts/beliefs-and-stance.md); this page documents the exact
 formula and every coefficient as it appears in the code.
 
@@ -36,7 +36,7 @@ A `BeliefState` (`simswarm/types.py`) holds three dicts and one set:
 
 ## `update_beliefs(state, posts, topic, own_likes=0, own_dislikes=0)`
 
-Returns a **new** `BeliefState` (the input is deep-copied, never mutated). `posts` is a list
+Returns a new `BeliefState` (the input is deep-copied, never mutated). `posts` is a list
 of dicts with `author`, `content_hash`, `stance` (`[-1, 1]`), and `likes`.
 
 ### 1. Resistance divisor
@@ -68,9 +68,9 @@ gap = stance - current_pos
 position_delta += gap * influence * 0.1
 ```
 
-The **social-proof floor** (`0.3`) ensures even zero-engagement posts register some
-influence. **Novelty** rewards first exposure (`1.5`) over repeats (`0.5`). The
-**pull-toward-stance** nudge is proportional to the `gap` between the post's stance and the
+The social-proof floor (`0.3`) ensures even zero-engagement posts register some
+influence. Novelty rewards first exposure (`1.5`) over repeats (`0.5`). The
+pull-toward-stance nudge is proportional to the `gap` between the post's stance and the
 agent's current position, scaled by `influence` and a fixed `0.1`.
 
 ### 3. Apply and clamp position
@@ -119,7 +119,7 @@ per round, after action dispatch. It mutates each `Agent.belief_state` in place.
 1. **Collect posts.** It keeps successful records whose `action_type.lower()` is one of
    `create_post`, `post`, `comment`, `reply`. Post text is read from
    `action_args["text"]` (falling back to `["content"]`); empty text is skipped.
-2. **Score and hash.** Stance comes from `simswarm.stance.score_stance(text)` (VADER — see
+2. **Score and hash.** Stance comes from `simswarm.stance.score_stance(text)` (VADER; see
    [Stance scoring](stance-scoring.md)). The content hash is
    `f"r{round}:{agent_id}:{hash(text) & 0xffffffff:08x}"`.
 3. **Look up engagement.** `post_id` is read from the action's `action_result`; likes and

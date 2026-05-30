@@ -2,7 +2,7 @@
 sidebar_label: Simulation Lifecycle
 ---
 
-# Simulation Lifecycle
+# Simulation lifecycle
 
 A simulation moves through a fixed sequence of phases, from the seed document you
 provide to the four result views you read at the end.
@@ -16,17 +16,17 @@ answer.
 ## 2. Enrichment (optional)
 
 Before the run, the seed can be enriched with live web and X/Twitter research via xAI
-Grok. This produces a richer seed for the rest of the pipeline to work from. Enrichment
-is best-effort — a failure here does not fail the job.
+Grok. This gives the rest of the pipeline more to work from. Enrichment is best-effort,
+and a failure here does not fail the job.
 
 ## 3. Setup: entities and markets
 
 From the seed and goal, the platform derives the cast and the markets:
 
-- **Entities** are extracted by an LLM call that lists the participants most relevant to
+- Entities are extracted by an LLM call that lists the participants most relevant to
   the goal (see [Agents & Personas](./agents-and-personas.md)). Each entity becomes an
   agent in the run.
-- **Prediction markets** are derived from the goal so the market environment has real
+- Prediction markets are derived from the goal so the market environment has real
   markets to seed, rather than agents trading against an empty market.
 
 ## 4. Agent rounds
@@ -52,24 +52,25 @@ relation-merged graph, and persona enrichment) has finished and artifacts are up
 ## 5. Extraction
 
 Once the rounds finish, deterministic extractors read the chat log and produce the
-structured signals the result views need — stakeholder positions, coalitions, top
+structured signals the result views need: stakeholder positions, coalitions, top
 posts, market data, agent trajectories, and [story signals](./story-signals.md).
 
 ## 6. Graph and personas (on-pod)
 
 Still on the GPU pod, right after `Engine.run` returns, the job runner assembles:
 
-- the [entity graph](./entity-graph.md) — agents as nodes, with interaction edges from
-  the chat log plus the LLM-derived semantic relationships, merged into the graph on the pod
+- the [entity graph](./entity-graph.md), with agents as nodes, interaction edges from
+  the chat log, and LLM-derived semantic relationships merged into the graph on the pod
   using the smart LLM (outside the engine's own loop);
-- persona enrichment — the smart LLM expands each agent's activity summary into a persona.
+- persona enrichment, where the smart LLM expands each agent's activity summary into a
+  persona.
 
-Both run on the pod before it is torn down; on failure the pipeline keeps the
+Both run on the pod before it is torn down. On failure the pipeline keeps the
 interaction-only graph and the one-line activity summaries.
 
 ## 7. Report (off-pod)
 
-Only the [report](./reports.md) — a deep-analysis document the smart LLM writes by querying
-the extracted signals through a tool-calling loop — runs off-pod, after the pod has uploaded
+Only the [report](./reports.md), a deep-analysis document the smart LLM writes by querying
+the extracted signals through a tool-calling loop, runs off-pod, after the pod has uploaded
 its artifacts and the GPU has been released. Any failure before the job reaches its completed
 state marks the job failed.

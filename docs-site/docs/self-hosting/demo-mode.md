@@ -10,8 +10,8 @@ Demo mode turns an instance into a read-only public showcase. It is controlled b
 
 `DEMO_MODE` is a boolean `Settings` field (`saas/config.py`), default `false`:
 
-- `false` — full self-hosted platform: signups and job submission are allowed.
-- `true` — read-only demo: registration, job creation, and draft launch are blocked.
+- `false`: full self-hosted platform; signups and job submission are allowed.
+- `true`: read-only demo; registration, job creation, and draft launch are blocked.
 
 Set it in `.env`:
 
@@ -21,10 +21,10 @@ DEMO_MODE=true
 
 ## What it gates
 
-When `DEMO_MODE=true`, three write paths return **403** with the message `This is a read-only demo. Deploy your own instance to run simulations.`:
+When `DEMO_MODE=true`, three write paths return 403 with the message `This is a read-only demo. Deploy your own instance to run simulations.`:
 
-- `POST /api/auth/register` — registration (`saas/auth/api.py`).
-- `POST /api/jobs` — create a new simulation (`saas/jobs/api.py`).
+- `POST /api/auth/register`: registration (`saas/auth/api.py`).
+- `POST /api/jobs`: create a new simulation (`saas/jobs/api.py`).
 - Draft launch (`saas/jobs/api_draft.py`).
 
 Login and all read paths (browsing jobs, share links, results) remain available.
