@@ -5,7 +5,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 const config: Config = {
   title: 'SimSwarm',
   tagline: 'Open-source swarm-intelligence simulation, self-hostable',
-  favicon: 'img/favicon.ico',
+  favicon: 'img/favicon.svg',
   url: 'https://docs.simswarm.xyz',
   baseUrl: '/',
   organizationName: 'sneg55',
@@ -27,6 +27,7 @@ const config: Config = {
         },
         blog: false,
         theme: {customCss: './src/css/custom.css'},
+        gtag: {trackingID: 'G-FHW4ZS55MB', anonymizeIP: false},
       } satisfies Preset.Options,
     ],
   ],
@@ -58,6 +59,7 @@ const config: Config = {
   ],
 
   themeConfig: {
+    image: 'img/og-image.png',
     colorMode: {defaultMode: 'dark', respectPrefersColorScheme: true},
     navbar: {
       title: 'SimSwarm',
