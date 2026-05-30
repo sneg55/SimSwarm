@@ -1,0 +1,23 @@
+AIR CANADA EXPRESS COLLISION AT LAGUARDIA AIRPORT — March 22, 2026
+
+A Bombardier CRJ900LR operating as Air Canada Express Flight 8646 from Montreal, Quebec, collided with a firetruck while landing at LaGuardia Airport in New York City. Both pilots were killed and 41 others were injured.
+
+Incident details:
+- The aircraft was on approach to LaGuardia when it collided with a fire/rescue vehicle on or near the runway.
+- The flight originated from Montreal-Trudeau International Airport.
+- The CRJ900LR is a regional jet with a typical capacity of 76 passengers.
+- Emergency response was complicated by the fact that a fire/rescue vehicle was itself involved in the collision.
+
+Aviation safety context:
+- LaGuardia Airport has historically been considered one of the most challenging airports for pilots due to its short runways, water approaches, and dense air traffic.
+- A runway incursion between a JetBlue aircraft and a Learjet occurred at LaGuardia in January 2023.
+- The FAA has been under scrutiny since the January 2023 NOTAM system failure that grounded all US flights.
+- In January 2025, a PSA Airlines/American Eagle flight collided midair with a Black Hawk helicopter while landing at Reagan National Airport, killing 67 people.
+
+Regulatory questions:
+- What was a firetruck doing on or near an active runway during an aircraft landing?
+- What communication failures occurred between ATC and ground operations?
+- Will this incident accelerate calls for modernizing ground vehicle tracking systems at US airports?
+- How will this affect Air Canada's operations and the broader regional airline industry?
+
+The NTSB has launched an investigation. The incident is the deadliest US aviation accident since the Reagan National collision in 2025.

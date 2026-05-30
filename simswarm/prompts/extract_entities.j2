@@ -1,0 +1,26 @@
+You are extracting the key entities (people, organizations, factions, viewpoints) from a seed document that will be simulated as autonomous agents.
+
+Seed document:
+---
+{{ seed_text }}
+---
+
+Simulation goal: {{ goal }}
+
+Return exactly {{ count }} entities that are most relevant to the goal. Prefer:
+- Named individuals over generic nouns
+- Distinct factions/viewpoints over overlapping labels
+- Entities with enough substance to role-play (not articles like "A" or "The")
+
+Respond with ONLY a JSON array of objects, no prose. Each object must have:
+  - "name": short display name (2-40 characters)
+  - "type": one of "person", "organization", "faction", "viewpoint"
+  - "summary": 1-2 sentence description of what this entity believes, wants, or represents in the context of the goal
+
+Example output format:
+[
+  {"name": "Jane Doe", "type": "person", "summary": "AI safety researcher at DeepMind who argues capabilities are outpacing alignment work and advocates for a six-month pause on frontier training runs."},
+  {"name": "OpenAI leadership", "type": "organization", "summary": "Executives who argue a unilateral pause would cede ground to less safety-conscious actors and prefer aggressive alignment research alongside continued development."}
+]
+
+Output only the JSON array.

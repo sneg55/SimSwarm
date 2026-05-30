@@ -1,0 +1,1 @@
+{"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{"properties":{"status":{"type":"string","title":"Status"},"version":{"type":"string","title":"Version"},"database":{"type":"string","title":"Database"}},"type":"object","required":["status","version","database"],"title":"HealthResponse"}}}}}}

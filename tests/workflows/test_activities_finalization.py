@@ -1,0 +1,61 @@
+"""Tests for finalization activities (upload_and_finalize, mark_failed)."""
+from __future__ import annotations
+
+from unittest.mock import patch
+
+import pytest
+
+
+@pytest.mark.asyncio
+async def test_upload_and_finalize_updates_metadata_and_enqueues_report():
+    """Result fields are now persisted inside submit_and_poll; this
+    activity only handles the post-pipeline transitions (metadata,
+    sim_data_available, REPORTING, report enqueue)."""
+    from saas.workflows.activities.finalization import upload_and_finalize
+
+    # Note: no report/chat_log/graph_data/structured — they're persisted
+    # in submit_and_poll now to keep this activity's argument small.
+    result = {
+        "pod_id": "pod-1",
+        "provision_seconds": 100, "pipeline_seconds": 700,
+        "sim_data_uploaded": True,
+    }
+
+    with patch("saas.jobs.persistence._update_job_metadata") as mock_meta, \
+         patch("saas.jobs.persistence._update_sim_data_available") as mock_sim_avail, \
+         patch("saas.jobs.persistence._transition_to_reporting") as mock_reporting, \
+         patch("saas.jobs.tasks_report.generate_report_task.apply_async") as mock_enqueue:
+        await upload_and_finalize(job_id=55, user_id="u1", result=result)
+
+    mock_meta.assert_called_once()
+    mock_sim_avail.assert_called_once_with(55, True)
+    mock_reporting.assert_called_once_with(55)
+    mock_enqueue.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_upload_and_finalize_raises_when_upload_missing():
+    from saas.workflows.activities.finalization import upload_and_finalize
+
+    result = {
+        "pod_id": "pod-1",
+        "provision_seconds": 100, "pipeline_seconds": 700,
+        "sim_data_uploaded": False,
+    }
+
+    with patch("saas.jobs.persistence._update_job_metadata"), \
+         patch("saas.jobs.tasks_report.generate_report_task.apply_async") as mock_enqueue:
+        with pytest.raises(RuntimeError, match="sim_data_upload_failed"):
+            await upload_and_finalize(job_id=55, user_id="u1", result=result)
+
+    mock_enqueue.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_mark_failed_invokes_mark_job_failed_sync():
+    from saas.workflows.activities.finalization import mark_failed
+
+    with patch("saas.jobs.persistence._mark_job_failed_sync") as mock_mark:
+        await mark_failed(job_id=10, error_message="activity_timed_out")
+
+    mock_mark.assert_called_once_with(10, "activity_timed_out")

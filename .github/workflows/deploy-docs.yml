@@ -1,0 +1,45 @@
+name: Deploy Docs to Cloudflare Pages
+
+# Builds the Docusaurus docs site (docs-site/) and deploys it to a dedicated
+# Cloudflare Pages project. Regenerates the OpenAPI reference from the committed
+# spec at build time.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs-site/**'
+      - 'scripts/dump_openapi.py'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: docs-site/package-lock.json
+
+      - name: Install
+        working-directory: docs-site
+        run: npm ci
+
+      - name: Generate API reference
+        working-directory: docs-site
+        run: npm run clean-api && npm run gen-api
+
+      - name: Build
+        working-directory: docs-site
+        run: npm run build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy docs-site/build --project-name=simswarm-docs --branch=main

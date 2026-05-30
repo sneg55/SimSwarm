@@ -1,0 +1,4 @@
+[
+  {"round_num": 1, "agent_id": "a1", "agent_name": "Alice", "action_type": "create_post", "platform": "twitter", "action_args": {"content": "Hello world"}, "timestamp": 1000, "success": true},
+  {"round_num": 1, "agent_id": "a2", "agent_name": "Bob", "action_type": "follow", "platform": "twitter", "action_args": {"target_id": "a1"}, "timestamp": 1001, "success": true}
+]

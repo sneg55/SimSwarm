@@ -1,0 +1,1 @@
+{"responses":{"200":{"description":"Successful Response","content":{"application/json":{"schema":{"properties":{"demo_mode":{"type":"boolean","title":"Demo Mode"}},"type":"object","required":["demo_mode"],"title":"PublicConfig"}}}}}}

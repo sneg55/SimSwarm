@@ -1,0 +1,120 @@
+name: Deploy to Hetzner
+
+# Disabled as the auto-deploy path: the hosted demo is now static (Cloudflare
+# Pages — see deploy-pages.yml) and the Hetzner box is being decommissioned.
+# Kept as manual-only so a self-hoster can still run a full-stack deploy by hand.
+on:
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository_owner }}/simswarm-worker
+
+jobs:
+  deploy:
+    # Skip when the upstream build failed. workflow_dispatch runs don't
+    # carry a workflow_run event, so the == 'success' check collapses to
+    # false for manual runs — we fall back to always() so manual deploys
+    # still work.
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          # For workflow_run triggers, check out the commit that was built
+          # (not the default branch HEAD, which may have advanced).
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TEMPORAL_DB_PASSWORD: ${{ secrets.TEMPORAL_DB_PASSWORD }}
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          command_timeout: 10m
+          envs: ANTHROPIC_API_KEY,TEMPORAL_DB_PASSWORD
+          script: |
+            set -euo pipefail
+            cd /opt/fishcloud
+            git config --global --add safe.directory /opt/fishcloud
+            git pull origin main
+            git submodule update --recursive
+
+            # Set worker image tag to current git commit
+            SHORT_SHA=$(git rev-parse --short HEAD)
+            if grep -q '^WORKER_IMAGE_TAG=' .env; then
+                sed -i "s/^WORKER_IMAGE_TAG=.*/WORKER_IMAGE_TAG=${SHORT_SHA}/" .env
+            else
+                echo "WORKER_IMAGE_TAG=${SHORT_SHA}" >> .env
+            fi
+
+            # Sync ANTHROPIC_API_KEY from GitHub Secrets (used by the external
+            # report-generation Celery task). Using grep+append instead of sed
+            # to avoid delimiter issues with arbitrary key characters.
+            if [ -n "${ANTHROPIC_API_KEY:-}" ]; then
+                grep -v '^ANTHROPIC_API_KEY=' .env > .env.tmp || true
+                echo "ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}" >> .env.tmp
+                mv .env.tmp .env
+                chmod 600 .env
+            fi
+
+            # Sync TEMPORAL_DB_PASSWORD from GitHub Secrets (used by the
+            # temporal-db / temporal services in docker-compose).
+            if [ -n "${TEMPORAL_DB_PASSWORD:-}" ]; then
+                grep -v '^TEMPORAL_DB_PASSWORD=' .env > .env.tmp || true
+                echo "TEMPORAL_DB_PASSWORD=${TEMPORAL_DB_PASSWORD}" >> .env.tmp
+                mv .env.tmp .env
+                chmod 600 .env
+            fi
+
+            # Build single image — celery/migrate/frontend-init all reuse it
+            docker compose build --no-cache app
+
+            # Pre-flight: verify app imports cleanly (catches broken imports before deploy)
+            echo "Checking app imports..."
+            docker compose run --rm --no-deps app python -c "from saas.main import create_app; print('Import check passed')"
+
+            # Pre-flight: verify single migration head
+            heads=$(docker compose run --rm --no-deps app alembic heads 2>/dev/null | grep -c head || true)
+            if [ "$heads" -gt 1 ]; then
+                echo "ERROR: Multiple alembic heads. Aborting deploy."
+                docker compose run --rm --no-deps app alembic heads
+                exit 1
+            fi
+
+            # Graceful Celery shutdown (finish in-flight tasks, 120s timeout)
+            docker compose stop -t 120 celery || true
+
+            # Run migrations
+            docker compose run --rm migrate
+
+            # Copy frontend assets into Caddy volume
+            docker compose rm -f frontend-init || true
+            docker compose run --rm frontend-init
+
+            # Start services + restart Caddy to pick up new frontend assets
+            docker compose up -d app celery redis db temporal-db temporal temporal-worker caddy
+            docker compose restart caddy
+
+            # Health check (wait up to 60s)
+            for i in $(seq 1 20); do
+                if curl -sf http://localhost:8080/api/health > /dev/null 2>&1; then
+                    echo "Health check passed"
+                    break
+                fi
+                if [ "$i" -eq 20 ]; then
+                    echo "ERROR: Health check failed after 60s"
+                    docker compose logs --tail=20 app
+                    exit 1
+                fi
+                sleep 3
+            done
+
+            docker image prune -f

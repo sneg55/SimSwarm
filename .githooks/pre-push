@@ -1,0 +1,20 @@
+#!/bin/bash
+# Pre-push hook: lint + migration head check
+# Prevents pushing code that will fail CI
+#
+# Setup: git config core.hooksPath .githooks
+
+set -e
+
+echo "pre-push: running ruff lint..."
+ruff check saas/ tests/
+
+echo "pre-push: checking alembic single head..."
+heads=$(alembic heads 2>/dev/null | wc -l)
+if [ "$heads" -gt 1 ]; then
+    echo "ERROR: Multiple alembic heads. Run 'alembic merge heads' first."
+    alembic heads
+    exit 1
+fi
+
+echo "pre-push: all checks passed"

@@ -1,0 +1,46 @@
+name: Deploy to Cloudflare Pages
+
+# Static read-only demo. Builds the frontend in VITE_STATIC_DEMO mode (reads the
+# committed demo snapshot under frontend/public/demos, no backend) and deploys
+# it to Cloudflare Pages. Replaces the old Hetzner deploy for the hosted demo.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install
+        working-directory: frontend
+        run: npm ci
+
+      - name: Test + coverage (frontend)
+        working-directory: frontend
+        run: npm run test:coverage
+
+      - name: Build (static demo)
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_STATIC_DEMO: 'true'
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy frontend/dist --project-name=simswarm --branch=main

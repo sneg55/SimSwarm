@@ -1,0 +1,46 @@
+{$DOMAIN:localhost} {
+	# Security headers
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+
+	# Frontend static files
+	handle /assets/* {
+		root * /srv/frontend
+		file_server
+	}
+
+	# API proxy
+	handle /api/* {
+		reverse_proxy app:8080
+	}
+
+	# Share link OG tags for crawlers (bots get meta tags, browsers get SPA)
+	@crawler {
+		header_regexp User-Agent (?i)(bot|crawl|spider|preview|slack|twitter|facebook|linkedin|discord|telegram|whatsapp|signal|embedly|quora|pinterest|vkshare|facebookexternalhit|Twitterbot|LinkedInBot|Slackbot|Discordbot|TelegramBot|WhatsApp|redditbot)
+		path_regexp shareToken ^/s/(.+)$
+	}
+	handle @crawler {
+		rewrite * /api/share/{re.shareToken.1}/og
+		reverse_proxy app:8080
+	}
+
+	# MinIO proxy for sim data (avoids mixed content - HTTPS -> HTTP)
+	handle /minio/* {
+		uri strip_prefix /minio
+		reverse_proxy {$MINIO_ENDPOINT} {
+			header_up Host {$MINIO_ENDPOINT}
+		}
+	}
+
+	# SPA fallback — serve index.html for all other routes
+	handle {
+		root * /srv/frontend
+		try_files {path} /index.html
+		file_server
+	}
+}

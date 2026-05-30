@@ -1,0 +1,180 @@
+services:
+  app:
+    build: .
+    image: fishcloud-app
+    container_name: simswarm-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://fishcloud:${POSTGRES_PASSWORD}@db:5432/fishcloud
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8080:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8080/api/health')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    security_opt:
+      - no-new-privileges:true
+
+  celery:
+    image: fishcloud-app
+    container_name: simswarm-celery
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://fishcloud:${POSTGRES_PASSWORD}@db:5432/fishcloud
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A saas.workers.celery_app worker --beat --loglevel=info --concurrency=4
+    healthcheck:
+      # Verify worker responds AND beat scheduler is running (catches missing --beat flag)
+      test: ["CMD-SHELL", "tr '\\0' ' ' < /proc/1/cmdline | grep -q beat && celery -A saas.workers.celery_app inspect ping --timeout 10"]
+      interval: 120s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+
+  db:
+    image: postgres:16-alpine
+    container_name: simswarm-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fishcloud
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: fishcloud
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fishcloud"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: simswarm-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  temporal-db:
+    image: postgres:16-alpine
+    container_name: simswarm-temporal-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: ${TEMPORAL_DB_PASSWORD}
+      POSTGRES_DB: temporal
+    volumes:
+      - temporaldata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  temporal:
+    image: temporalio/auto-setup:1.22.7
+    container_name: simswarm-temporal
+    restart: unless-stopped
+    environment:
+      - DB=postgres12
+      - DB_PORT=5432
+      - POSTGRES_USER=temporal
+      - POSTGRES_PWD=${TEMPORAL_DB_PASSWORD}
+      - POSTGRES_SEEDS=temporal-db
+      - DEFAULT_NAMESPACE=fishcloud
+    depends_on:
+      temporal-db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:7233:7233"
+    healthcheck:
+      # Temporal frontend binds only to the container's docker IP, not
+      # 127.0.0.1, so tctl must target $HOSTNAME:7233 explicitly. The $$
+      # escapes the variable so docker-compose passes it through to sh.
+      test: ["CMD-SHELL", "tctl --address $$HOSTNAME:7233 cluster health | grep SERVING"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  temporal-worker:
+    image: fishcloud-app
+    container_name: simswarm-temporal-worker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://fishcloud:${POSTGRES_PASSWORD}@db:5432/fishcloud
+      - REDIS_URL=redis://redis:6379/0
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_NAMESPACE=fishcloud
+    depends_on:
+      db:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    command: python -m saas.workflows.worker
+    security_opt:
+      - no-new-privileges:true
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: simswarm-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - frontend_dist:/srv/frontend
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+    environment:
+      - DOMAIN=${DOMAIN:-localhost}
+
+  # Copy frontend build into shared volume
+  frontend-init:
+    image: fishcloud-app
+    container_name: simswarm-frontend-init
+    command: cp -r /app/frontend/dist/. /srv/frontend/
+    volumes:
+      - frontend_dist:/srv/frontend
+    restart: "no"
+
+  # Run migrations on deploy (one-shot)
+  migrate:
+    image: fishcloud-app
+    container_name: simswarm-migrate
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://fishcloud:${POSTGRES_PASSWORD}@db:5432/fishcloud
+    depends_on:
+      db:
+        condition: service_healthy
+    command: alembic upgrade head
+    restart: "no"
+
+volumes:
+  pgdata:
+  temporaldata:
+  caddy_data:
+  caddy_config:
+  frontend_dist:

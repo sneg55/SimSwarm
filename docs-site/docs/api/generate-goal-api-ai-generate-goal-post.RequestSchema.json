@@ -1,0 +1,1 @@
+{"title":"Body","body":{"content":{"application/json":{"schema":{"properties":{"seed_text":{"type":"string","title":"Seed Text"},"category":{"type":"string","title":"Category"}},"type":"object","required":["seed_text","category"],"title":"GoalGenerateRequest"}}},"required":true}}

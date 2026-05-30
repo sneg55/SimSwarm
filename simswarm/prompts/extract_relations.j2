@@ -1,0 +1,28 @@
+You are analysing a multi-agent simulation transcript to identify typed semantic relationships between the participating entities.
+
+Entities (only these names are valid as source/target):
+{% for e in entities %}- {{ e.name }} ({{ e.type }}){% if e.summary %} — {{ e.summary }}{% endif %}
+{% endfor %}
+
+Simulation goal: {{ goal }}
+
+Posts written by the entities during the simulation (attributed by entity name):
+---
+{% for p in posts %}{{ p.author }}: {{ p.content }}
+{% endfor %}---
+
+Identify up to {{ max_relations }} meaningful directed relationships supported by the posts. Focus on substantive semantic links — disagreement, endorsement, response, influence, reframing. Skip trivial co-mentions.
+
+Respond with ONLY a JSON array of objects, no prose. Each object must have:
+  - "source": entity name (must exactly match one listed above)
+  - "target": entity name (must exactly match one listed above, different from source)
+  - "type": short uppercase relation label — e.g. DISAGREES_WITH, SUPPORTS, RESPONDS_TO, INFLUENCES, REFRAMES
+  - "fact": one-sentence claim from the posts that backs this relationship
+
+Example output format:
+[
+  {"source": "Alice Chen", "target": "OpenAI leadership", "type": "DISAGREES_WITH", "fact": "Alice argues the proposed alignment budget is an order of magnitude too small."},
+  {"source": "OpenAI leadership", "target": "Alice Chen", "type": "RESPONDS_TO", "fact": "Leadership counter that unilateral pauses would cede ground to less safety-conscious actors."}
+]
+
+Output only the JSON array.

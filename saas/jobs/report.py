@@ -1,0 +1,244 @@
+"""SaaS-side report runner: loads MinIO artifacts, runs a tool-calling LLM loop.
+
+Mirrors simswarm.report.ReportGenerator behavior but is driven by MinIO-sourced
+ReportArtifacts instead of a live SimulationResult. The prompt template is
+reused verbatim from simswarm/prompts/report.j2.
+"""
+from __future__ import annotations
+
+import json
+import logging
+import re
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Callable, Protocol
+
+from jinja2 import ChainableUndefined, Environment, FileSystemLoader
+
+from saas.jobs.report_tools_minio import ReportArtifacts, ReportTools
+from saas.storage.minio_download import ArtifactMissingError, fetch_artifact
+from simswarm.llm import LLMResponse
+from simswarm.story_signals import SLOT_COLORS, build_story_signals
+
+logger = logging.getLogger(__name__)
+
+_MAX_ROUNDS = 10
+
+_TEMPLATE_DIR = Path(__file__).resolve().parent.parent.parent / "simswarm" / "prompts"
+_jinja_env = Environment(
+    loader=FileSystemLoader(str(_TEMPLATE_DIR)),
+    keep_trailing_newline=False,
+    # ChainableUndefined lets `signals.foo` render empty when `signals` isn't
+    # passed — keeps Task 14 (template) and Task 15 (runner wiring) separable.
+    undefined=ChainableUndefined,
+)
+
+_REQUIRED_ARTIFACTS = ("chat_log.json", "posts.json", "trades.json", "agent_trajectories.json")
+
+
+def _graph_from_artifacts(artifacts: ReportArtifacts) -> dict:
+    """Interim: report runner doesn't fetch the graph today, so feed
+    story_signals an empty-but-valid graph. Populated role chips in
+    Story are a future pass."""
+    return {
+        "nodes": [],
+        "edges": [],
+        "metadata": {"entity_types": [], "total_nodes": 0, "total_edges": 0},
+    }
+
+
+class ReportExhaustedError(Exception):
+    """The 5-turn loop ended without a final markdown response."""
+
+
+class ReportArtifactsMissingError(Exception):
+    """A required MinIO artifact could not be fetched."""
+
+
+class _ChatClient(Protocol):
+    async def chat(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict] | None = ...,
+        temperature: float = ...,
+    ) -> LLMResponse: ...
+    async def close(self) -> None: ...
+
+
+@dataclass
+class ReportResult:
+    report_markdown: str = ""
+    executive_brief: str = ""
+    verdict: str = ""
+    findings: list[dict[str, str]] = field(default_factory=list)
+
+
+class ReportRunner:
+    """Orchestrates artifact fetch + multi-turn LLM tool loop for a single job."""
+
+    def __init__(
+        self,
+        job_id: int,
+        goal: str,
+        forecast_days: int,
+        client: _ChatClient,
+        fetcher: Callable[[int, str], bytes] = fetch_artifact,
+    ) -> None:
+        self.job_id = job_id
+        self.goal = goal
+        self.forecast_days = forecast_days
+        self._client = client
+        self._fetcher = fetcher
+
+    async def run(self) -> ReportResult:
+        artifacts = self._load_artifacts()
+        signals = build_story_signals(
+            chat_log=artifacts.chat_log,
+            graph_data=_graph_from_artifacts(artifacts),
+            forecast_days=self.forecast_days,
+        )
+        tools = ReportTools(artifacts)
+
+        # Anthropic's Messages API requires at least one user turn — OpenAI-compat
+        # servers accept system-only, but AnthropicClient targets Anthropic directly.
+        # Seed the loop with an explicit request to produce the report.
+        messages: list[dict[str, Any]] = [
+            {"role": "system", "content": self._render_system_prompt(signals)},
+            {"role": "user", "content": "Please generate the report now."},
+        ]
+        markdown = ""
+
+        for turn in range(_MAX_ROUNDS):
+            # On the final turn, strip tools and force the model to write the
+            # report from whatever data it has already gathered. Opus otherwise
+            # tends to keep exploring indefinitely when the sim data is sparse.
+            is_final_turn = turn == _MAX_ROUNDS - 1
+            if is_final_turn:
+                messages.append({
+                    "role": "user",
+                    "content": (
+                        "You've gathered enough data. Write the full final "
+                        "report now in the exact Markdown structure specified, "
+                        "with no further tool calls."
+                    ),
+                })
+
+            response = await self._client.chat(
+                messages,
+                tools=None if is_final_turn else ReportTools.tool_schemas(),
+            )
+            if response.tool_calls and not is_final_turn:
+                messages.append({
+                    "role": "assistant",
+                    "content": response.content or "",
+                    "tool_calls": response.tool_calls,
+                })
+                for call in response.tool_calls:
+                    result = tools.dispatch(call.get("name", ""), call.get("args", {}))
+                    messages.append({
+                        "role": "tool",
+                        "tool_call_id": call.get("id", ""),
+                        "content": result,
+                    })
+                continue
+            markdown = response.content
+            break
+
+        if not markdown:
+            raise ReportExhaustedError(
+                f"Report loop for job {self.job_id} ended without final markdown"
+            )
+
+        return ReportResult(
+            report_markdown=markdown,
+            executive_brief=_extract_brief(markdown),
+            verdict=_extract_verdict(markdown),
+            findings=_extract_findings(markdown),
+        )
+
+    def _load_artifacts(self) -> ReportArtifacts:
+        loaded: dict[str, Any] = {}
+        for name in _REQUIRED_ARTIFACTS:
+            try:
+                raw = self._fetcher(self.job_id, name)
+            except ArtifactMissingError as exc:
+                raise ReportArtifactsMissingError(str(exc)) from exc
+            loaded[name] = json.loads(raw.decode("utf-8"))
+        return ReportArtifacts(
+            chat_log=loaded["chat_log.json"],
+            posts=loaded["posts.json"],
+            trades=loaded["trades.json"],
+            trajectories=loaded["agent_trajectories.json"],
+        )
+
+    def _render_system_prompt(self, signals: dict) -> str:
+        return _jinja_env.get_template("report.j2").render(
+            goal=self.goal,
+            forecast_days=self.forecast_days,
+            signals=signals,
+        ).strip()
+
+
+def _extract_brief(markdown: str) -> str:
+    match = re.search(
+        r"##\s+Executive Summary\s*\n+(.*?)(?=\n##|\Z)",
+        markdown,
+        re.DOTALL | re.IGNORECASE,
+    )
+    return match.group(1).strip() if match else ""
+
+
+def _extract_verdict(markdown: str) -> str:
+    match = re.search(
+        r"##\s+Verdict\s*\n+(.*?)(?=\n##|\Z)",
+        markdown,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if not match:
+        return ""
+    # Verdict section should contain one sentence; collapse to a single line.
+    return " ".join(line.strip() for line in match.group(1).splitlines() if line.strip())[:400]
+
+
+def _extract_findings(markdown: str) -> list[dict[str, str]]:
+    """Extract up to 4 slotted findings from '### slot=X — Title' blocks."""
+    # Lookahead guards against '###' (H3) being treated as the next H2:
+    # `(?!#)` ensures the two pounds aren't followed by a third.
+    section_match = re.search(
+        r"##\s+Key Findings\s*\n+(.*?)(?=\n##(?!#)|\Z)",
+        markdown,
+        re.DOTALL | re.IGNORECASE,
+    )
+    if not section_match:
+        return []
+    findings: list[dict[str, str]] = []
+    block_pattern = re.compile(
+        r"###\s+slot=(\w+)\s*[—–-]\s*(.+?)\n+(.*?)(?=\n###|\Z)",
+        re.DOTALL,
+    )
+    for m in block_pattern.finditer(section_match.group(1)):
+        slot = m.group(1).strip().lower()
+        title = m.group(2).strip()
+        body_raw = m.group(3).strip()
+        # Citation line begins with '_Citation:' (underscore-wrapped or plain).
+        citation = ""
+        body_lines = []
+        for line in body_raw.splitlines():
+            stripped = line.strip()
+            if stripped.lower().startswith("_citation:") or stripped.lower().startswith("citation:"):
+                citation = stripped.lstrip("_").split(":", 1)[-1].strip().rstrip("_").strip()
+            else:
+                body_lines.append(line)
+        body = " ".join(ln.strip() for ln in body_lines if ln.strip())
+        findings.append({
+            "slot": slot,
+            "title": title,
+            "body": body,
+            "citation": citation,
+            "accent_color": _slot_color(slot),
+        })
+    return findings[:4]
+
+
+def _slot_color(slot: str) -> str:
+    return SLOT_COLORS.get(slot, "#22D3EE")

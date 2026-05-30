@@ -1,0 +1,74 @@
+# GPU Worker Image for SimSwarm (v2 engine)
+# Based on vLLM's official image (has CUDA + vLLM + correct transformers pre-installed)
+FROM vllm/vllm-openai:v0.8.5.post1 AS base
+
+USER root
+
+WORKDIR /app
+
+# Save vLLM's pinned dependency versions so the worker-deps install below
+# can't upgrade numpy/starlette out from under vLLM.
+RUN pip freeze > /tmp/vllm-freeze.txt
+
+# Worker-specific deps: Flask (worker_api), neo4j (optional connectivity check),
+# openai/aiohttp (simswarm.llm), jinja2 (simswarm.prompts), vaderSentiment
+# (simswarm.stance + simswarm.extractor_activity).
+# Don't use --ignore-installed for ML libs — reuse vLLM's torch/numpy (saves 2GB disk).
+RUN pip install --no-cache-dir --ignore-installed \
+        flask flask-cors requests neo4j openai aiohttp jinja2 && \
+    pip install --no-cache-dir "vaderSentiment==3.3.2"
+
+# Restore vLLM's critical pins — some worker deps may upgrade numpy/starlette
+# which breaks vLLM. transformers is intentionally excluded from restore —
+# vLLM 0.8.5 ships 4.47.1 which predates Qwen3 support (added in 4.51.0).
+# We upgrade it below.
+RUN grep -E "^(tokenizers|starlette|fastapi|uvicorn|numpy)==" /tmp/vllm-freeze.txt > /tmp/vllm-restore.txt && \
+    pip install --no-cache-dir --force-reinstall -r /tmp/vllm-restore.txt
+
+# Upgrade transformers for Qwen3 support (model_type "qwen3" requires >=4.51.0)
+# Pinned to exact version — floating ranges break when HF updates model configs
+RUN pip install --no-cache-dir "transformers==4.51.3"
+
+# Install s5cmd — parallel S3-compatible client used at container start to
+# pull Qwen3-14B weights from our MinIO cache. MinIO is on the same
+# Hetzner network as most of our pods, so transfer is ~500MB/s and hits
+# RunPod's ingress, not HuggingFace's throttled CDN.
+RUN curl -sSfL https://github.com/peak/s5cmd/releases/download/v2.2.2/s5cmd_2.2.2_Linux-64bit.tar.gz \
+    | tar -xz -C /usr/local/bin s5cmd && chmod +x /usr/local/bin/s5cmd
+
+ENV HF_HOME=/models/huggingface
+ENV TRANSFORMERS_CACHE=/models/huggingface
+
+# Verify all imports + numpy<2 (vLLM ABI requirement) + Qwen3 config loads from cache
+RUN python3 -c "import vllm; print(f'vLLM {vllm.__version__}')" && \
+    python3 -c "import numpy; print(f'numpy {numpy.__version__}')" && \
+    python3 -c "import transformers; print(f'transformers {transformers.__version__}')" && \
+    python3 -c "from transformers import AutoConfig; AutoConfig.from_pretrained('Qwen/Qwen3-14B', trust_remote_code=True); print('Qwen3-14B config OK')" && \
+    python3 -c "import flask; print('Flask OK')" && \
+    python3 -c "import neo4j; print('neo4j OK')" && \
+    python3 -c "import openai; print('openai OK')" && \
+    python3 -c "from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer; SentimentIntensityAnalyzer(); print('vaderSentiment OK')"
+
+# Copy our job runner modules and worker API
+COPY infra/docker/constants.py /app/constants.py
+COPY infra/docker/service_init.py /app/service_init.py
+COPY infra/docker/run_job_v2.py /app/run_job_v2.py
+COPY infra/docker/run_job_v2_runner.py /app/run_job_v2_runner.py
+COPY infra/docker/run_job_v2_entities.py /app/run_job_v2_entities.py
+COPY infra/docker/enrichment.py /app/enrichment.py
+COPY infra/docker/worker_api.py /app/worker_api.py
+COPY infra/docker/start.sh /app/start.sh
+
+# SimSwarm engine (imported by run_job_v2_runner). Copied verbatim — the
+# prompts/*.j2 templates are loaded at runtime via filesystem path, so this
+# must stay a source tree, not a pip-installed package.
+COPY simswarm/ /app/simswarm/
+
+RUN chmod +x /app/run_job_v2.py /app/start.sh
+
+RUN mkdir -p /tmp/results /tmp/seed
+
+EXPOSE 5000 8000
+
+ENTRYPOINT []
+CMD ["/bin/bash", "/app/start.sh"]

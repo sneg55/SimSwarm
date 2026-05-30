@@ -1,0 +1,14 @@
+services:
+  neo4j:
+    image: neo4j:5.15-community
+    container_name: simswarm-neo4j
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+    ports:
+      - "7687:7687"
+    volumes:
+      - neo4j_data:/data
+    restart: unless-stopped
+
+volumes:
+  neo4j_data:

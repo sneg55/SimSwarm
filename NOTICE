@@ -1,0 +1,26 @@
+SimSwarm
+Copyright (c) 2026 SimSwarm contributors
+Licensed under the MIT License (see LICENSE).
+
+------------------------------------------------------------------------
+Acknowledgements
+------------------------------------------------------------------------
+
+SimSwarm's design was informed by two earlier projects:
+
+  - MiroFish
+  - MiroShark — https://github.com/aaronjmars/MiroShark
+
+Both are licensed under the GNU Affero General Public License v3.0 (AGPL-3.0).
+
+SimSwarm does not bundle, link, or depend on either project, and shares no
+source code with them. SimSwarm's engine is an independent, MIT-licensed
+implementation. Several concepts were validated first in MiroFish/MiroShark and
+were reimplemented from a behavioral specification in SimSwarm's own code:
+
+  - heuristic, per-agent belief dynamics (stance / confidence / trust)
+  - constant-product prediction-market mechanics
+  - the agent / environment simulation loop
+
+We credit those projects for the conceptual groundwork. Any resemblance is at
+the level of ideas and behavior, not copied source.

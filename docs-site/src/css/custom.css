@@ -1,0 +1,26 @@
+/* SimSwarm docs theme — ocean teal + coral accents */
+:root {
+  --ifm-color-primary: #0d9488;
+  --ifm-color-primary-dark: #0c857a;
+  --ifm-color-primary-darker: #0b7d72;
+  --ifm-color-primary-darkest: #09675e;
+  --ifm-color-primary-light: #0ea396;
+  --ifm-color-primary-lighter: #0fab9e;
+  --ifm-color-primary-lightest: #14c2b3;
+  --ifm-code-font-size: 95%;
+  --docusaurus-highlighted-code-line-bg: rgba(13, 148, 136, 0.1);
+}
+[data-theme='dark'] {
+  --ifm-color-primary: #2dd4bf;
+  --ifm-color-primary-dark: #14b8a6;
+  --ifm-color-primary-darker: #0d9488;
+  --ifm-color-primary-darkest: #0f766e;
+  --ifm-color-primary-light: #5eead4;
+  --ifm-color-primary-lighter: #99f6e4;
+  --ifm-color-primary-lightest: #ccfbf1;
+  --ifm-background-color: #0b1622;
+  --docusaurus-highlighted-code-line-bg: rgba(45, 212, 191, 0.15);
+}
+.navbar__title { letter-spacing: 0.02em; }
+.menu__link--active:not(.menu__link--sublist) { color: var(--ifm-color-primary); }
+a.menu__link:hover { color: #fb7185; }

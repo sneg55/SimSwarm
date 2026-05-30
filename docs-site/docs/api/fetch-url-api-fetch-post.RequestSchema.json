@@ -1,0 +1,1 @@
+{"title":"Body","body":{"content":{"application/json":{"schema":{"properties":{"url":{"type":"string","maxLength":2083,"minLength":1,"format":"uri","title":"Url"}},"type":"object","required":["url"],"title":"FetchRequest"}}},"required":true}}
