@@ -21,6 +21,10 @@ vi.mock('../../src/composables/useResultsExport.js', () => ({
 vi.mock('../../src/api/jobs.js', () => ({
   getJob: vi.fn(),
   getJobGraph: vi.fn(),
+  // SimulationResults mounts useTimelineSimData, which calls getSimData when
+  // job.sim_data_available is set. Provide a resolving stub so the timeline
+  // load path runs instead of throwing on a missing mock export.
+  getSimData: vi.fn().mockResolvedValue({ files: {} }),
 }))
 
 import SimulationResults from '../../src/views/SimulationResults.vue'
