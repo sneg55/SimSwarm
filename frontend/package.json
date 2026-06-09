@@ -20,7 +20,7 @@
     "cytoscape": "^3.33.1",
     "cytoscape-cose-bilkent": "^4.1.0",
     "cytoscape-dagre": "^2.5.0",
-    "dompurify": "^3.3.3",
+    "dompurify": "^3.4.0",
     "mammoth": "^1.12.0",
     "markdown-it": "^14.1.1",
     "pdfjs-dist": "^5.5.207",
