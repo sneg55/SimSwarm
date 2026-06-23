@@ -201,6 +201,10 @@
         <LogoWavePulse :size="24" :animated="false" />
         <span class="font-bold text-mist-drift">SimSwarm</span>
         <span>&copy; 2026</span>
+        <span>&middot; built by
+          <a href="https://sawinyh.com" target="_blank" rel="noopener"
+             class="hover:text-mist-drift transition-colors rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ocean-cyan">Sawinyh.com</a>
+        </span>
       </div>
       <div class="flex gap-6">
         <a href="https://docs.simswarm.xyz" target="_blank" rel="noopener"
