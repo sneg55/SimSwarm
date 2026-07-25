@@ -1,5 +1,14 @@
 # SimSwarm
 
+[![License](https://img.shields.io/github/license/sneg55/SimSwarm)](LICENSE)
+[![Tests](https://github.com/sneg55/SimSwarm/actions/workflows/test.yml/badge.svg)](https://github.com/sneg55/SimSwarm/actions/workflows/test.yml)
+[![Stars](https://img.shields.io/github/stars/sneg55/SimSwarm)](https://github.com/sneg55/SimSwarm/stargazers)
+![Python 3.11+](https://img.shields.io/badge/Python%203.11%2B-3776AB?logo=python&logoColor=fff)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=fff)
+![Vue 3](https://img.shields.io/badge/Vue%203-4FC08D?logo=vuedotjs&logoColor=fff)
+![Celery](https://img.shields.io/badge/Celery-37814A?logo=celery&logoColor=fff)
+![Docker](https://img.shields.io/badge/Docker-2496ED?logo=docker&logoColor=fff)
+
 Swarm intelligence simulations. Upload a document, set a prediction goal, and watch AI agents debate, trade, and publish across a simulated ecosystem. Get a deep analysis report, entity knowledge graph, prediction market data, and full chat replay.
 
 SimSwarm is open source and self-hostable. A read-only public demo (a static snapshot) runs at [simswarm.xyz](https://simswarm.xyz). Self-host with `DEMO_MODE=true` to run your own instance in the same read-only mode.
