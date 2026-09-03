@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@dicebear/collection": "^9.4.2",
-    "@dicebear/core": "^9.4.2",
+    "@dicebear/core": "^9.4.3",
     "axios": "^1.18.0",
     "cytoscape": "^3.33.1",
     "cytoscape-cose-bilkent": "^4.1.0",
